@@ -35,7 +35,7 @@ fn layoutDiv(font:&Font, text:&str, width:i32) -> BlockBox {
     let _metrics = font.metrics();
     let mut block = BlockBox {
         pos: Point { x: 0, y: 0},
-        size: Size { w: width-100, h: 10},
+        size: Size { w: width, h: 10},
         boxes: Vec::new(),
     };
     let lines = layoutLines(font,text,width);
@@ -56,19 +56,17 @@ fn layoutLines(font:&Font, text:&str, width:i32)-> Vec<String>{
     let mut line:String = String::new();
     let mut lines:Vec<String> = Vec::new();
     for word in text.split_whitespace() {
-        let wlen:f32 = calculate_word_length(font, word)/36.0;
+        let wlen:f32 = calculate_word_length(font, word)/60.0;
         println!("len of  -{}-  is  {}",word,wlen);
-        if len < width as f32 {
-            println!("appending {} {}",word, len);
-            len += wlen;
-            line.push_str(word);
-            line.push_str(" ");
-        } else {
+        if len + wlen > width as f32 {
             lines.push(line);
             len = 0.0;
             line = String::new();
         }
-
+        println!("appending {} {}",word, len);
+        len += wlen;
+        line.push_str(word);
+        line.push_str(" ");
     }
     
     lines.push(line);
@@ -88,12 +86,12 @@ fn calculate_word_length(font:&Font, text:&str) -> f32 {
     return sum;
 }
 
-fn drawRect(dt: &mut DrawTarget, pos:&Point, size:&Size) {
+fn drawRect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
     let mut pb = PathBuilder::new();
     pb.rect(pos.x as f32, pos.y as f32, size.w as f32, size.h as f32);
     let path = pb.finish();
     dt.fill(&path, 
-        &Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0xff, 0)), 
+        color, 
         &DrawOptions::new());
 }
 
@@ -113,15 +111,19 @@ fn main() {
         .unwrap()
         .load()
         .unwrap();
+
+    let GREEN = &Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0xff, 0));
+    let RED = &Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
     let size = window.get_size();
-    let bbox = layoutTest(&font, size.0 as i32);
+    let bbox = layoutTest(&font, (size.0 - 100) as i32);
     let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
     loop {
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
-        //drawRect(&mut dt, &bbox.pos, &bbox.size);
+        drawRect(&mut dt, &bbox.pos, &bbox.size, GREEN);
         for lb in bbox.boxes.iter() {
-            drawText(&mut dt, &font, &lb.pos, &lb.text)
+            drawText(&mut dt, &font, &lb.pos, &lb.text);
         }
+        drawRect(&mut dt, &Point{x:(size.0 - 100) as i32, y:0}, &Size{w:1, h:200}, RED);
         window.update_with_buffer(dt.get_data(), size.0, size.1).unwrap();
     }
 }
