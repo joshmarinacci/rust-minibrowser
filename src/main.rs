@@ -52,18 +52,20 @@ fn layoutDiv(font:&Font, text:&str, width:i32) -> BlockBox {
 }
 
 fn layoutLines(font:&Font, text:&str, width:i32)-> Vec<String>{
-    let mut len = 0;
+    let mut len = 0.0;
     let mut line:String = String::new();
     let mut lines:Vec<String> = Vec::new();
     for word in text.split_whitespace() {
-        if len < 10 {
+        let wlen:f32 = calculate_word_length(font, word)/36.0;
+        println!("len of  -{}-  is  {}",word,wlen);
+        if len < width as f32 {
             println!("appending {} {}",word, len);
-            len += word.len() as i32;
+            len += wlen;
             line.push_str(word);
             line.push_str(" ");
         } else {
             lines.push(line);
-            len = 0;
+            len = 0.0;
             line = String::new();
         }
 
@@ -75,6 +77,15 @@ fn layoutLines(font:&Font, text:&str, width:i32)-> Vec<String>{
         println!("line is {}",line);
     }
     return lines;
+}
+
+fn calculate_word_length(font:&Font, text:&str) -> f32 {
+    let mut sum = 0.0;
+    for ch in text.chars() {
+        let gid = font.glyph_for_char(ch).unwrap();
+        sum += font.advance(gid).unwrap().x;
+    }
+    return sum;
 }
 
 fn drawRect(dt: &mut DrawTarget, pos:&Point, size:&Size) {
