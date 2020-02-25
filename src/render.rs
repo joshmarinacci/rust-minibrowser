@@ -55,3 +55,15 @@ pub fn drawBlockBox(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
         }
     }
 }
+
+
+pub fn drawRenderBox(dt:&mut DrawTarget, rb:&RenderBox, font:&Font) {
+    match rb {
+        RenderBox::Block(block) => {
+            drawBlockBox(dt, &block, font);
+        },
+        RenderBox::Line(line) => {
+            drawText(dt, &font, &line.pos, &line.text);
+        }
+    }
+}

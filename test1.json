@@ -1,9 +1,23 @@
 {
-    "type":"div",
+    "type":"body",
     "children":[
         {
-            "type":"text",
-            "text":"some super long text that is just so absolutely super long that it will have to wrap"
+            "type":"div",
+            "children":[
+                {
+                    "type":"text",
+                    "text":"some super long text that is just so absolutely super long that it will have to wrap"
+                }
+            ]
+        },
+        {
+            "type":"div",
+            "children":[
+                {
+                    "type":"text",
+                    "text":"some super long text that is just so absolutely super long that it will have to wrap"
+                }
+            ]
         }
     ]
 }

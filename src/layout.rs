@@ -1,38 +1,55 @@
 use font_kit::font::Font;
-use crate::dom::{BlockElem, Elem};
+use crate::dom::{Elem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
 
+/*
+ block elem -> block box
+ text elem -> one or more line boxes
 
-pub fn performLayout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
-    let mut bb = BlockBox {
+*/
+
+pub fn perform_layout(dom:&Elem, font:&Font, width:i32) -> RenderBox {
+    let mut top = BlockBox {
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
-    };
-    for elem in dom.children.iter() {
-        match elem {
-            Elem::Block(block) => {
-                println!("has block child");
-                let first = &block.children[0];
-                match first {
-                    Elem::Block(block) => {
-                        println!("blocks too deep!");
-                    }
-                    Elem::Text(text) => {
-                        println!("has a text child");
-                        let block_box = layoutDiv(font, &text.text, width);
-                        println!("laid out the block box");
-                        bb.boxes.push(RenderBox::Block(block_box));
-                    }
-                }
-            },
-            Elem::Text(text) => {
-                println!("top elem has text child. it shouldn't!");
+    };   
+    let offset = Point{x:0,y:0};
+    recurse_layout(&mut top, dom, font, width, &offset, 0);
+    return RenderBox::Block(top);
+}
+
+fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&Point, yoff:i32) -> i32 {
+    match dom  {
+        Elem::Block(block) => {
+            println!("has block child");
+            let mut bb = BlockBox {
+                pos: Point { x: 0, y:yoff},
+                size: Size { w: width, h: 10},
+                boxes:Vec::<RenderBox>::new(),
+            };
+            let mut offy = yoff;
+            for elem in block.children.iter() {
+                offy = recurse_layout(&mut bb, elem, font, width, offset, offy);
             }
+            bb.size.h = offy-bb.pos.y;
+            root.boxes.push(RenderBox::Block(bb));
+            return offy;
+        },
+        Elem::Text(text) => {
+            println!("has a text child");
+            let lines = layoutLines(font, &text.text, width);
+            let mut offy = yoff;
+            for line in lines.iter() {
+                offy += 36;
+                root.boxes.push(RenderBox::Line(LineBox{
+                    pos: Point { x: 0, y: offy},
+                    text: line.to_string(),
+                }));
+            }
+            return offy;
         }
     }
-
-    return bb;
 }
 
 fn layoutDiv(font:&Font, text:&str, width:i32) -> BlockBox {
