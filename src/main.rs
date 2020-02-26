@@ -4,7 +4,7 @@ mod dom;
 mod style;
 
 use dom::loadDoc;
-use render::{draw_block_box, draw_rect, Point, Size};
+use render::{draw_block_box, fill_rect, stroke_rect, Point, Size};
 
 use minifb::{ Window, WindowOptions,};
 use raqote::{DrawTarget, SolidSource, Source};
@@ -41,7 +41,7 @@ fn main() {
     loop {
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         draw_block_box(&mut dt, &bbox, &font);
-        draw_rect(&mut dt, &Point{x:(size.0 - 100) as i32, y:0}, &Size{w:1, h:size.1 as i32}, &red);
+        fill_rect(&mut dt, &Point{x:(size.0 - 100) as i32, y:0}, &Size{w:1, h:size.1 as i32}, &red);
         window.update_with_buffer(dt.get_data(), size.0, size.1).unwrap();
     }
 }

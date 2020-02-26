@@ -9,6 +9,7 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
         background_color:Red,
+        border_color:Black,
     };   
     let offset = Point{x:0,y:0};
     recurse_layout(&mut bb, dom, font, width, &offset, 0);
@@ -25,6 +26,7 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&
                 size: Size { w: width, h: 10},
                 boxes:Vec::<RenderBox>::new(),
                 background_color:RenderColor { r:0xFF, g:0, b:0, a:0xFF},
+                border_color:Black,
             };
             let mut offy = yoff;
             for elem in block.children.iter() {
