@@ -1,15 +1,10 @@
 use font_kit::font::Font;
-use crate::dom::{Elem};
+use crate::dom::{Elem, BlockElem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
+use crate::style::StyleManager;
 
-/*
- block elem -> block box
- text elem -> one or more line boxes
-
-*/
-
-pub fn perform_layout(dom:&Elem, font:&Font, width:i32) -> RenderBox {
-    let mut top = BlockBox {
+pub fn perform_layout(dom:&BlockElem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
+    let mut bb = BlockBox {
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
