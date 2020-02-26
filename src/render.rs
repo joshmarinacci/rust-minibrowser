@@ -24,7 +24,7 @@ pub struct LineBox {
     pub text:String,
 }
 
-pub fn drawRect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
+pub fn draw_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
     let mut pb = PathBuilder::new();
     pb.rect(pos.x as f32, pos.y as f32, size.w as f32, size.h as f32);
     let path = pb.finish();
@@ -33,24 +33,25 @@ pub fn drawRect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
         &DrawOptions::new());
 }
 
-fn drawText(dt: &mut DrawTarget, font:&Font, pos:&Point, text:&str) {
+fn draw_text(dt: &mut DrawTarget, font:&Font, pos:&Point, text:&str) {
     dt.draw_text(font, 36., text, raqote::Point::new(pos.x as f32,pos.y as f32),
         &Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0, 0)),
         &DrawOptions::new(),
    );    
 }
 
-pub fn drawBlockBox(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
-    let GREEN:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0xff, 0));
-    drawRect(dt,&bb.pos, &bb.size, &GREEN);
+pub fn draw_block_box(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
+    let green:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0xff, 0));
+    draw_rect
+(dt,&bb.pos, &bb.size, &green);
 
     for child in bb.boxes.iter() {
         match child {
             RenderBox::Block(block) => {
-                drawBlockBox(dt, &block, font);
+                draw_block_box(dt, &block, font);
             },
             RenderBox::Line(text) => {
-                drawText(dt, &font, &text.pos, &text.text);
+                draw_text(dt, &font, &text.pos, &text.text);
             }
         }
     }

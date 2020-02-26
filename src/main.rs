@@ -1,19 +1,25 @@
 mod render;
 mod layout;
 mod dom;
+mod style;
 
 use dom::loadDoc;
 use render::{drawRenderBox, drawRect, Point, Size};
+
 use minifb::{ Window, WindowOptions,};
 use raqote::{DrawTarget, SolidSource, Source};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
+
 const WIDTH: usize = 400;
 const HEIGHT: usize = 400;
 
 fn main() {
+    style::makeExamples();
+
+
     let mut window = Window::new("Raqote", WIDTH, HEIGHT, WindowOptions {
                                     ..WindowOptions::default()
                                 }).unwrap();
@@ -25,6 +31,7 @@ fn main() {
 
     let size = window.get_size();
     
+
     let width = (size.0-100) as i32;
     let doc = loadDoc("test1.json");
     let bbox = layout::perform_layout(&doc, &font, width);
