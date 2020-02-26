@@ -7,22 +7,23 @@ https://www.w3.org/TR/CSS2/syndata.html#values
 */
 
 
+#[allow(dead_code)]
 enum Num {
     Integer(i32),
     Number(f32),
 }
 #[allow(dead_code)]
 enum LengthUnit {
-    em(Num),
-    ex(Num),
-    x_height(Num),
-    inches(Num),
-    cm(Num),
-    mm(Num),
-    pt(Num),
-    pc(Num),
-    px(Num),
-    per(Num),
+    Em(Num),
+    Ex(Num),
+    X_height(Num),
+    Inches(Num),
+    CM(Num),
+    MM(Num),
+    Pt(Num),
+//    Pc(Num),
+    PX(Num),
+    Per(Num),
 }
 
 #[allow(dead_code)]
@@ -44,19 +45,33 @@ struct Declaration {
     value:Value,
 }
 
+#[allow(dead_code)]
 enum Selector {
     Universal(),
     Type(String),
 }
 
+#[allow(dead_code)]
 struct Rule {
     selector:Selector,
     declarations:Vec<Declaration>,
 }
 
-struct StyleManager {
+#[allow(dead_code)]
+pub struct StyleManager {
+    rules: Vec<Rule>,
 }
 
+impl StyleManager {
+    fn new() -> StyleManager{
+        StyleManager {
+            rules: Vec::new()
+        }
+    }
+    fn add_rule(&mut self, rule: Rule) {
+        self.rules.push(rule);
+    }
+}
 /*
 //impl for StyleManager {
     fn new() -> StyleManager {
@@ -76,7 +91,10 @@ struct StyleManager {
     }
 //}
 */
-pub fn make_examples() {
+pub fn make_examples() -> StyleManager {
+
+    let mut styles = StyleManager::new();
+
 
     //make every element use color:black, width:100%, font-size: 36pt
     let general_styles = Rule {
@@ -88,14 +106,15 @@ pub fn make_examples() {
             },
             Declaration{
                 name:String::from("width"),
-                value:Value::Length(LengthUnit::per(Num::Number(100.0))),
+                value:Value::Length(LengthUnit::Per(Num::Number(100.0))),
             },
             Declaration {
                 name:String::from("font-size"),
-                value:Value::Length(LengthUnit::pt(Num::Number(36.0))),
+                value:Value::Length(LengthUnit::Pt(Num::Number(36.0))),
             }
         ]
     };
+    styles.add_rule( general_styles);
 
     //make every div have a border-color:red and background-color:blue
     let div_styles = Rule {
@@ -110,4 +129,6 @@ pub fn make_examples() {
         }
         ]
     };
+    styles.add_rule(div_styles);
+    return styles;
 }

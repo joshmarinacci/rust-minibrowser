@@ -1,9 +1,9 @@
 use font_kit::font::Font;
 use crate::dom::{BlockElem, Elem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
+use crate::style::StyleManager;
 
-
-pub fn perform_layout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
+pub fn perform_layout(dom:&BlockElem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
     let mut bb = BlockBox {
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},

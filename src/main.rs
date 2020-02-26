@@ -49,7 +49,7 @@ fn load_doc(filename:&str) -> BlockElem {
 
 
 fn main() {
-    style::make_examples();
+    let styles = style::make_examples();
 
 
     let mut window = Window::new("Raqote", WIDTH, HEIGHT, WindowOptions {
@@ -64,7 +64,7 @@ fn main() {
     let size = window.get_size();
     
     let doc = load_doc("test1.json");
-    let bbox = layout::perform_layout(&doc, &font, (size.0 - 100) as i32);
+    let bbox = layout::perform_layout(&doc, &styles, &font, (size.0 - 100) as i32);
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
     let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
