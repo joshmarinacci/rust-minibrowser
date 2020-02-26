@@ -3,7 +3,7 @@ use crate::dom::{BlockElem, Elem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
 
 
-pub fn performLayout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
+pub fn perform_layout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
     let mut bb = BlockBox {
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
@@ -20,7 +20,7 @@ pub fn performLayout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
                     }
                     Elem::Text(text) => {
                         println!("has a text child");
-                        let block_box = layoutDiv(font, &text.text, width);
+                        let block_box = layout_div(font, &text.text, width);
                         println!("laid out the block box");
                         bb.boxes.push(RenderBox::Block(block_box));
                     }
@@ -35,14 +35,14 @@ pub fn performLayout(dom:&BlockElem, font:&Font, width:i32) -> BlockBox {
     return bb;
 }
 
-fn layoutDiv(font:&Font, text:&str, width:i32) -> BlockBox {
+fn layout_div(font:&Font, text:&str, width:i32) -> BlockBox {
     let _metrics = font.metrics();
     let mut block = BlockBox {
         pos: Point { x: 0, y: 0},
         size: Size { w: width, h: 10},
         boxes: Vec::new(),
     };
-    let lines = layoutLines(font,text,width);
+    let lines = layout_lines(font,text,width);
     let mut y = 36;
     for line in lines {
         block.boxes.push(RenderBox::Line(LineBox {
@@ -55,7 +55,7 @@ fn layoutDiv(font:&Font, text:&str, width:i32) -> BlockBox {
     return block;
 }
 
-fn layoutLines(font:&Font, text:&str, width:i32)-> Vec<String>{
+fn layout_lines(font:&Font, text:&str, width:i32)-> Vec<String>{
     let mut len = 0.0;
     let mut line:String = String::new();
     let mut lines:Vec<String> = Vec::new();
