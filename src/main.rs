@@ -4,7 +4,7 @@ mod dom;
 mod style;
 
 use dom::loadDoc;
-use render::{drawRenderBox, draw_rect, Point, Size};
+use render::{draw_block_box, draw_rect, Point, Size};
 
 use minifb::{ Window, WindowOptions,};
 use raqote::{DrawTarget, SolidSource, Source};
@@ -32,7 +32,7 @@ fn main() {
     let size = window.get_size();
     
 
-    let doc = load_doc("test1.json");
+    let doc = loadDoc("test1.json");
     let bbox = layout::perform_layout(&doc, &styles, &font, (size.0 - 100) as i32);
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
@@ -40,8 +40,8 @@ fn main() {
     let mut dt = DrawTarget::new(size.0 as i32, size.1 as i32);
     loop {
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
-        drawRenderBox(&mut dt, &bbox, &font);
-        draw_rect(&mut dt, &Point{x:width, y:0}, &Size{w:1, h:size.1 as i32}, &RED);
+        draw_block_box(&mut dt, &bbox, &font);
+        draw_rect(&mut dt, &Point{x:(size.0 - 100) as i32, y:0}, &Size{w:1, h:size.1 as i32}, &red);
         window.update_with_buffer(dt.get_data(), size.0, size.1).unwrap();
     }
 }

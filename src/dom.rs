@@ -24,9 +24,6 @@ fn parse_block(json:&Value) -> Elem {
         };
         for child in json["children"].as_array().unwrap() {
             block.children.push(parse_block(&child));
-            // block.children.push(Elem::Text(TextElem {
-                // text:child["text"].as_str().unwrap().to_string()
-            // }))
         }
         return Elem::Block(block);
     }

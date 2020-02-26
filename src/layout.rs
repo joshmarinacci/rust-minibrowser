@@ -3,15 +3,16 @@ use crate::dom::{Elem, BlockElem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
 use crate::style::StyleManager;
 
-pub fn perform_layout(dom:&BlockElem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
+pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
     let mut bb = BlockBox {
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
     };   
     let offset = Point{x:0,y:0};
-    recurse_layout(&mut top, dom, font, width, &offset, 0);
-    return RenderBox::Block(top);
+    recurse_layout(&mut bb, dom, font, width, &offset, 0);
+//    return RenderBox::Block(bb);
+    return bb;
 }
 
 fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&Point, yoff:i32) -> i32 {
@@ -33,7 +34,7 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&
         },
         Elem::Text(text) => {
             println!("has a text child");
-            let lines = layoutLines(font, &text.text, width);
+            let lines = layout_lines(font, &text.text, width);
             let mut offy = yoff;
             for line in lines.iter() {
                 offy += 36;

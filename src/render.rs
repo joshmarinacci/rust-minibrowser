@@ -42,8 +42,7 @@ fn draw_text(dt: &mut DrawTarget, font:&Font, pos:&Point, text:&str) {
 
 pub fn draw_block_box(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
     let green:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0, 0xff, 0));
-    draw_rect
-(dt,&bb.pos, &bb.size, &green);
+    draw_rect(dt,&bb.pos, &bb.size, &green);
 
     for child in bb.boxes.iter() {
         match child {
@@ -58,13 +57,3 @@ pub fn draw_block_box(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
 }
 
 
-pub fn drawRenderBox(dt:&mut DrawTarget, rb:&RenderBox, font:&Font) {
-    match rb {
-        RenderBox::Block(block) => {
-            drawBlockBox(dt, &block, font);
-        },
-        RenderBox::Line(line) => {
-            drawText(dt, &font, &line.pos, &line.text);
-        }
-    }
-}
