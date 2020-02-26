@@ -1,6 +1,6 @@
 use font_kit::font::Font;
 use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size,BlockBox, RenderBox, LineBox,};
+use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, RenderColor, Red, Black};
 use crate::style::StyleManager;
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
@@ -8,6 +8,7 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
+        background_color:Red,
     };   
     let offset = Point{x:0,y:0};
     recurse_layout(&mut bb, dom, font, width, &offset, 0);
@@ -23,6 +24,7 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&
                 pos: Point { x: 0, y:yoff},
                 size: Size { w: width, h: 10},
                 boxes:Vec::<RenderBox>::new(),
+                background_color:RenderColor { r:0xFF, g:0, b:0, a:0xFF},
             };
             let mut offy = yoff;
             for elem in block.children.iter() {
@@ -41,32 +43,13 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&
                 root.boxes.push(RenderBox::Line(LineBox{
                     pos: Point { x: 0, y: offy},
                     text: line.to_string(),
+                    color:Black,
                 }));
 
             }
             return offy;
         }
     }
-}
-
-fn layout_div(font:&Font, text:&str, width:i32) -> BlockBox {
-    let _metrics = font.metrics();
-    let mut block = BlockBox {
-        pos: Point { x: 0, y: 0},
-        size: Size { w: width, h: 10},
-        boxes: Vec::new(),
-    };
-    let lines = layout_lines(font,text,width);
-    let mut y = 36;
-    for line in lines {
-        block.boxes.push(RenderBox::Line(LineBox {
-            pos: Point { x: 0, y: y},
-            text: line.to_string(),
-        }));
-        y += 36;
-    };
-    block.size.h = y;
-    return block;
 }
 
 fn layout_lines(font:&Font, text:&str, width:i32)-> Vec<String>{
