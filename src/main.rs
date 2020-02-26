@@ -49,7 +49,7 @@ fn load_doc(filename:&str) -> BlockElem {
 
 
 fn main() {
-    style::makeExamples();
+    style::make_examples();
 
 
     let mut window = Window::new("Raqote", WIDTH, HEIGHT, WindowOptions {
