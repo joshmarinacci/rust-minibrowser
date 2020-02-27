@@ -7,6 +7,7 @@ pub enum Elem {
     Text(TextElem)
 }
 pub struct BlockElem {
+    pub etype:String,
     pub children: Vec<Elem>,
 }
 
@@ -21,6 +22,7 @@ fn parse_block(json:&Value) -> Elem {
         println!("parsed {}",rtype);
         let mut block = BlockElem {
             children: Vec::new(),
+            etype:rtype.to_string(),
         };
         for child in json["children"].as_array().unwrap() {
             block.children.push(parse_block(&child));

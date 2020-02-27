@@ -1,3 +1,5 @@
+use crate::render::{RenderColor, Red, Blue};
+
 /*
 
 https://www.w3.org/TR/CSS2/syndata.html#values
@@ -33,6 +35,27 @@ enum Color {
     rgba(Num),
     keyword(String),
 }
+impl Color {
+    fn to_RenderColor(&self) -> RenderColor {
+        match self {
+            Color::keyword(str) => {
+                println!("decoding a keyword {}",str);
+                return match str.as_str() {
+                    "blue" => Blue,
+                    "red" => Red,
+                    _ => {
+                        println!("unknown color keyword {}",str);
+                        Blue
+                    }
+                }
+            }
+            _ => {
+                println!("other color types not supported yet");
+                return Blue;
+            }
+        }
+    }
+}
 
 enum Value {
     Number(Num),
@@ -49,6 +72,14 @@ struct Declaration {
 enum Selector {
     Universal(),
     Type(String),
+}
+impl Selector {
+    fn isUniversal(&self) -> bool {
+        match *self {
+            Selector::Universal() => true,
+            _ => false,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -70,6 +101,42 @@ impl StyleManager {
     }
     fn add_rule(&mut self, rule: Rule) {
         self.rules.push(rule);
+    }
+    pub fn find_rule_by_propname(&self) -> Option<&Declaration> {
+        for rule in self.rules.iter() {//.find(|&rule| rule.selector.isUniversal()) {
+            println!("found a rule");
+            for decl in rule.declarations.iter() {
+                println!("found decl {}",decl.name);
+                if(decl.name == "background-color") {
+                    println!("found bg color");
+                    return Some(decl);
+                }
+            }
+        }
+        return None
+    }
+
+    pub fn find_background_color_for_type(&self, etype:&String) -> RenderColor {
+        for rule in self.rules.iter() {//.find(|&rule| rule.selector.isUniversal()) {
+            println!("found a rule");
+            for decl in rule.declarations.iter() {
+                println!("found decl {}",decl.name);
+                if(decl.name == "background-color") {
+                    println!("found bg color");
+                    match &decl.value {
+                        Value::Color(color) => {
+                            println!("the color is found");
+                            return color.to_RenderColor();
+                        },
+                        _ => {
+                            println!("invalid color type");
+                            return Blue;
+                        }
+                    }
+                }
+            }
+        }
+        return Blue
     }
 }
 /*
@@ -119,14 +186,15 @@ pub fn make_examples() -> StyleManager {
     //make every div have a border-color:red and background-color:blue
     let div_styles = Rule {
         selector: Selector::Type(String::from("div")),
-        declarations: vec![Declaration{
-            name:"border-color".to_string(),
-            value:Value::Color(Color::keyword("red".to_string()))
-        },
-        Declaration {
-            name:"background-color".to_string(),
-            value:Value::Color(Color::keyword("blue".to_string()))
-        }
+        declarations: vec![
+            Declaration{
+                name:"border-color".to_string(),
+                value:Value::Color(Color::keyword("red".to_string()))
+            },
+            Declaration {
+                name:"background-color".to_string(),
+                value:Value::Color(Color::keyword("red".to_string()))
+            }
         ]
     };
     styles.add_rule(div_styles);

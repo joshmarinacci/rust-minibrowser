@@ -1,6 +1,6 @@
 use font_kit::font::Font;
 use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, RenderColor, Red, Black};
+use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, RenderColor, Red, Black, Green, Blue};
 use crate::style::StyleManager;
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
@@ -8,29 +8,28 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
-        background_color:Red,
-        border_color:Black,
+        background_color:Green,
+        border_color:Blue,
     };   
     let offset = Point{x:0,y:0};
-    recurse_layout(&mut bb, dom, font, width, &offset, 0);
-//    return RenderBox::Block(bb);
+    recurse_layout(&mut bb, dom, styles, font, width, &offset, 0);
     return bb;
 }
 
-fn recurse_layout(root:&mut BlockBox, dom:&Elem, font:&Font, width:i32, offset:&Point, yoff:i32) -> i32 {
+fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Font, width:i32, offset:&Point, yoff:i32) -> i32 {
     match dom  {
         Elem::Block(block) => {
-            println!("has block child");
+            println!("has block child {}", block.etype);
             let mut bb = BlockBox {
                 pos: Point { x: 0, y:yoff},
                 size: Size { w: width, h: 10},
                 boxes:Vec::<RenderBox>::new(),
-                background_color:RenderColor { r:0xFF, g:0, b:0, a:0xFF},
-                border_color:Black,
+                background_color:styles.find_background_color_for_type(&block.etype),
+                border_color:Blue,
             };
             let mut offy = yoff;
             for elem in block.children.iter() {
-                offy = recurse_layout(&mut bb, elem, font, width, offset, offy);
+                offy = recurse_layout(&mut bb, elem, styles, font, width, offset, offy);
             }
             bb.size.h = offy-bb.pos.y;
             root.boxes.push(RenderBox::Block(bb));
