@@ -80,14 +80,14 @@ pub fn fill_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
     dt.fill(&path, color, &DrawOptions::new());
 }
 
-pub fn stroke_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
+pub fn stroke_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source, width:f32) {
     let mut pb = PathBuilder::new();
     pb.rect(pos.x as f32, pos.y as f32, size.w as f32, size.h as f32);
     let path = pb.finish();
     let default_stroke_style = StrokeStyle {
         cap: LineCap::Square,
-        join: LineJoin::Bevel,
-        width: 1.,
+        join: LineJoin::Miter,
+        width: width,
         miter_limit: 2.,
         dash_array: vec![],
         dash_offset: 16.,
@@ -106,7 +106,7 @@ fn render_color_to_source(c:&RenderColor) -> Source {
 
 pub fn draw_block_box(dt:&mut DrawTarget, bb:&BlockBox, font:&Font) {
     fill_rect(dt,&bb.pos, &bb.size, &render_color_to_source(&bb.background_color));
-    stroke_rect(dt,&bb.pos, &bb.size, &render_color_to_source(&bb.border_color));
+    stroke_rect(dt,&bb.pos, &bb.size, &render_color_to_source(&bb.border_color), bb.border_width.left);
 
     for child in bb.boxes.iter() {
         match child {

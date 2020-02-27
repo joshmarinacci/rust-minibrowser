@@ -24,7 +24,6 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:f32) ->
 }
 
 fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Font, width:f32, offset:&Point) -> f32 {
-    println!("layout width {}",width);
     match dom  {
         Elem::Block(block) => {
             let mut bb = BlockBox {
@@ -37,12 +36,15 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
                 border_width: styles.find_inset_prop_enum(InsetProps::border_width),
                 padding: styles.find_inset_prop_enum(InsetProps::padding),
             };
-            let mut offset = Point { x: offset.x + bb.padding.left, y: offset.y + bb.padding.top};
-            let width = width - bb.padding.left - bb.padding.right;
+            let mut offset = Point {
+                x: offset.x + bb.margin.left + bb.border_width.left + bb.padding.left,
+                y: offset.y + bb.margin.top + bb.border_width.top +  bb.padding.top
+            };
+            let width = width - bb.margin.left - bb.border_width.left - bb.padding.left - bb.padding.right - bb.border_width.right - bb.margin.right;
             for elem in block.children.iter() {
                 offset.y = recurse_layout(&mut bb, elem, styles, font, width, &offset);
             }
-            offset.y += bb.padding.top + bb.padding.bottom;
+            offset.y += bb.margin.top + bb.border_width.top + bb.padding.top + bb.padding.bottom +bb.border_width.top + bb.margin.top;
             bb.size.h = offset.y-bb.pos.y;
             root.boxes.push(RenderBox::Block(bb));
             return offset.y;

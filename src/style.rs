@@ -1,5 +1,6 @@
 use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE, Inset};
 use crate::dom::Elem::Block;
+use crate::style::Value::Length;
 
 /*
 
@@ -23,6 +24,7 @@ impl ColorProps {
     }
 }
 
+#[warn(non_camel_case_types)]
 pub enum InsetProps {
     padding,
     margin,
@@ -288,7 +290,11 @@ pub fn make_examples() -> StyleManager {
             },
             Declaration {
                 name:String::from("padding"),
-                value:Value::Length(LengthUnit::Px(Num::Number(15.0))),
+                value:Value::Length(LengthUnit::Px(Num::Number(10.0))),
+            },
+            Declaration {
+                name:String::from(InsetProps::border_width.to_string()),
+                value:Value::Length(LengthUnit::Px(Num::Number(10.0)))
             }
         ]
     };
@@ -323,6 +329,10 @@ fn make_style() {
             Declaration {
                 name:String::from("padding"),
                 value:Value::Length(LengthUnit::Px(Num::Number(5.0))),
+            },
+            Declaration {
+                name:String::from(InsetProps::border_width.to_string()),
+                value:Value::Length(LengthUnit::Px(Num::Number(5.0)))
             }
         ]
     };
@@ -332,5 +342,9 @@ fn make_style() {
     assert_eq!(color,BLACK);
 
     let padding = sm.find_inset_prop_enum(InsetProps::padding);
-    assert_eq!(padding.left,5.0)
+    assert_eq!(padding.left,5.0);
+
+    let border_width = sm.find_inset_prop_enum(InsetProps::border_width);
+    assert_eq!(border_width.left,5.0);
+
 }
