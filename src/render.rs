@@ -16,6 +16,24 @@ pub struct Size {
     pub h:i32,
 }
 
+pub struct Inset {
+    top: f32,
+    right: f32,
+    bottom: f32,
+    left: f32,
+}
+
+impl Inset {
+    pub fn empty() -> Inset {
+        Inset {
+            top:0.,
+            right:0.,
+            bottom:0.,
+            left:0.,
+        }
+    }
+}
+
 pub enum RenderBox {
     Block(BlockBox),
     Line(LineBox),
@@ -27,6 +45,9 @@ pub struct BlockBox {
     pub boxes:Vec<RenderBox>,
     pub background_color:RenderColor,
     pub border_color:RenderColor,
+    pub padding:Inset,
+    pub margin: Inset,
+    pub border_width: Inset,
 }
 
 pub struct LineBox {

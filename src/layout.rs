@@ -4,7 +4,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, BLACK, BLUE};
+use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLACK, BLUE};
 use crate::style::{StyleManager, ColorProps};
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
@@ -14,6 +14,9 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         boxes:Vec::<RenderBox>::new(),
         background_color:styles.find_color_prop_enum(ColorProps::background_color),
         border_color:styles.find_color_prop_enum(ColorProps::border_color),
+        margin: Inset::empty(),
+        border_width: Inset::empty(),
+        padding: Inset::empty(),
     };
     let offset = Point{x:0,y:0};
     recurse_layout(&mut bb, dom, styles, font, width, &offset, 0);
@@ -29,6 +32,9 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
                 boxes:Vec::<RenderBox>::new(),
                 background_color:styles.find_color_prop_enum(ColorProps::background_color),
                 border_color:styles.find_color_prop_enum(ColorProps::border_color),
+                margin: Inset::empty(),
+                border_width: Inset::empty(),
+                padding: Inset::empty(),
             };
             let mut offy = yoff;
             for elem in block.children.iter() {
