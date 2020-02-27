@@ -4,9 +4,22 @@ use crate::render::{RenderColor, Red, Blue, Black, White};
 
 https://www.w3.org/TR/CSS2/syndata.html#values
 
-
-
 */
+
+pub enum ColorProps {
+    color,
+    border_color,
+    background_color,
+}
+impl ColorProps {
+    fn to_string(&self) -> &str {
+        match self {
+            ColorProps::color => "color",
+            ColorProps::border_color => "border-color",
+            ColorProps::background_color => "background-color",
+        }
+    }
+}
 
 
 #[allow(dead_code)]
@@ -54,6 +67,7 @@ enum Color {
     Keyword(String),
 }
 impl Color {
+    #[allow(non_snake_case)]
     fn to_RenderColor(&self) -> RenderColor {
         match self {
             Color::Keyword(str) => {
@@ -107,7 +121,7 @@ enum Selector {
     Type(String),
 }
 impl Selector {
-    fn isUniversal(&self) -> bool {
+    fn is_universal(&self) -> bool {
         match *self {
             Selector::Universal() => true,
             _ => false,
@@ -154,43 +168,8 @@ impl StyleManager {
         Err("no prop name found")
     }
 
-    pub fn find_background_color_for_type(&self, _etype:&String) -> RenderColor {
-        let prop_name = "background-color";
-        let res = self.find_prop(prop_name);
-        return  match res {
-            Ok(d3) => {
-                match &d3.value {
-                    Value::Color(color) => color.to_RenderColor(),
-                    _ => {
-                        println!("invalid color type");
-                        return Blue;
-                    }
-                }
-            }
-            _ => {
-                Blue
-            }
-        }
-    }
-    pub fn find_color(&self) -> RenderColor {
-        let prop_name = "color";
-        let res = self.find_prop(prop_name);
-        match res {
-            Ok(decl) => {
-                match &decl.value {
-                    Value::Color(color) => color.to_RenderColor(),
-                    _ => {
-                        println!("invalid color type");
-                        return Blue;
-                    }
-                }
-            }
-            _ => Blue
-        }
-    }
-    pub fn find_border_color(&self) -> RenderColor {
-        let prop_name = "border-color";
-        let res = self.find_prop(prop_name);
+    pub fn find_color_prop_enum(&self, name:ColorProps) -> RenderColor {
+        let res = self.find_prop(name.to_string());
         match res {
             Ok(decl) => {
                 match &decl.value {
