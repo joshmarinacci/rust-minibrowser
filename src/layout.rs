@@ -19,13 +19,12 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
 fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Font, width:i32, offset:&Point, yoff:i32) -> i32 {
     match dom  {
         Elem::Block(block) => {
-            println!("has block child {}", block.etype);
             let mut bb = BlockBox {
                 pos: Point { x: 0, y:yoff},
                 size: Size { w: width, h: 10},
                 boxes:Vec::<RenderBox>::new(),
                 background_color:styles.find_background_color_for_type(&block.etype),
-                border_color:Blue,
+                border_color:styles.find_border_color(),
             };
             let mut offy = yoff;
             for elem in block.children.iter() {
@@ -36,7 +35,6 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
             return offy;
         },
         Elem::Text(text) => {
-            println!("has a text child");
             let lines = layout_lines(font, &text.text, width);
             let mut offy = yoff;
             for line in lines.iter() {
@@ -44,7 +42,7 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
                 root.boxes.push(RenderBox::Line(LineBox{
                     pos: Point { x: 0, y: offy},
                     text: line.to_string(),
-                    color:Black,
+                    color:styles.find_color(),
                 }));
 
             }

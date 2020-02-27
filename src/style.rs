@@ -1,4 +1,4 @@
-use crate::render::{RenderColor, Red, Blue};
+use crate::render::{RenderColor, Red, Blue, Black, White};
 
 /*
 
@@ -14,6 +14,14 @@ enum Num {
     Integer(i32),
     Number(f32),
 }
+impl Num {
+    fn to_string(&self) -> String {
+        match self {
+            Num::Integer(v) => format!("{}",v),
+            Num::Number(v)  => format!("{}",v),
+        }
+    }
+}
 #[allow(dead_code)]
 enum LengthUnit {
     Em(Num),
@@ -24,8 +32,18 @@ enum LengthUnit {
     MM(Num),
     Pt(Num),
 //    Pc(Num),
-    PX(Num),
+    Px(Num),
     Per(Num),
+}
+impl LengthUnit {
+    fn to_string(&self) -> String {
+        match self {
+            LengthUnit::Em(v) => format!("{}em",v.to_string()),
+            LengthUnit::Per(v) => format!("{}%",v.to_string()),
+            LengthUnit::Pt(v) => format!("{}pt",v.to_string()),
+            _ => String::from("other unit")
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -39,10 +57,11 @@ impl Color {
     fn to_RenderColor(&self) -> RenderColor {
         match self {
             Color::Keyword(str) => {
-                println!("decoding a keyword {}",str);
                 return match str.as_str() {
                     "blue" => Blue,
                     "red" => Red,
+                    "black" => Black,
+                    "white" => White,
                     _ => {
                         println!("unknown color keyword {}",str);
                         Blue
@@ -62,6 +81,20 @@ enum Value {
     Length(LengthUnit),
     Color(Color),
 }
+impl Value {
+    fn to_string(&self) -> String {
+        match &*self {
+            Value::Number(num) => num.to_string(),
+            Value::Length(len) => len.to_string(),
+            Value::Color(col) => {
+                match col {
+                    Color::Keyword(k) => k.to_string(),
+                    _ => "some color".to_string(),
+                }
+            }
+        }
+    }
+}
 
 struct Declaration {
     name:String,
@@ -80,6 +113,12 @@ impl Selector {
             _ => false,
         }
     }
+    fn to_string(&self) -> &str {
+        match &*self {
+            Selector::Universal() => "*",
+            Selector::Type(txt) => txt.as_str(),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -93,6 +132,7 @@ pub struct StyleManager {
     rules: Vec<Rule>,
 }
 
+
 impl StyleManager {
     fn new() -> StyleManager{
         StyleManager {
@@ -103,25 +143,75 @@ impl StyleManager {
         self.rules.push(rule);
     }
 
-    pub fn find_background_color_for_type(&self, _etype:&String) -> RenderColor {
-        let prop_name = "background-color";
+    fn find_prop(&self, prop_name:&str) -> Result<&Declaration, &'static str> {
         for rule in self.rules.iter() {
             for decl in rule.declarations.iter() {
                 if decl.name == prop_name {
-                    match &decl.value {
-                        Value::Color(color) => {
-                            println!("the color is found");
-                            return color.to_RenderColor();
-                        },
-                        _ => {
-                            println!("invalid color type");
-                            return Blue;
-                        }
-                    }
+                    return Ok(decl);
                 }
             }
         }
-        Blue
+        Err("no prop name found")
+    }
+
+    pub fn find_background_color_for_type(&self, _etype:&String) -> RenderColor {
+        let prop_name = "background-color";
+        let res = self.find_prop(prop_name);
+        return  match res {
+            Ok(d3) => {
+                match &d3.value {
+                    Value::Color(color) => color.to_RenderColor(),
+                    _ => {
+                        println!("invalid color type");
+                        return Blue;
+                    }
+                }
+            }
+            _ => {
+                Blue
+            }
+        }
+    }
+    pub fn find_color(&self) -> RenderColor {
+        let prop_name = "color";
+        let res = self.find_prop(prop_name);
+        match res {
+            Ok(decl) => {
+                match &decl.value {
+                    Value::Color(color) => color.to_RenderColor(),
+                    _ => {
+                        println!("invalid color type");
+                        return Blue;
+                    }
+                }
+            }
+            _ => Blue
+        }
+    }
+    pub fn find_border_color(&self) -> RenderColor {
+        let prop_name = "border-color";
+        let res = self.find_prop(prop_name);
+        match res {
+            Ok(decl) => {
+                match &decl.value {
+                    Value::Color(color) => color.to_RenderColor(),
+                    _ => {
+                        println!("invalid color type");
+                        return Blue;
+                    }
+                }
+            }
+            _ => Blue
+        }
+    }
+
+    pub fn dump(&self) {
+        for rule in self.rules.iter() {
+            println!("rule {}", rule.selector.to_string());
+            for decl in rule.declarations.iter() {
+                println!("  {} : {};",decl.name,decl.value.to_string());
+            }
+        }
     }
 }
 
@@ -160,10 +250,13 @@ pub fn make_examples() -> StyleManager {
             },
             Declaration {
                 name:"background-color".to_string(),
-                value:Value::Color(Color::Keyword("red".to_string()))
+                value:Value::Color(Color::Keyword("white".to_string()))
             }
         ]
     };
     styles.add_rule(div_styles);
+
+    println!("made a bunch of rules");
+    styles.dump();
     return styles;
 }
