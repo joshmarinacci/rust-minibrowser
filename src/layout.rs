@@ -1,5 +1,9 @@
 use font_kit::font::Font;
-use crate::dom::{Elem};
+use font_kit::family_name::FamilyName;
+use font_kit::properties::Properties;
+use font_kit::source::SystemSource;
+
+use crate::dom::{Elem, BlockElem};
 use crate::render::{Point, Size,BlockBox, RenderBox, LineBox};
 use crate::style::{StyleManager, ColorProps};
 
@@ -10,7 +14,7 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         boxes:Vec::<RenderBox>::new(),
         background_color:styles.find_color_prop_enum(ColorProps::background_color),
         border_color:styles.find_color_prop_enum(ColorProps::border_color),
-    };   
+    };
     let offset = Point{x:0,y:0};
     recurse_layout(&mut bb, dom, styles, font, width, &offset, 0);
     return bb;
@@ -51,6 +55,25 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
     }
 }
 
+#[test]
+fn test_padding() {
+    let font = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    let mut sm = StyleManager::new();
+
+    let mut block = BlockElem {
+        children: Vec::new(),
+        etype:"div".to_string(),
+    };
+    let div = Elem::Block(block);
+
+    let rbox = perform_layout(&div, &sm, &font, 200);
+    assert_eq!(rbox.size.w,200);
+}
+
 fn layout_lines(font:&Font, text:&str, width:i32)-> Vec<String>{
     let mut len = 0.0;
     let mut line:String = String::new();
@@ -66,7 +89,7 @@ fn layout_lines(font:&Font, text:&str, width:i32)-> Vec<String>{
         line.push_str(word);
         line.push_str(" ");
     }
-    
+
     lines.push(line);
 
     for line in lines.iter() {

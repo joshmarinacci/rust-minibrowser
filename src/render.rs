@@ -1,5 +1,5 @@
-use raqote::{DrawTarget, 
-    SolidSource, PathBuilder, Source, 
+use raqote::{DrawTarget,
+    SolidSource, PathBuilder, Source,
     DrawOptions, StrokeStyle,
     LineCap, LineJoin
 };
@@ -35,6 +35,7 @@ pub struct LineBox {
     pub color:RenderColor,
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub struct RenderColor {
     pub r:u8,
     pub g:u8,
@@ -75,7 +76,7 @@ pub fn stroke_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
 
 fn draw_text(dt: &mut DrawTarget, font:&Font, pos:&Point, text:&str, color:&RenderColor) {
     let c = render_color_to_source(color);
-    dt.draw_text(font, 36., text, raqote::Point::new(pos.x as f32,pos.y as f32), &c, &DrawOptions::new(),);    
+    dt.draw_text(font, 36., text, raqote::Point::new(pos.x as f32,pos.y as f32), &c, &DrawOptions::new(),);
 }
 
 fn render_color_to_source(c:&RenderColor) -> Source {

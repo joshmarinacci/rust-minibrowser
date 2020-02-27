@@ -1,4 +1,5 @@
 use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE};
+use crate::dom::Elem::Block;
 
 /*
 
@@ -148,7 +149,7 @@ pub struct StyleManager {
 
 
 impl StyleManager {
-    fn new() -> StyleManager{
+    pub fn new() -> StyleManager{
         StyleManager {
             rules: Vec::new()
         }
@@ -238,4 +239,33 @@ pub fn make_examples() -> StyleManager {
     println!("made a bunch of rules");
     styles.dump();
     return styles;
+}
+
+#[test]
+fn make_style() {
+    let mut sm = StyleManager::new();
+
+
+    //make every element use color:black, width:100%, font-size: 36pt
+    let general_styles = Rule {
+        selector: Selector::Universal(),
+        declarations: vec![
+            Declaration{
+                name:String::from("color"),
+                value:Value::Color(Color::Keyword(String::from("black"))),
+            },
+            Declaration{
+                name:String::from("width"),
+                value:Value::Length(LengthUnit::Per(Num::Number(100.0))),
+            },
+            Declaration {
+                name:String::from("font-size"),
+                value:Value::Length(LengthUnit::Pt(Num::Number(36.0))),
+            }
+        ]
+    };
+    sm.add_rule( general_styles);
+
+    let color = sm.find_color_prop_enum(ColorProps::color);
+    assert_eq!(color,BLACK);
 }
