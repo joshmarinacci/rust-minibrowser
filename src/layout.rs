@@ -4,7 +4,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size,BlockBox, RenderBox, LineBox};
+use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, BLACK, BLUE};
 use crate::style::{StyleManager, ColorProps};
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
@@ -72,6 +72,7 @@ fn test_padding() {
 
     let rbox = perform_layout(&div, &sm, &font, 200);
     assert_eq!(rbox.size.w,200);
+    assert_eq!(rbox.background_color,BLUE);
 }
 
 fn layout_lines(font:&Font, text:&str, width:i32)-> Vec<String>{
