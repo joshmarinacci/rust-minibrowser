@@ -39,7 +39,7 @@ fn parse_block(json:&Value) -> Elem {
     panic!("found an element type we cant handle")
 }
 
-pub fn loadDoc(filename:&str) -> Elem {
+pub fn load_doc(filename:&str) -> Elem {
     let data = fs::read_to_string(filename).expect("file shoudl open");
     let parsed:Value = serde_json::from_str(&data).unwrap();
     println!("parsed the type {}",parsed["type"]);

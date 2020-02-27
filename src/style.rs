@@ -6,6 +6,7 @@ https://www.w3.org/TR/CSS2/syndata.html#values
 
 */
 
+#[allow(non_camel_case_types)]
 pub enum ColorProps {
     color,
     border_color,
@@ -20,7 +21,6 @@ impl ColorProps {
         }
     }
 }
-
 
 #[allow(dead_code)]
 enum Num {

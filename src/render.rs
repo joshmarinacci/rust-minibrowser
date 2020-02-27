@@ -43,10 +43,12 @@ pub struct RenderColor {
 }
 
 
+#[allow(dead_code)]
 pub const BLACK:RenderColor = RenderColor { r:0, g:0, b:0, a:255 };
 pub const WHITE:RenderColor = RenderColor { r:255, g:255, b:255, a:255 };
 pub const RED:RenderColor = RenderColor { r:255, g:0, b:0, a:255 };
 pub const BLUE:RenderColor = RenderColor { r:0, g:0, b:255, a:255 };
+#[allow(dead_code)]
 pub const GREEN:RenderColor = RenderColor { r:0, g:255, b:0, a:255 };
 
 pub fn fill_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {

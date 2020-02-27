@@ -3,7 +3,7 @@ mod layout;
 mod dom;
 mod style;
 
-use dom::loadDoc;
+use dom::load_doc;
 use render::{draw_block_box, fill_rect,  Point, Size};
 
 use minifb::{ Window, WindowOptions,};
@@ -32,7 +32,7 @@ fn main() {
     let size = window.get_size();
     
 
-    let doc = loadDoc("test1.json");
+    let doc = load_doc("test1.json");
     let bbox = layout::perform_layout(&doc, &styles, &font, (size.0 - 100) as i32);
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
