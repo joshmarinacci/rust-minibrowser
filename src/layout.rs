@@ -1,6 +1,6 @@
 use font_kit::font::Font;
 use crate::dom::{Elem};
-use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, Black, Green, Blue};
+use crate::render::{Point, Size,BlockBox, RenderBox, LineBox};
 use crate::style::{StyleManager, ColorProps};
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
@@ -8,8 +8,8 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) ->
         pos: Point { x: 0, y:0},
         size: Size { w: width, h: 10},
         boxes:Vec::<RenderBox>::new(),
-        background_color:Green,
-        border_color:Blue,
+        background_color:styles.find_color_prop_enum(ColorProps::background_color),
+        border_color:styles.find_color_prop_enum(ColorProps::border_color),
     };   
     let offset = Point{x:0,y:0};
     recurse_layout(&mut bb, dom, styles, font, width, &offset, 0);

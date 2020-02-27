@@ -43,11 +43,11 @@ pub struct RenderColor {
 }
 
 
-pub const Black:RenderColor = RenderColor { r:0, g:0, b:0, a:255 };
-pub const White:RenderColor = RenderColor { r:255, g:255, b:255, a:255 };
-pub const Red:RenderColor = RenderColor { r:255, g:0, b:0, a:255 };
-pub const Blue:RenderColor = RenderColor { r:0, g:0, b:255, a:255 };
-pub const Green:RenderColor = RenderColor { r:0, g:255, b:0, a:255 };
+pub const BLACK:RenderColor = RenderColor { r:0, g:0, b:0, a:255 };
+pub const WHITE:RenderColor = RenderColor { r:255, g:255, b:255, a:255 };
+pub const RED:RenderColor = RenderColor { r:255, g:0, b:0, a:255 };
+pub const BLUE:RenderColor = RenderColor { r:0, g:0, b:255, a:255 };
+pub const GREEN:RenderColor = RenderColor { r:0, g:255, b:0, a:255 };
 
 pub fn fill_rect(dt: &mut DrawTarget, pos:&Point, size:&Size, color:&Source) {
     let mut pb = PathBuilder::new();

@@ -1,4 +1,4 @@
-use crate::render::{RenderColor, Red, Blue, Black, White};
+use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE};
 
 /*
 
@@ -72,19 +72,19 @@ impl Color {
         match self {
             Color::Keyword(str) => {
                 return match str.as_str() {
-                    "blue" => Blue,
-                    "red" => Red,
-                    "black" => Black,
-                    "white" => White,
+                    "blue" => BLUE,
+                    "red" => RED,
+                    "black" => BLACK,
+                    "white" => WHITE,
                     _ => {
                         println!("unknown color keyword {}",str);
-                        Blue
+                        BLUE
                     }
                 }
             }
             _ => {
                 println!("other color types not supported yet");
-                return Blue;
+                return BLUE
             }
         }
     }
@@ -176,11 +176,11 @@ impl StyleManager {
                     Value::Color(color) => color.to_RenderColor(),
                     _ => {
                         println!("invalid color type");
-                        return Blue;
+                        return BLUE;
                     }
                 }
             }
-            _ => Blue
+            _ => BLUE
         }
     }
 
