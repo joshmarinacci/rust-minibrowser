@@ -1,6 +1,6 @@
 use font_kit::font::Font;
-use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, RenderColor, Red, Black, Green, Blue};
+use crate::dom::{Elem};
+use crate::render::{Point, Size,BlockBox, RenderBox, LineBox, Black, Green, Blue};
 use crate::style::StyleManager;
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {

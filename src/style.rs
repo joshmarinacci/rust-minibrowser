@@ -18,7 +18,7 @@ enum Num {
 enum LengthUnit {
     Em(Num),
     Ex(Num),
-    X_height(Num),
+    Xheight(Num),
     Inches(Num),
     CM(Num),
     MM(Num),
@@ -30,15 +30,15 @@ enum LengthUnit {
 
 #[allow(dead_code)]
 enum Color {
-    hex(Num),
-    rgb(Num),
-    rgba(Num),
-    keyword(String),
+    Hex(Num),
+    Rgb(Num),
+    Rgba(Num),
+    Keyword(String),
 }
 impl Color {
     fn to_RenderColor(&self) -> RenderColor {
         match self {
-            Color::keyword(str) => {
+            Color::Keyword(str) => {
                 println!("decoding a keyword {}",str);
                 return match str.as_str() {
                     "blue" => Blue,
@@ -102,27 +102,12 @@ impl StyleManager {
     fn add_rule(&mut self, rule: Rule) {
         self.rules.push(rule);
     }
-    pub fn find_rule_by_propname(&self) -> Option<&Declaration> {
-        for rule in self.rules.iter() {//.find(|&rule| rule.selector.isUniversal()) {
-            println!("found a rule");
-            for decl in rule.declarations.iter() {
-                println!("found decl {}",decl.name);
-                if(decl.name == "background-color") {
-                    println!("found bg color");
-                    return Some(decl);
-                }
-            }
-        }
-        return None
-    }
 
-    pub fn find_background_color_for_type(&self, etype:&String) -> RenderColor {
-        for rule in self.rules.iter() {//.find(|&rule| rule.selector.isUniversal()) {
-            println!("found a rule");
+    pub fn find_background_color_for_type(&self, _etype:&String) -> RenderColor {
+        let prop_name = "background-color";
+        for rule in self.rules.iter() {
             for decl in rule.declarations.iter() {
-                println!("found decl {}",decl.name);
-                if(decl.name == "background-color") {
-                    println!("found bg color");
+                if decl.name == prop_name {
                     match &decl.value {
                         Value::Color(color) => {
                             println!("the color is found");
@@ -136,28 +121,10 @@ impl StyleManager {
                 }
             }
         }
-        return Blue
+        Blue
     }
 }
-/*
-//impl for StyleManager {
-    fn new() -> StyleManager {
 
-    }
-    //look up fg, bg, and border colors
-    fn lookupColor(name:String) -> Option<Color> {
-
-    }
-    //lookup block width
-    fn lookupBlockWidth() -> Option<LengthUnit> {
-
-    }
-    //look up font size or other plain numbers
-    fn lookupNumber() -> Option<LengthUnit> {
-
-    }
-//}
-*/
 pub fn make_examples() -> StyleManager {
 
     let mut styles = StyleManager::new();
@@ -169,7 +136,7 @@ pub fn make_examples() -> StyleManager {
         declarations: vec![
             Declaration{
                 name:String::from("color"),
-                value:Value::Color(Color::keyword(String::from("black"))),
+                value:Value::Color(Color::Keyword(String::from("black"))),
             },
             Declaration{
                 name:String::from("width"),
@@ -189,11 +156,11 @@ pub fn make_examples() -> StyleManager {
         declarations: vec![
             Declaration{
                 name:"border-color".to_string(),
-                value:Value::Color(Color::keyword("red".to_string()))
+                value:Value::Color(Color::Keyword("red".to_string()))
             },
             Declaration {
                 name:"background-color".to_string(),
-                value:Value::Color(Color::keyword("red".to_string()))
+                value:Value::Color(Color::Keyword("red".to_string()))
             }
         ]
     };

@@ -4,7 +4,7 @@ mod dom;
 mod style;
 
 use dom::loadDoc;
-use render::{draw_block_box, fill_rect, stroke_rect, Point, Size};
+use render::{draw_block_box, fill_rect,  Point, Size};
 
 use minifb::{ Window, WindowOptions,};
 use raqote::{DrawTarget, SolidSource, Source};
