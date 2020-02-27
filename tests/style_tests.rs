@@ -29,7 +29,7 @@ fn main() {
     let size = window.get_size();
 
     let doc = load_doc("test1.json");
-    let bbox = layout::perform_layout(&doc, &styles, &font, (size.0 - 100) as i32);
+    let bbox = layout::perform_layout(&doc, &styles, &font, (size.0 - 100) as f32);
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
 
@@ -37,7 +37,7 @@ fn main() {
     loop {
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         draw_block_box(&mut dt, &bbox, &font);
-        fill_rect(&mut dt, &Point{x:(size.0 - 100) as i32, y:0}, &Size{w:1, h:size.1 as i32}, &red);
+        fill_rect(&mut dt, &Point{x:(size.0 - 100) as f32, y:0.0}, &Size{w:1.0, h:size.1 as f32}, &red);
         window.update_with_buffer(dt.get_data(), size.0, size.1).unwrap();
     }
 }

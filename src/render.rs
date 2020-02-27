@@ -7,13 +7,13 @@ use font_kit::font::Font;
 
 
 pub struct Point {
-    pub x:i32,
-    pub y:i32,
+    pub x:f32,
+    pub y:f32,
 }
 
 pub struct Size {
-    pub w:i32,
-    pub h:i32,
+    pub w:f32,
+    pub h:f32,
 }
 
 pub struct Inset {

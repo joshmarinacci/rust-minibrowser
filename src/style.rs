@@ -285,6 +285,10 @@ pub fn make_examples() -> StyleManager {
             Declaration {
                 name:"background-color".to_string(),
                 value:Value::Color(Color::Keyword("white".to_string()))
+            },
+            Declaration {
+                name:String::from("padding"),
+                value:Value::Length(LengthUnit::Px(Num::Number(15.0))),
             }
         ]
     };
