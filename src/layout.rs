@@ -5,7 +5,7 @@ use font_kit::source::SystemSource;
 
 use crate::dom::{Elem, BlockElem};
 use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLACK, BLUE};
-use crate::style::{StyleManager, ColorProps};
+use crate::style::{StyleManager, ColorProps, InsetProps};
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:i32) -> BlockBox {
     let mut bb = BlockBox {
@@ -32,9 +32,9 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
                 boxes:Vec::<RenderBox>::new(),
                 background_color:styles.find_color_prop_enum(ColorProps::background_color),
                 border_color:styles.find_color_prop_enum(ColorProps::border_color),
-                margin: Inset::empty(),
-                border_width: Inset::empty(),
-                padding: Inset::empty(),
+                margin: styles.find_inset_prop_enum(InsetProps::margin),
+                border_width: styles.find_inset_prop_enum(InsetProps::border_width),
+                padding: styles.find_inset_prop_enum(InsetProps::padding),
             };
             let mut offy = yoff;
             for elem in block.children.iter() {

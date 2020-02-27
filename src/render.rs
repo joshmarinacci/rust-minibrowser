@@ -17,10 +17,10 @@ pub struct Size {
 }
 
 pub struct Inset {
-    top: f32,
-    right: f32,
-    bottom: f32,
-    left: f32,
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
 }
 
 impl Inset {

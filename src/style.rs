@@ -1,4 +1,4 @@
-use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE};
+use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE, Inset};
 use crate::dom::Elem::Block;
 
 /*
@@ -23,6 +23,22 @@ impl ColorProps {
     }
 }
 
+pub enum InsetProps {
+    padding,
+    margin,
+    border_width,
+}
+impl InsetProps {
+    fn to_string(&self) -> &str {
+        match self {
+            InsetProps::padding => "padding",
+            InsetProps::margin => "margin",
+            InsetProps::border_width => "border-width",
+        }
+    }
+}
+
+
 #[allow(dead_code)]
 enum Num {
     Integer(i32),
@@ -33,6 +49,12 @@ impl Num {
         match self {
             Num::Integer(v) => format!("{}",v),
             Num::Number(v)  => format!("{}",v),
+        }
+    }
+    fn to_float(&self) -> f32 {
+        match self {
+            Num::Integer(v) => *v as f32,
+            Num::Number(v) => *v
         }
     }
 }
@@ -56,6 +78,15 @@ impl LengthUnit {
             LengthUnit::Per(v) => format!("{}%",v.to_string()),
             LengthUnit::Pt(v) => format!("{}pt",v.to_string()),
             _ => String::from("other unit")
+        }
+    }
+    fn to_px(&self) -> f32 {
+        match self {
+            LengthUnit::Px(v)=> v.to_float(),
+            _ => {
+                println!("cannot convert length ");
+                return Num::Number(0.).to_float()
+            }
         }
     }
 }
@@ -185,6 +216,29 @@ impl StyleManager {
         }
     }
 
+    pub fn find_inset_prop_enum(&self, name:InsetProps) -> Inset {
+        let res = self.find_prop(name.to_string());
+        match res {
+            Ok(decl) => {
+                match &decl.value {
+                    Value::Length(lu) => {
+                        return Inset {
+                            left: lu.to_px(),
+                            right: lu.to_px(),
+                            top: lu.to_px(),
+                            bottom: lu.to_px(),
+                        }
+                    },
+                    _ => {
+                        println!("invalid inset type");
+                        return Inset::empty()
+                    }
+                }
+            }
+            _ => Inset::empty()
+        }
+    }
+
     pub fn dump(&self) {
         for rule in self.rules.iter() {
             println!("rule {}", rule.selector.to_string());
@@ -261,6 +315,10 @@ fn make_style() {
             Declaration {
                 name:String::from("font-size"),
                 value:Value::Length(LengthUnit::Pt(Num::Number(36.0))),
+            },
+            Declaration {
+                name:String::from("padding"),
+                value:Value::Length(LengthUnit::Px(Num::Number(5.0))),
             }
         ]
     };
@@ -268,4 +326,7 @@ fn make_style() {
 
     let color = sm.find_color_prop_enum(ColorProps::color);
     assert_eq!(color,BLACK);
+
+    let padding = sm.find_inset_prop_enum(InsetProps::padding);
+    assert_eq!(padding.left,5.0)
 }
