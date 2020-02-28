@@ -1,19 +1,19 @@
 extern crate pom;
-use pom::parser::*;
-use pom::parser::Parser;
+use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
 use pom::char_class::alpha;
 use std::collections::HashMap;
 use std::str::{self, FromStr};
 use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
-use font_kit::properties::Style;
 
 
+
+#[derive(Debug, PartialEq)]
 struct Stylesheet {
     rules: Vec<Rule>,
 }
-
+#[derive(Debug, PartialEq)]
 struct Rule {
     selectors: Vec<Selector>,
     declarations: Vec<Declaration>,
@@ -22,27 +22,23 @@ struct Rule {
 enum Selector {
     Simple(SimpleSelector)
 }
-
 #[derive(Debug, PartialEq)]
 struct SimpleSelector {
     tag_name: Option<String>,
     id: Option<String>,
     class: Vec<String>,
 }
-
 #[derive(Debug, PartialEq)]
 struct Declaration {
     name: String,
     value: Value,
 }
-
 #[derive(Debug, PartialEq)]
 enum Value {
     Keyword(String),
     Length(f32, Unit),
     ColorValue(Color),
 }
-
 #[derive(Debug, PartialEq)]
 enum Unit {
     Px,
@@ -185,6 +181,31 @@ fn test_identifier() {
     let input = br"bar";
     println!("{:?}",identifier().parse(input));
 }
+
+//if px, then turn Unit::px
+fn unit<'a>() -> Parser<'a, u8, Unit> {
+    seq(&br"px"[0..]).map(|c| Unit::Px)
+}
+
+#[test]
+fn test_unit() {
+    let input = br"px";
+    println!("{:?}",unit().parse(input))
+}
+
+fn length_unit<'a>() -> Parser<'a, u8, Value> {
+    let p = number() + unit();
+    p.map(|(v,unit)| {
+        Value::Length(v as f32,unit)
+    })
+}
+
+#[test]
+fn test_length_unit() {
+    let input = br"3px";
+    println!("{:?}",length_unit().parse(input))
+}
+
 
 fn prop_def<'a>() -> Parser<'a, u8, Declaration> {
     let r = space()
