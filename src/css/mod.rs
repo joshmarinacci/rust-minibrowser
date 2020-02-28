@@ -6,15 +6,6 @@ use std::collections::HashMap;
 use std::str::{self, FromStr};
 use self::pom::char_class::alphanum;
 
-#[derive(Debug, PartialEq)]
-pub enum JsonValue {
-    Null,
-    Bool(bool),
-    Str(String),
-    Num(f64),
-    Array(Vec<JsonValue>),
-    Object(HashMap<String,JsonValue>)
-}
 
 fn space() -> Parser<u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
@@ -36,60 +27,6 @@ fn string() -> Parser<u8, String> {
     let string = sym(b'"') * (none_of(b"\\\"") | escape_sequence).repeat(0..) - sym(b'"');
     string.convert(String::from_utf8)
 }
-
-fn array() -> Parser<u8, Vec<JsonValue>> {
-    let elems = list(call(value), sym(b',') * space());
-    sym(b'[') * space() * elems - sym(b']')
-}
-
-fn object() -> Parser<u8, HashMap<String, JsonValue>> {
-    let member = string() - space() - sym(b':') - space() + call(value);
-    let members = list(member, sym(b',') * space());
-    let obj = sym(b'{') * space() * members - sym(b'}');
-    obj.map(|members|members.into_iter().collect::<HashMap<_,_>>())
-}
-
-fn value() -> Parser<u8, JsonValue> {
-    ( seq(b"null").map(|_|JsonValue::Null)
-        | seq(b"true").map(|_|JsonValue::Bool(true))
-        | seq(b"false").map(|_|JsonValue::Bool(false))
-        | number().map(|num|JsonValue::Num(num))
-        | string().map(|text|JsonValue::Str(text))
-        | array().map(|arr|JsonValue::Array(arr))
-        | object().map(|obj|JsonValue::Object(obj))
-    ) - space()
-}
-
-pub fn json() -> Parser<u8, JsonValue> {
-    space() * value() - end()
-}
-
-// #[test]
-// fn test_json() {
-//     let input = br#"
-// 	{
-//         "Image": {
-//             "Width":  800,
-//             "Height": 600,
-//             "Title":  "View from 15th Floor",
-//             "Thumbnail": {
-//                 "Url":    "http://www.example.com/image/481989943",
-//                 "Height": 125,
-//                 "Width":  100
-//             },
-//             "Animated" : false,
-//             "IDs": [116, 943, 234, 38793]
-//         }
-//     }"#;
-//
-//     println!("{:?}", json().parse(input));
-// }
-//
-
-// pub fn rule() -> Parser<u8, Rule> {
-//     let selector = one_of(b"fo").repeat(1..);
-//     selector() + space() + sym(open_b() + defs() + close_b()
-// }
 
 fn selector() -> Parser<u8, String>{
     space() * is_a(alpha).repeat(1..).convert(String::from_utf8)
@@ -154,13 +91,15 @@ struct CSSRule {
     selector:String,
     defs:Vec<CSSPropDef>,
 }
-
+fn ws_sym(ch:u8) -> Parser<u8,u8> {
+    space() * sym(ch) - space()
+}
 fn rule() -> Parser<u8, CSSRule> {
     let r
         = selector()
-        - (space() - sym(b'{') - space())
+        - ws_sym(b'{')
         + prop_def().repeat(0..)
-        - (space() - sym(b'}') - space())
+        - ws_sym(b'}')
         ;
     r.map(|(sel,value)| CSSRule {
         selector:sel,
