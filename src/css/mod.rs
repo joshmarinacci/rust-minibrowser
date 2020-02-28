@@ -7,6 +7,104 @@ use std::str::{self, FromStr};
 use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
+use font_kit::properties::Style;
+
+
+struct Stylesheet {
+    rules: Vec<Rule>,
+}
+
+struct Rule {
+    selectors: Vec<Selector>,
+    declarations: Vec<Declaration>,
+}
+#[derive(Debug, PartialEq)]
+enum Selector {
+    Simple(SimpleSelector)
+}
+
+#[derive(Debug, PartialEq)]
+struct SimpleSelector {
+    tag_name: Option<String>,
+    id: Option<String>,
+    class: Vec<String>,
+}
+
+#[derive(Debug, PartialEq)]
+struct Declaration {
+    name: String,
+    value: Value,
+}
+
+#[derive(Debug, PartialEq)]
+enum Value {
+    Keyword(String),
+    Length(f32, Unit),
+    ColorValue(Color),
+}
+
+#[derive(Debug, PartialEq)]
+enum Unit {
+    Px,
+}
+
+#[derive(Debug, PartialEq)]
+struct Color {
+    r:u8,
+    g:u8,
+    b:u8,
+    a:u8,
+}
+
+#[test]
+fn make_stylesheet() {
+    let ss = Stylesheet {
+        rules: vec![
+            Rule {
+                selectors: vec![
+                    Selector::Simple(SimpleSelector{
+                        tag_name: Some(String::from("div")),
+                        id: None,
+                        class: vec![],
+                    })
+                ],
+                declarations: vec![
+                    Declaration {
+                        name: "background-color".to_string(),
+                        value: Value::Keyword("white".to_string()),
+                    },
+                    Declaration {
+                        name: "border-color".to_string(),
+                        value: Value::Keyword("red".to_string()),
+                    },
+                    Declaration {
+                        name: "border-width".to_string(),
+                        value: Value::Length(1.0,Unit::Px),
+                    },
+                    Declaration {
+                        name: "color".to_string(),
+                        value: Value::Keyword("black".to_string()),
+                    },
+                ],
+            },
+            Rule {
+                selectors: vec![
+                    Selector::Simple(SimpleSelector{
+                        tag_name: None,
+                        id: None,
+                        class: vec![String::from("cool")]
+                    })
+                ],
+                declarations: vec![
+                    Declaration {
+                        name: "color".to_string(),
+                        value: Value::Keyword("green".to_string()),
+                    },
+                ],
+            }
+        ]
+    };
+}
 
 
 fn space<'a>() -> Parser<'a, u8, ()> {
@@ -30,15 +128,45 @@ fn string<'a>() -> Parser<'a, u8, String> {
     string.convert(String::from_utf8)
 }
 
-fn selector<'a>() -> Parser<'a, u8, String>{
-    space() * is_a(alpha).repeat(1..).convert(String::from_utf8)
+fn v2s(v:&Vec<u8>) -> String {
+    str::from_utf8(v).unwrap().to_string()
+}
+
+fn selector<'a>() -> Parser<'a, u8, Selector>{
+    let r
+        = space()
+        * sym(b'.').opt()
+        + is_a(alpha).repeat(1..)
+    ;
+    r.map(|(class_prefix,name)| {
+        if class_prefix.is_none() {
+            Selector::Simple(SimpleSelector {
+                tag_name: Some(v2s(&name)),
+                id: None,
+                class: vec![]
+            })
+        } else {
+            Selector::Simple(SimpleSelector {
+                tag_name: None,
+                id: None,
+                class: vec![v2s(&name)]
+            })
+        }
+    })
 }
 
 #[test]
-fn test_selector() {
-    let input = br#"foo"#;
+fn test_tag_selector() {
+    let input = br#"div"#;
     println!("{:?}", selector().parse(input));
 }
+
+#[test]
+fn test_class_selector() {
+    let input = br#".cool"#;
+    println!("{:?}", selector().parse(input));
+}
+
 
 fn identifier<'a>() -> Parser<'a, u8, String> {
     let r
@@ -58,22 +186,16 @@ fn test_identifier() {
     println!("{:?}",identifier().parse(input));
 }
 
-#[derive(Debug, PartialEq)]
-struct CSSPropDef {
-    name:String,
-    value:String,
-}
-
-fn prop_def<'a>() -> Parser<'a, u8, CSSPropDef> {
+fn prop_def<'a>() -> Parser<'a, u8, Declaration> {
     let r = space()
         + identifier()
         - (space() - sym(b':') - space())
         + identifier()
         - (space() - sym(b';') - space())
     ;
-    r.map(|(((),a),b)| CSSPropDef{
-        name:a,
-        value:b,
+    r.map(|(((),a),b)| Declaration {
+        name: a,
+        value: Value::Keyword(b)
     })
 }
 
@@ -87,7 +209,13 @@ fn test_prop_def2() {
     let input = b"border-color:black;";
     println!("{:?}",prop_def().parse(input))
 }
+#[test]
+fn test_prop_def3() {
+    let input = b"border-width:1px;";
+    println!("{:?}",prop_def().parse(input))
+}
 
+/*
 #[derive(Debug, PartialEq)]
 struct CSSRule {
     selector:String,
@@ -135,3 +263,4 @@ fn simple() -> () {
     let c2 = contents.as_slice();
     println!("{:?}", simplep().parse(c2));
 }
+*/

@@ -1,1 +1,10 @@
-foo
+div {
+    background-color: white;
+    border-color: red;
+    border-width: 1px;
+    color: black;
+}
+
+.cool {
+    color: green;
+}
