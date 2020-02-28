@@ -4,6 +4,7 @@ use pom::Parser;
 use pom::char_class::alpha;
 use std::collections::HashMap;
 use std::str::{self, FromStr};
+use self::pom::char_class::alphanum;
 
 #[derive(Debug, PartialEq)]
 pub enum JsonValue {
@@ -101,7 +102,18 @@ fn test_selector() {
 }
 
 fn identifier() -> Parser<u8, String> {
-    space()* is_a(alpha).repeat(1..).convert(String::from_utf8)
+    let r
+        = space()
+        + is_a(alpha)
+        + (is_a(alphanum) | sym(b'-')).repeat(0..)
+        ;
+    r.map(|((_,uu),v)| {
+        let start = uu as char;
+        let mut start = start.to_string();
+        let mut st1 = String::from_utf8(v).unwrap();
+        start.push_str(st1.as_str());
+        return start
+    })
 }
 #[test]
 fn test_identifier() {
@@ -133,6 +145,11 @@ fn test_prop_def() {
     let input = br#"border:black;"#;
     println!("{:?}",prop_def().parse(input))
 }
+#[test]
+fn test_prop_def2() {
+    let input = b"border-color:black;";
+    println!("{:?}",prop_def().parse(input))
+}
 
 #[derive(Debug, PartialEq)]
 struct CSSRule {
@@ -156,7 +173,7 @@ fn rule() -> Parser<u8, CSSRule> {
 #[test]
 fn test_css() {
     let input = br#"
-      foo {
+      div {
         bar: baz;
         billz: babs;
       }
