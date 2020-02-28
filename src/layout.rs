@@ -4,7 +4,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLACK, BLUE};
+use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLUE};
 use crate::style::{StyleManager, ColorProps, InsetProps};
 
 pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:f32) -> BlockBox {

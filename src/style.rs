@@ -1,6 +1,4 @@
 use crate::render::{RenderColor, RED, BLACK, BLUE, WHITE, Inset};
-use crate::dom::Elem::Block;
-use crate::style::Value::Length;
 
 /*
 
@@ -24,7 +22,7 @@ impl ColorProps {
     }
 }
 
-#[warn(non_camel_case_types)]
+#[allow(non_camel_case_types)]
 pub enum InsetProps {
     padding,
     margin,
