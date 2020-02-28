@@ -2,6 +2,7 @@ pub mod render;
 pub mod layout;
 pub mod dom;
 pub mod style;
+pub mod css;
 
 #[cfg(test)]
 mod tests {
