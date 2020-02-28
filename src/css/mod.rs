@@ -108,11 +108,9 @@ fn identifier() -> Parser<u8, String> {
         + (is_a(alphanum) | sym(b'-')).repeat(0..)
         ;
     r.map(|((_,uu),v)| {
-        let start = uu as char;
-        let mut start = start.to_string();
-        let mut st1 = String::from_utf8(v).unwrap();
-        start.push_str(st1.as_str());
-        return start
+        let mut vv = vec![uu];
+        vv.extend(&v);
+        return String::from_utf8(vv).unwrap();
     })
 }
 #[test]
