@@ -206,82 +206,76 @@ fn test_length_unit() {
     println!("{:?}",length_unit().parse(input))
 }
 
+fn keyword<'a>() -> Parser<'a, u8, Value> {
+    let r
+        = space()
+        + (is_a(alpha)).repeat(0..)
+        ;
+    r.map(|(_,c)| {
+        // let mut vv = c;
+        Value::Keyword(String::from_utf8(c).unwrap())
+    })
+}
 
-fn prop_def<'a>() -> Parser<'a, u8, Declaration> {
+#[test]
+fn test_keyword() {
+    let input = br"black";
+    println!("{:#?}",keyword().parse(input))
+}
+
+fn value<'a>() -> Parser<'a, u8, Value> {
+    length_unit() | keyword()
+}
+
+
+fn declaration<'a>() -> Parser<'a, u8, Declaration> {
     let r = space()
         + identifier()
         - (space() - sym(b':') - space())
-        + identifier()
+        + value()
         - (space() - sym(b';') - space())
     ;
     r.map(|(((),a),b)| Declaration {
         name: a,
-        value: Value::Keyword(b)
+        value: b
     })
 }
 
 #[test]
 fn test_prop_def() {
     let input = br#"border:black;"#;
-    println!("{:?}",prop_def().parse(input))
+    println!("{:?}", declaration().parse(input))
 }
 #[test]
 fn test_prop_def2() {
     let input = b"border-color:black;";
-    println!("{:?}",prop_def().parse(input))
+    println!("{:?}", declaration().parse(input))
 }
 #[test]
 fn test_prop_def3() {
     let input = b"border-width:1px;";
-    println!("{:?}",prop_def().parse(input))
+    println!("{:?}", declaration().parse(input))
 }
 
-/*
-#[derive(Debug, PartialEq)]
-struct CSSRule {
-    selector:String,
-    defs:Vec<CSSPropDef>,
-}
 fn ws_sym<'a>(ch:u8) -> Parser<'a, u8,u8> {
     space() * sym(ch) - space()
 }
-fn rule<'a>() -> Parser<'a, u8, CSSRule> {
+
+fn rule<'a>() -> Parser<'a, u8, Rule> {
     let r
         = selector()
         - ws_sym(b'{')
-        + prop_def().repeat(0..)
+        + declaration().repeat(0..)
         - ws_sym(b'}')
         ;
-    r.map(|(sel,value)| CSSRule {
-        selector:sel,
-        defs:value,
+    r.map(|(sel,value)| Rule {
+        selectors: vec![sel],
+        declarations: value,
     })
 }
 
 #[test]
-fn test_css() {
-    let input = br#"
-      div {
-        bar: baz;
-        billz: babs;
-      }
-    "#;
-    println!("{:?}", rule().parse(input));
+fn test_rule() {
+    let input = b"div { border-width:1px; }";
+    println!("{:#?}",rule().parse(input))
 }
-
-
-fn simplep<'a>() -> Parser<'a, u8, String> {
-    is_a(alpha).repeat(1..).map(|c| {
-        return String::from("foo")
-    })
-}
-
-#[test]
-fn simple() -> () {
-    let mut file = File::open("tests/foo.css").unwrap();
-    let mut contents:Vec<u8> = Vec::new();
-    file.read_to_end(&mut contents);
-    let c2 = contents.as_slice();
-    println!("{:?}", simplep().parse(c2));
-}
-*/
