@@ -52,56 +52,6 @@ struct Color {
     a:u8,
 }
 
-#[test]
-fn make_stylesheet() {
-    let ss = Stylesheet {
-        rules: vec![
-            Rule {
-                selectors: vec![
-                    Selector::Simple(SimpleSelector{
-                        tag_name: Some(String::from("div")),
-                        id: None,
-                        class: vec![],
-                    })
-                ],
-                declarations: vec![
-                    Declaration {
-                        name: "background-color".to_string(),
-                        value: Value::Keyword("white".to_string()),
-                    },
-                    Declaration {
-                        name: "border-color".to_string(),
-                        value: Value::Keyword("red".to_string()),
-                    },
-                    Declaration {
-                        name: "border-width".to_string(),
-                        value: Value::Length(1.0,Unit::Px),
-                    },
-                    Declaration {
-                        name: "color".to_string(),
-                        value: Value::Keyword("black".to_string()),
-                    },
-                ],
-            },
-            Rule {
-                selectors: vec![
-                    Selector::Simple(SimpleSelector{
-                        tag_name: None,
-                        id: None,
-                        class: vec![String::from("cool")]
-                    })
-                ],
-                declarations: vec![
-                    Declaration {
-                        name: "color".to_string(),
-                        value: Value::Keyword("green".to_string()),
-                    },
-                ],
-            }
-        ]
-    };
-}
-
 
 fn space<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
@@ -173,7 +123,7 @@ fn identifier<'a>() -> Parser<'a, u8, String> {
     r.map(|((_,uu),v)| {
         let mut vv = vec![uu];
         vv.extend(&v);
-        return String::from_utf8(vv).unwrap();
+        return v2s(&vv)
     })
 }
 #[test]
@@ -184,7 +134,7 @@ fn test_identifier() {
 
 //if px, then turn Unit::px
 fn unit<'a>() -> Parser<'a, u8, Unit> {
-    seq(&br"px"[0..]).map(|c| Unit::Px)
+    seq(&br"px"[0..]).map(|_| Unit::Px)
 }
 
 #[test]
@@ -212,7 +162,6 @@ fn keyword<'a>() -> Parser<'a, u8, Value> {
         + (is_a(alpha)).repeat(0..)
         ;
     r.map(|(_,c)| {
-        // let mut vv = c;
         Value::Keyword(String::from_utf8(c).unwrap())
     })
 }
@@ -227,7 +176,6 @@ fn value<'a>() -> Parser<'a, u8, Value> {
     length_unit() | keyword()
 }
 
-
 fn declaration<'a>() -> Parser<'a, u8, Declaration> {
     let r = space()
         + identifier()
@@ -235,10 +183,7 @@ fn declaration<'a>() -> Parser<'a, u8, Declaration> {
         + value()
         - (space() - sym(b';') - space())
     ;
-    r.map(|(((),a),b)| Declaration {
-        name: a,
-        value: b
-    })
+    r.map(|(((), name), value)| Declaration { name, value })
 }
 
 #[test]
@@ -268,9 +213,9 @@ fn rule<'a>() -> Parser<'a, u8, Rule> {
         + declaration().repeat(0..)
         - ws_sym(b'}')
         ;
-    r.map(|(sel,value)| Rule {
+    r.map(|(sel, declarations)| Rule {
         selectors: vec![sel],
-        declarations: value,
+        declarations,
     })
 }
 
@@ -278,4 +223,69 @@ fn rule<'a>() -> Parser<'a, u8, Rule> {
 fn test_rule() {
     let input = b"div { border-width:1px; }";
     println!("{:#?}",rule().parse(input))
+}
+fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
+    rule().repeat(0..).map(|rules| Stylesheet { rules })
+}
+
+#[test]
+fn test_stylesheet() {
+    let input = b"div { border-width:1px; } .cool { color: red; }";
+    println!("{:#?}",stylesheet().parse(input))
+}
+
+#[test]
+fn test_file_load() {
+    let mut file = File::open("tests/foo.css").unwrap();
+    let mut content:Vec<u8>= Vec::new();
+    file.read_to_end(&mut content);
+    let parsed = stylesheet().parse(content.as_slice()).unwrap();
+    println!("{:#?}", parsed);
+    let ss = Stylesheet {
+        rules: vec![
+            Rule {
+                selectors: vec![
+                    Selector::Simple(SimpleSelector{
+                        tag_name: Some(String::from("div")),
+                        id: None,
+                        class: vec![],
+                    })
+                ],
+                declarations: vec![
+                    Declaration {
+                        name: "background-color".to_string(),
+                        value: Value::Keyword("white".to_string()),
+                    },
+                    Declaration {
+                        name: "border-color".to_string(),
+                        value: Value::Keyword("red".to_string()),
+                    },
+                    Declaration {
+                        name: "border-width".to_string(),
+                        value: Value::Length(1.0,Unit::Px),
+                    },
+                    Declaration {
+                        name: "color".to_string(),
+                        value: Value::Keyword("black".to_string()),
+                    },
+                ],
+            },
+            Rule {
+                selectors: vec![
+                    Selector::Simple(SimpleSelector{
+                        tag_name: None,
+                        id: None,
+                        class: vec![String::from("cool")]
+                    })
+                ],
+                declarations: vec![
+                    Declaration {
+                        name: "color".to_string(),
+                        value: Value::Keyword("green".to_string()),
+                    },
+                ],
+            }
+        ]
+    };
+    assert_eq!(ss,parsed)
 }
