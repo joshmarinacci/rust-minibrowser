@@ -1,5 +1,5 @@
 extern crate pom;
-use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
+use pom::parser::{Parser,is_a,one_of,sym, none_of,seq, call, not_a};
 use pom::char_class::alpha;
 use std::collections::HashMap;
 use std::str::{self};
@@ -11,8 +11,8 @@ use std::fs;
 
 #[derive(Debug, PartialEq)]
 struct Node {
-    children: Vec<Node>,
     node_type: NodeType,
+    children: Vec<Node>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -66,20 +66,27 @@ fn close_element<'a>() -> Parser<'a, u8, String> {
         - sym(b'>');
     p.map(|(_,name)| v2s(&name))
 }
+fn text_content<'a>() -> Parser<'a, u8, Node> {
+    none_of(b"<").repeat(1..).map(|content|Node{
+        children: vec![],
+        node_type: NodeType::Text(v2s(&content))
+    })
+}
+fn element_child<'a>() -> Parser<'a, u8, Node> {
+    text_content() | element()
+}
 fn element<'a>() -> Parser<'a, u8, Node> {
     let p
         = open_element()
         - space()
-        + none_of(b"<").repeat(0..)
+        + call(element_child).repeat(0..)
         - space()
         + close_element();
 
-    p.map(|((name, content), end_name)|{
+    p.map(|((name, b), end_name)|{
         Node {
-            children: vec![Node{
-                children: vec![],
-                node_type: NodeType::Text(v2s(&content))
-            }],
+            children: b,//children,
+            // children: vec![],
             node_type: NodeType::Element(ElementData{
                 tag_name: name,
                 attributes: HashMap::new()
@@ -92,13 +99,22 @@ fn element<'a>() -> Parser<'a, u8, Node> {
 fn test_element() {
     let input = b"<head>";
     println!("{:#?}", open_element().parse(input));
-    let input = b"<head> </head>";
-    println!("{:#?}", element().parse(input));
+    let input = b"</head>";
+    println!("{:#?}", close_element().parse(input));
+    let input = b" some foo text ";
+    println!("{:#?}", element_child().parse(input));
+    let input = b"<head></head>";
+    println!("{:#?}", element_child().parse(input));
 }
 
 #[test]
 fn test_element_text() {
     let input = b"<head> foo </head>";
+    println!("{:#?}", element_child().parse(input));
+}
+#[test]
+fn test_element_text_element() {
+    let input = b"<head><body></body></head>";
     println!("{:#?}", element().parse(input));
 }
 #[test]
@@ -110,7 +126,19 @@ fn test_nested() {
        </body>
      </html>
     "#;
-    // println!("{:?}", element().parse(input));
+    println!("{:#?}", element().parse(input));
+}
+#[test]
+fn test_multi_children() {
+    let input = br#"
+     <html>
+       <body>
+        <div>part 1</div>
+        <div>part 2</div>
+       </body>
+     </html>
+    "#;
+    println!("{:#?}", element().parse(input));
 }
 
 
