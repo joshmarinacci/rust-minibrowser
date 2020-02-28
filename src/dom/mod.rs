@@ -7,6 +7,9 @@ use std::str::{self};
 use serde_json;
 use serde_json::{Value};
 use std::fs;
+use std::fs::File;
+use std::io::Read;
+use self::pom::set::Set;
 
 
 #[derive(Debug, PartialEq)]
@@ -141,6 +144,47 @@ fn test_multi_children() {
     println!("{:#?}", element().parse(input));
 }
 
+
+#[test]
+fn test_file_load() {
+    let mut file = File::open("tests/foo.html").unwrap();
+    let mut content: Vec<u8> = Vec::new();
+    file.read_to_end(&mut content);
+    let parsed = element().parse(content.as_slice()).unwrap();
+    println!("{:#?}", parsed);
+    let dom = Node {
+        node_type: NodeType::Element(ElementData{
+            tag_name: "html".to_string(),
+            attributes: HashMap::new()
+        }),
+        children: vec![
+            Node {
+                node_type: NodeType::Element(ElementData{
+                    tag_name: "head".to_string(),
+                    attributes: Default::default()
+                }),
+                children: vec![
+                    Node {
+                        node_type: NodeType::Element(ElementData{
+                            tag_name: "title".to_string(),
+                            attributes: Default::default()
+                        }),
+                        children: vec![text("Title".to_string())]
+                    },
+                ]
+            },
+            Node {
+                node_type: NodeType::Element(ElementData{
+                    tag_name: "body".to_string(),
+                    attributes: Default::default()
+                }),
+                children: vec![text("some text\n".to_string())
+                ],
+            }
+        ]
+    };
+    assert_eq!(dom,parsed)
+}
 
 
 
