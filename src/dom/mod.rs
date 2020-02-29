@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::Read;
 use self::pom::set::Set;
 
+// https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
 #[derive(Debug, PartialEq)]
 struct Node {
