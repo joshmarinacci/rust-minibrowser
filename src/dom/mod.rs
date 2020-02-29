@@ -49,6 +49,41 @@ fn v2s(v:&Vec<u8>) -> String {
     str::from_utf8(v).unwrap().to_string()
 }
 
+fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
+    let p
+        = space()
+        + is_a(alpha).repeat(1..)
+        - sym(b'"')
+        + is_a(alpha).repeat(1..)
+        - sym(b'"');
+    p.map(|((_, key), value)| {
+        return (v2s(&key), v2s(&value))
+    })
+}
+
+#[test]
+fn test_single_attribute() {
+    let input = b"foo=\"bar\"";
+    println!("{:#?}", attribute().parse(input));
+}
+
+fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
+    let p = attribute().repeat(0..);
+    p.map(|a|{
+        let map = AttrMap::new();
+        for (key,value) in a {
+            map.set(key,value)
+        }
+        return map;
+    })
+}
+
+#[test]
+fn test_several_attributes() {
+    let input = b"foo=\"bar\" baz=\"quxx\" ";
+    println!("{:#?}", attributes().parse(input));
+}
+
 fn open_element<'a>() -> Parser<'a, u8, String> {
     let p
         = space()
