@@ -1,32 +1,28 @@
 extern crate pom;
-use pom::parser::{Parser,is_a,one_of,sym, none_of,seq, call, not_a};
+use pom::parser::{Parser,is_a,one_of,sym, none_of, call};
 use pom::char_class::alpha;
 use std::collections::HashMap;
 use std::str::{self};
 
-use serde_json;
-use serde_json::{Value};
-use std::fs;
 use std::fs::File;
 use std::io::Read;
-use self::pom::set::Set;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
 #[derive(Debug, PartialEq)]
-struct Node {
-    node_type: NodeType,
-    children: Vec<Node>,
+pub struct Node {
+    pub node_type: NodeType,
+    pub children: Vec<Node>,
 }
 
 #[derive(Debug, PartialEq)]
-enum NodeType {
+pub enum NodeType {
     Text(String),
     Element(ElementData),
 }
 
 #[derive(Debug, PartialEq)]
-struct ElementData {
+pub struct ElementData {
     tag_name: String,
     attributes: AttrMap,
 }
@@ -188,52 +184,11 @@ fn test_file_load() {
 }
 
 
-
-
-
-pub enum Elem {
-    Block(BlockElem),
-    Text(TextElem)
+pub fn load_doc(filename:&str) -> Node {
+    let mut file = File::open(filename).unwrap();
+    let mut content: Vec<u8> = Vec::new();
+    file.read_to_end(&mut content);
+    let parsed = element().parse(content.as_slice()).unwrap();
+    return parsed;
 }
-pub struct BlockElem {
-    pub etype:String,
-    pub children: Vec<Elem>,
-}
-
-pub struct TextElem {
-    pub text:String,
-}
-
-
-fn parse_block(json:&Value) -> Elem {
-    let rtype = json["type"].as_str().unwrap();
-    if rtype == "body" || rtype == "div" {
-        println!("parsed {}",rtype);
-        let mut block = BlockElem {
-            children: Vec::new(),
-            etype:rtype.to_string(),
-        };
-        for child in json["children"].as_array().unwrap() {
-            block.children.push(parse_block(&child));
-        }
-        return Elem::Block(block);
-    }
-
-    if rtype == "text" {
-        return Elem::Text(TextElem {
-            text:json["text"].as_str().unwrap().to_string()
-        });
-    }
-
-    panic!("found an element type we cant handle")
-}
-
-pub fn load_doc(filename:&str) -> Elem {
-    let data = fs::read_to_string(filename).expect("file shoudl open");
-    let parsed:Value = serde_json::from_str(&data).unwrap();
-    println!("parsed the type {}",parsed["type"]);
-
-    return parse_block(&parsed);
-}
-
 

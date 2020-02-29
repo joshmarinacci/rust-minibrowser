@@ -10,8 +10,8 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 
-const WIDTH: usize = 400;
-const HEIGHT: usize = 400;
+const WIDTH: usize = 900;
+const HEIGHT: usize = 800;
 
 fn main() {
     let styles = style::make_examples();
@@ -32,7 +32,7 @@ fn main() {
         h: size.1 as f32,
     };
 
-    let doc = load_doc("test1.json");
+    let doc = load_doc("tests/test1.html");
     let bbox = layout::perform_layout(&doc, &styles, &font, (size.w - 100.0));
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 

@@ -3,11 +3,11 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use crate::dom::{Elem, BlockElem};
-use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLUE};
+use crate::dom::{Node, NodeType};
+use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset};
 use crate::style::{StyleManager, ColorProps, InsetProps};
 
-pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:f32) -> BlockBox {
+pub fn perform_layout(dom:&Node, styles:&StyleManager, font:&Font, width:f32) -> BlockBox {
     let mut bb = BlockBox {
         pos: Point { x: 0.0, y:0.0},
         size: Size { w: width, h: 10.0},
@@ -23,9 +23,9 @@ pub fn perform_layout(dom:&Elem, styles:&StyleManager, font:&Font, width:f32) ->
     return bb;
 }
 
-fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Font, width:f32, offset:&Point) -> f32 {
-    match dom  {
-        Elem::Block(block) => {
+fn recurse_layout(root:&mut BlockBox, dom:&Node, styles:&StyleManager, font:&Font, width:f32, offset:&Point) -> f32 {
+    match &dom.node_type  {
+        NodeType::Element(block) => {
             let mut bb = BlockBox {
                 pos: Point { x: offset.x, y:offset.y},
                 size: Size { w: width, h: 10.0},
@@ -41,7 +41,7 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
                 y: offset.y + bb.margin.top + bb.border_width.top +  bb.padding.top
             };
             let width = width - bb.margin.left - bb.border_width.left - bb.padding.left - bb.padding.right - bb.border_width.right - bb.margin.right;
-            for elem in block.children.iter() {
+            for elem in dom.children.iter() {
                 offset.y = recurse_layout(&mut bb, elem, styles, font, width, &offset);
             }
             offset.y += bb.margin.top + bb.border_width.top + bb.padding.top + bb.padding.bottom +bb.border_width.top + bb.margin.top;
@@ -49,8 +49,8 @@ fn recurse_layout(root:&mut BlockBox, dom:&Elem, styles:&StyleManager, font:&Fon
             root.boxes.push(RenderBox::Block(bb));
             return offset.y;
         },
-        Elem::Text(text) => {
-            let lines = layout_lines(font, &text.text, width);
+        NodeType::Text(text) => {
+            let lines = layout_lines(font, &text, width);
             let mut offset = Point { x: offset.x, y: offset.y};
             for line in lines.iter() {
                 offset.y += 36.0;
