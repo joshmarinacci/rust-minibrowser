@@ -23,8 +23,8 @@ pub enum NodeType {
 
 #[derive(Debug, PartialEq)]
 pub struct ElementData {
-    tag_name: String,
-    attributes: AttrMap,
+    pub tag_name: String,
+    pub attributes: AttrMap,
 }
 
 type AttrMap = HashMap<String, String>;
@@ -53,6 +53,7 @@ fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
     let p
         = space()
         + is_a(alpha).repeat(1..)
+        - sym(b'=')
         - sym(b'"')
         + is_a(alpha).repeat(1..)
         - sym(b'"');
@@ -70,9 +71,9 @@ fn test_single_attribute() {
 fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
     let p = attribute().repeat(0..);
     p.map(|a|{
-        let map = AttrMap::new();
+        let mut map = AttrMap::new();
         for (key,value) in a {
-            map.set(key,value)
+            map.insert(key,value);
         }
         return map;
     })
@@ -84,13 +85,16 @@ fn test_several_attributes() {
     println!("{:#?}", attributes().parse(input));
 }
 
-fn open_element<'a>() -> Parser<'a, u8, String> {
+fn open_element<'a>() -> Parser<'a, u8, (String, AttrMap)> {
     let p
         = space()
-        - sym(b'<')
+        + sym(b'<')
         + is_a(alpha).repeat(1..)
+        + attributes()
         - sym(b'>');
-    p.map(|(_,name)| v2s(&name))
+    p.map(|((_,name),atts)| {
+        (v2s(&name), atts)
+    })
 }
 fn close_element<'a>() -> Parser<'a, u8, String> {
     let p
@@ -118,13 +122,12 @@ fn element<'a>() -> Parser<'a, u8, Node> {
         - space()
         + close_element();
 
-    p.map(|((name, b), end_name)|{
+    p.map(|(((tag_name, attributes), children), end_name)|{
         Node {
-            children: b,//children,
-            // children: vec![],
+            children,
             node_type: NodeType::Element(ElementData{
-                tag_name: name,
-                attributes: HashMap::new()
+                tag_name,
+                attributes,
             })
         }
     })
@@ -156,6 +159,18 @@ fn test_element_text_element() {
 fn test_nested() {
     let input = br#"
      <html>
+       <body>
+        <div>some text</div>
+       </body>
+     </html>
+    "#;
+    println!("{:#?}", element().parse(input));
+}
+
+#[test]
+fn test_elem_with_attrs() {
+    let input = br#"
+     <html lang="en">
        <body>
         <div>some text</div>
        </body>

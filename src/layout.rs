@@ -3,8 +3,8 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use crate::dom::{Node, NodeType};
-use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset};
+use crate::dom::{Node, NodeType, ElementData};
+use crate::render::{Point, Size, BlockBox, RenderBox, LineBox, Inset, BLUE};
 use crate::style::{StyleManager, ColorProps, InsetProps};
 
 pub fn perform_layout(dom:&Node, styles:&StyleManager, font:&Font, width:f32) -> BlockBox {
@@ -75,11 +75,13 @@ fn test_padding() {
         .unwrap();
     let mut sm = StyleManager::new();
 
-    let mut block = BlockElem {
-        children: Vec::new(),
-        etype:"div".to_string(),
+    let mut div = Node {
+        node_type: NodeType::Element(ElementData{
+            tag_name: "div".to_string(),
+            attributes: Default::default()
+        }),
+        children: vec![]
     };
-    let div = Elem::Block(block);
 
     let rbox = perform_layout(&div, &sm, &font, 200.0);
     assert_eq!(rbox.size.w,200.0);
