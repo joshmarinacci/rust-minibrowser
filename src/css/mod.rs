@@ -38,6 +38,16 @@ pub enum Value {
     Length(f32, Unit),
     ColorValue(Color),
 }
+
+impl Value {
+    pub fn to_px(&self) -> f32 {
+        match *self {
+            Value::Length(f, Unit::Px) => f,
+            _ => 0.0,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Unit {
     Px,
