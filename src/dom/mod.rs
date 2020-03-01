@@ -1,7 +1,7 @@
 extern crate pom;
 use pom::parser::{Parser,is_a,one_of,sym, none_of, call};
 use pom::char_class::alpha;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::{self};
 
 use std::fs::File;
@@ -25,6 +25,18 @@ pub enum NodeType {
 pub struct ElementData {
     pub tag_name: String,
     pub attributes: AttrMap,
+}
+
+impl ElementData {
+    pub fn id(&self) -> Option<&String> {
+        self.attributes.get("id")
+    }
+    pub fn classes(&self) -> HashSet<&str> {
+        match self.attributes.get("class") {
+            Some(classlist) => classlist.split(' ').collect(),
+            None => HashSet::new()
+        }
+    }
 }
 
 type AttrMap = HashMap<String, String>;
@@ -122,7 +134,7 @@ fn element<'a>() -> Parser<'a, u8, Node> {
         - space()
         + close_element();
 
-    p.map(|(((tag_name, attributes), children), end_name)|{
+    p.map(|(((tag_name, attributes), children), _end_name)|{
         Node {
             children,
             node_type: NodeType::Element(ElementData{

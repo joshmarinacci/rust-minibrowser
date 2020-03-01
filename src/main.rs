@@ -8,13 +8,14 @@ use raqote::{DrawTarget, SolidSource, Source};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
+use rust_minibrowser::style::style_tree;
+use rust_minibrowser::css::load_stylesheet;
 
 
 const WIDTH: usize = 900;
 const HEIGHT: usize = 800;
 
 fn main() {
-    let styles = style::make_examples();
 
 
     let mut window = Window::new("Raqote", WIDTH, HEIGHT, WindowOptions {
@@ -33,7 +34,10 @@ fn main() {
     };
 
     let doc = load_doc("tests/test1.html");
-    let bbox = layout::perform_layout(&doc, &styles, &font, (size.w - 100.0));
+    let stylesheet = load_stylesheet("tests/foo.css");
+    let styled = style_tree(&doc,&stylesheet);
+
+    let bbox = layout::perform_layout(&styled, &font, (size.w - 100.0));
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
 

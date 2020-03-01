@@ -1,7 +1,6 @@
 extern crate pom;
 use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
 use pom::char_class::alpha;
-use std::collections::HashMap;
 use std::str::{self, FromStr};
 use self::pom::char_class::alphanum;
 use std::fs::File;
@@ -10,46 +9,58 @@ use std::io::Read;
 
 
 #[derive(Debug, PartialEq)]
-struct Stylesheet {
-    rules: Vec<Rule>,
+pub struct Stylesheet {
+    pub(crate) rules: Vec<Rule>,
 }
 #[derive(Debug, PartialEq)]
-struct Rule {
-    selectors: Vec<Selector>,
-    declarations: Vec<Declaration>,
+pub struct Rule {
+    pub selectors: Vec<Selector>,
+    pub declarations: Vec<Declaration>,
 }
 #[derive(Debug, PartialEq)]
-enum Selector {
+pub enum Selector {
     Simple(SimpleSelector)
 }
 #[derive(Debug, PartialEq)]
-struct SimpleSelector {
-    tag_name: Option<String>,
-    id: Option<String>,
-    class: Vec<String>,
+pub struct SimpleSelector {
+    pub tag_name: Option<String>,
+    pub id: Option<String>,
+    pub class: Vec<String>,
 }
 #[derive(Debug, PartialEq)]
-struct Declaration {
-    name: String,
-    value: Value,
+pub struct Declaration {
+    pub(crate) name: String,
+    pub(crate) value: Value,
 }
-#[derive(Debug, PartialEq)]
-enum Value {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Value {
     Keyword(String),
     Length(f32, Unit),
     ColorValue(Color),
 }
-#[derive(Debug, PartialEq)]
-enum Unit {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Unit {
     Px,
 }
 
-#[derive(Debug, PartialEq)]
-struct Color {
-    r:u8,
-    g:u8,
-    b:u8,
-    a:u8,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Color {
+    pub(crate) r:u8,
+    pub(crate) g:u8,
+    pub(crate) b:u8,
+    pub(crate) a:u8,
+}
+
+pub type Specificity = (usize, usize, usize);
+
+impl Selector {
+    pub fn specificity(&self) -> Specificity {
+        let Selector::Simple(ref simple) = *self;
+        let a = simple.id.iter().count();
+        let b = simple.class.len();
+        let c = simple.tag_name.iter().count();
+        (a,b,c)
+    }
 }
 
 
@@ -232,6 +243,13 @@ fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
 fn test_stylesheet() {
     let input = b"div { border-width:1px; } .cool { color: red; }";
     println!("{:#?}",stylesheet().parse(input))
+}
+
+pub fn load_stylesheet(filename:&str) -> Stylesheet {
+    let mut file = File::open(filename).unwrap();
+    let mut content:Vec<u8>= Vec::new();
+    file.read_to_end(&mut content);
+    return stylesheet().parse(content.as_slice()).unwrap();
 }
 
 #[test]
