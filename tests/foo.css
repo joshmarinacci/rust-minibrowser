@@ -1,25 +1,8 @@
-* {
-    display: block;
-}
-span {
-    display: inline;
-}
-html {
-    width: 600px;
-    padding: 10px;
-    border-width: 1px;
-    margin: auto;
-}
-head {
-    display: none;
-}
-
 div {
     background-color: white;
     border-color: red;
     border-width: 1px;
     color: black;
-    height: 100px;
 }
 
 .cool {

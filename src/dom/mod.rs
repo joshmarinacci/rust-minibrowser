@@ -229,7 +229,7 @@ fn test_file_load() {
                     tag_name: "body".to_string(),
                     attributes: Default::default()
                 }),
-                children: vec![text("some text\n".to_string())
+                children: vec![text("some text".to_string())
                 ],
             }
         ]

@@ -138,6 +138,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn layout_block(&mut self, containing_block: Dimensions) {
+        //println!("laying out a block. container: {:#?} ", self.box_type);
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
         self.layout_block_children();
@@ -219,6 +220,11 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn calculate_block_height(&mut self) {
+        if let Some(Length(h,Px)) = self.get_style_node().value("height") {
+            println!("has height");
+        } else {
+            println!("block has no height");
+        }
         if let Some(Length(h, Px)) = self.get_style_node().value("height") {
             self.dimensions.content.height = h;
         }
@@ -284,7 +290,7 @@ fn test_layout<'a>() {
     };
     root_box.layout(containing_block);
     // let bnode = perform_layout(&snode, &font, 300 as f32);
-    println!("final bnode is {:#?}", root_box)
+    // println!("final bnode is {:#?}", root_box)
 }
 
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
