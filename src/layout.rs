@@ -168,30 +168,30 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing_block: Dimensions) -> RenderBox {
+    pub fn layout(&mut self, containing_block: Dimensions, font:&Font) -> RenderBox {
         match self.box_type {
             BlockNode(node) => {
-                RenderBox::Block(self.layout_block(containing_block))
+                RenderBox::Block(self.layout_block(containing_block, font))
             },
             InlineNode(node) => {
                 RenderBox::Inline()
             },
             AnonymousBlock => {
-                RenderBox::Anonymous(self.layout_anonymous(containing_block))
+                RenderBox::Anonymous(self.layout_anonymous(containing_block, font))
             },
         }
     }
-    fn layout_block(&mut self, containing_block: Dimensions) -> RenderBlockBox {
+    fn layout_block(&mut self, containing_block: Dimensions, font:&Font) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
-        let children:Vec<RenderBox> = self.layout_block_children();
+        let children:Vec<RenderBox> = self.layout_block_children(font);
         self.calculate_block_height();
         return RenderBlockBox{
             rect:self.dimensions.content,
             children: children,
         }
     }
-    fn layout_anonymous(&mut self, containing_block:Dimensions) -> RenderAnonymousBox {
+    fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
         let d = &mut self.dimensions;
         let line_height = 20.0;
         d.content.width = containing_block.content.width;
@@ -215,18 +215,18 @@ impl<'a> LayoutBox<'a> {
                 println!("empty text. skipping");
                 continue;
             }
-            let line_width = text.len() as f32 *10.0;
-            println!("   inline width {} vs {}", line_width, containing_block.content.width);
-            if line_width > containing_block.content.width {
-                println!("overflow!")
-            }
+            // let line_width = text.len() as f32 *10.0;
+            // println!("   inline width {} vs {}", line_width, containing_block.content.width);
+            // if line_width > containing_block.content.width {
+            //     println!("overflow!")
+            // }
 
             let mut len = 0.0;
             let mut line:String = String::new();
             // let mut lines:Vec<String> = Vec::new();
             let mut y = d.content.y;
             for word in trimmed.split_whitespace() {
-                let wlen:f32 = calculate_word_length(word);
+                let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
                     lines.push(RenderLineBox{
                         rect: Rect {
@@ -240,7 +240,7 @@ impl<'a> LayoutBox<'a> {
                                 rect: Rect {
                                     x: 0.0,
                                     y: y+2.0,
-                                    width: line_width,
+                                    width: len,
                                     height: line_height-4.0,
                                 },
                                 text: line,
@@ -267,7 +267,7 @@ impl<'a> LayoutBox<'a> {
                         rect: Rect {
                             x: 0.0,
                             y: y+2.0,
-                            width: line_width,
+                            width: len,
                             height: line_height-4.0,
                         },
                         text: line,
@@ -374,11 +374,11 @@ impl<'a> LayoutBox<'a> {
             d.margin.top + d.border.top + d.padding.top;
     }
 
-    fn layout_block_children(&mut self) -> Vec<RenderBox>{
+    fn layout_block_children(&mut self, font:&Font) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
         for mut child in self.children.iter_mut() {
-            let bx = child.layout(*d);
+            let bx = child.layout(*d,font);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
             children.push(bx)
         };
@@ -394,16 +394,13 @@ impl<'a> LayoutBox<'a> {
 }
 
 
-fn calculate_word_length(text:&str) -> f32 {
-    /*
+fn calculate_word_length(text:&str, font:&Font) -> f32 {
     let mut sum = 0.0;
     for ch in text.chars() {
         let gid = font.glyph_for_char(ch).unwrap();
         sum += font.advance(gid).unwrap().x;
     }
     return sum;
-    */
-    text.len() as f32 *10.0
 }
 
 #[test]

@@ -52,7 +52,7 @@ fn main() {
         border: Default::default(),
         margin: Default::default()
     };
-    let render_root = bbox.layout(containing_block);
+    let render_root = bbox.layout(containing_block, &font);
     let red:Source = Source::Solid(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0x00, 0));
 
 
