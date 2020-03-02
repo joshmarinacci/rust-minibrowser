@@ -8,46 +8,6 @@ use crate::css::Color;
 use crate::layout::{LayoutBox, Dimensions, Rect};
 use crate::layout::BoxType::BlockNode;
 
-
-#[derive(Debug)]
-pub struct Point {
-    pub x:f32,
-    pub y:f32,
-}
-
-#[derive(Debug)]
-pub struct Size {
-    pub w:f32,
-    pub h:f32,
-}
-
-#[derive(Debug)]
-pub struct Inset {
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub left: f32,
-}
-
-impl Inset {
-    pub fn empty() -> Inset {
-        Inset {
-            top:0.,
-            right:0.,
-            bottom:0.,
-            left:0.,
-        }
-    }
-    pub fn same(v:f32) -> Inset {
-        Inset {
-            top: v,
-            right: v,
-            bottom: v,
-            left: v
-        }
-    }
-}
-
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
 pub const WHITE:Color = Color { r:255, g:255, b:255, a:255 };
@@ -99,10 +59,11 @@ pub fn draw_block_box(dt:&mut DrawTarget, bb:&LayoutBox, font:&Font) {
                 draw_block_box(dt, child,font);
             }
             InlineNode => {
-                println!("drawing an inline node")
+                //println!("drawing an inline node")
+                // draw_inline
             }
             AnonymousBlock => {
-                //println!("doing an anonymous block")
+                println!("doing an anonymous block")
             }
 
             // RenderBox::Line(text) => {

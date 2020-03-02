@@ -3,7 +3,7 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use crate::dom::{load_doc};
+use crate::dom::{load_doc, NodeType};
 use crate::style::{StyledNode, style_tree, Display};
 use crate::css::load_stylesheet;
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
@@ -145,7 +145,7 @@ impl<'a> LayoutBox<'a> {
         // println!("     layout {:#?}",self);
         match self.box_type {
             BlockNode(node) => {
-                println!("doing block layout for {:#?}", node.node.node_type);
+                // println!("doing block layout for {:#?}", node.node.node_type);
                 // println!("doing layout for a block {:#?}", self.box_type);
                 self.layout_block(containing_block)
             },
@@ -166,7 +166,35 @@ impl<'a> LayoutBox<'a> {
         // println!("final dimensions for {:#?}", self.dimensions.content)
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions) {
-        self.layout_block_children();
+        let d = &mut self.dimensions;
+        // println!("   anonymous dims {:#?}",self.dimensions);
+        let line_height = 20.0;
+        let char_width = 20.0;
+        d.content.width = containing_block.content.width;
+        for child in &mut self.children {
+            println!("   checking child {:#?}", child.box_type);
+            //calc child width
+            let line_width = match child.box_type {
+                InlineNode(snode) => {
+                    println!("   calculating width of inline node");
+                    50.0
+                },
+                _ => {
+                    println!("   not an inline node");
+                    0.0
+                }
+            };
+            println!("   inline width {} vs {}", line_width, containing_block.content.width);
+            if line_width > containing_block.content.width {
+                println!("overflow!")
+            }
+            //if child width greater than containing block
+            //wrap
+            // child.layout(*d);
+            // println!("   final child width {}",child.dimensions.content.width);
+            // d.content.height = d.content.height + child.dimensions.margin_box().height;
+        }
+        d.content.height = line_height;
     }
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
@@ -260,7 +288,10 @@ impl<'a> LayoutBox<'a> {
     fn layout_block_children(&mut self) {
         let d = &mut self.dimensions;
         for child in &mut self.children {
+            println!("   checking child");
             child.layout(*d);
+            println!("   final child width {}",child.dimensions.content.width);
+            println!("   final child height {}",child.dimensions.content.height);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
         }
     }
@@ -335,6 +366,37 @@ fn test_layout<'a>() {
     println!(" ======== layout phase ========");
     root_box.layout(containing_block);
     // println!("final bnode is {:#?}", root_box)
+    dump_layout(&root_box,0);
+}
+fn expand_tab(tab:i32) -> String {
+    let mut string = String::new();
+    for i in 0..tab {
+        string.push(' ')
+    }
+    return string;
+}
+fn dump_layout(root:&LayoutBox, tab:i32) {
+    let bt = match root.box_type {
+        BlockNode(snode) => {
+            let st = match &snode.node.node_type {
+                NodeType::Text(_) => "text".to_string(),
+                NodeType::Element(data) => format!("element \"{}\"",data.tag_name)
+            };
+            format!("block {}",st)
+        }
+        InlineNode(snode) => {
+            let st = match &snode.node.node_type {
+                NodeType::Text(data) => format!("text \"{}\"",data),
+                NodeType::Element(data) => format!("element {}",data.tag_name)
+            };
+            format!("inline {}",st)
+        },
+        AnonymousBlock => "anonymous".to_string(),
+    };
+    println!("{}layout {}", expand_tab(tab), bt);
+    for child in root.children.iter() {
+        dump_layout(child,tab+4);
+    }
 }
 
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
