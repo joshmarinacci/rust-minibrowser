@@ -44,15 +44,7 @@ type AttrMap = HashMap<String, String>;
 fn text(data:String) -> Node {
     Node { children: Vec::new(), node_type:NodeType::Text(data)}
 }
-fn elem(tag_name:String, attributes:AttrMap, children: Vec<Node>) -> Node {
-    Node {
-        children,
-        node_type: NodeType::Element(ElementData {
-            tag_name,
-            attributes
-        })
-    }
-}
+
 
 fn space<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()

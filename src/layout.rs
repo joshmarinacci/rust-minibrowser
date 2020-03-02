@@ -3,9 +3,7 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use crate::dom::{NodeType, load_doc};
-// use crate::render::{Point, Size, BlockBox, LineBox, Inset};
-use crate::render::Inset;
+use crate::dom::{load_doc};
 use crate::style::{StyledNode, style_tree};
 use crate::css::load_stylesheet;
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
@@ -14,10 +12,10 @@ use crate::css::Unit::Px;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
-    content: Rect,
-    padding: EdgeSizes,
-    border: EdgeSizes,
-    margin: EdgeSizes,
+    pub content: Rect,
+    pub padding: EdgeSizes,
+    pub border: EdgeSizes,
+    pub margin: EdgeSizes,
 }
 
 impl Dimensions {
@@ -34,10 +32,10 @@ impl Dimensions {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Rect {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Rect {
@@ -53,10 +51,10 @@ impl Rect {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EdgeSizes {
-    left: f32,
-    right: f32,
-    top: f32,
-    bottom: f32,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 #[derive(Debug)]
@@ -80,7 +78,7 @@ pub enum Display {
     None,
 }
 
-fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
+pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
     let mut root = LayoutBox::new(match style_node.display() {
         Block => BlockNode(style_node),
         Inline => InlineNode(style_node),
@@ -132,7 +130,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn layout(&mut self, containing_block: Dimensions) {
+    pub fn layout(&mut self, containing_block: Dimensions) {
         match self.box_type {
             BlockNode(_) => self.layout_block(containing_block),
             InlineNode(_) => {},
@@ -228,93 +226,6 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-/*
-pub fn perform_layout<'a>(node:&'a StyledNode<'a>, font:&Font, width:f32) -> BlockBox<'a> {
-    let bgc = node.color("background-color");
-    let bdc = node.color("border-color");
-    let mut bb = BlockBox {
-        pos: Point { x: 0.0, y:0.0},
-        size: Size { w: width, h: 10.0},
-        boxes:Vec::<RenderBox>::new(),
-        background_color:bgc,
-        border_color:bdc,
-        margin: Inset::empty(),
-        border_width: Inset::empty(),
-        padding: Inset::empty(),
-    };
-    let offset = Point{x:0.0,y:0.0};
-    recurse_layout(&mut bb, node, font, width, &offset);
-    return bb;
-}
-*/
-/*
-fn recurse_layout(root:&mut BlockBox, node:&StyledNode<'static>, font:&Font, width:f32, offset:&Point) -> f32 {
-    match &node.node.node_type  {
-        NodeType::Element(_block) => {
-            let mut bb = BlockBox {
-                pos: Point { x: offset.x, y:offset.y},
-                size: Size { w: width, h: 10.0},
-                boxes:Vec::<RenderBox>::new(),
-                background_color:node.color("background-color"),
-                border_color:node.color("border-color"),
-                margin: Inset::same(node.insets("margin")),
-                border_width: Inset::same(node.insets("border-width")),
-                padding: Inset::same(node.insets("padding")),
-            };
-            let mut offset = Point {
-                x: offset.x + bb.margin.left + bb.border_width.left + bb.padding.left,
-                y: offset.y + bb.margin.top + bb.border_width.top +  bb.padding.top
-            };
-            let width = width - bb.margin.left - bb.border_width.left - bb.padding.left - bb.padding.right - bb.border_width.right - bb.margin.right;
-            for elem in node.children.iter() {
-                offset.y = recurse_layout(&mut bb, elem, font, width, &offset);
-            }
-            offset.y += bb.margin.top + bb.border_width.top + bb.padding.top + bb.padding.bottom +bb.border_width.top + bb.margin.top;
-            bb.size.h = offset.y-bb.pos.y;
-            root.boxes.push(RenderBox::Block(bb));
-            return offset.y;
-        },
-        NodeType::Text(text) => {
-            let lines = layout_lines(font, &text, width);
-            let mut offset = Point { x: offset.x, y: offset.y};
-            for line in lines.iter() {
-                offset.y += 36.0;
-                root.boxes.push(RenderBox::Line(LineBox{
-                    pos: Point { x: offset.x, y: offset.y},
-                    text: line.to_string(),
-                    color: node.color("color"),
-                }));
-
-            }
-            return offset.y;
-        }
-    }
-}
-*/
-
-/*
-#[test]
-fn test_padding() {
-    let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-        .unwrap()
-        .load()
-        .unwrap();
-    let mut sm = StyleManager::new();
-
-    let mut div = Node {
-        node_type: NodeType::Element(ElementData{
-            tag_name: "div".to_string(),
-            attributes: Default::default()
-        }),
-        children: vec![]
-    };
-
-    let rbox = perform_layout(&div, &sm, &font, 200.0);
-    assert_eq!(rbox.size.w,200.0);
-    assert_eq!(rbox.background_color,BLUE);
-}
-*/
 fn layout_lines(font:&Font, text:&str, width:f32)-> Vec<String>{
     let mut len = 0.0;
     let mut line:String = String::new();
