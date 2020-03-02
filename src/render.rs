@@ -58,12 +58,29 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
     match root {
         RenderBox::Block(block) => {
             match &block.background_color {
-                Some(color) => fill_rect(dt, &block.rect, &render_color_to_source(color)),
+                Some(color) => {
+                    let r = Rect {
+                        x: block.rect.x - block.padding.left - block.border_width,
+                        y: block.rect.y - block.padding.top - block.border_width,
+                        width: block.rect.width + block.padding.left + block.padding.right + block.border_width*2.0,
+                        height: block.rect.height + block.padding.top + block.padding.bottom + block.border_width*2.0
+                    };
+                    fill_rect(dt, &r, &render_color_to_source(color))
+                },
                 _ => {}
             }
+
             if block.border_width > 0.0 {
                 match &block.border_color {
-                    Some(color) => stroke_rect(dt, &block.rect, &render_color_to_source(color), block.border_width),
+                    Some(color) => {
+                        let r = Rect {
+                            x: block.rect.x - block.padding.left - block.border_width,
+                            y: block.rect.y - block.padding.top - block.border_width,
+                            width: block.rect.width + block.padding.left + block.padding.right + block.border_width*2.0,
+                            height: block.rect.height + block.padding.top + block.padding.bottom + block.border_width*2.0
+                        };
+                        stroke_rect(dt, &r, &render_color_to_source(color), block.border_width)
+                    },
                     _ => {}
                 }
             }

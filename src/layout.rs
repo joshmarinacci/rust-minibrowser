@@ -93,7 +93,9 @@ pub enum RenderBox {
 #[derive(Debug)]
 pub struct RenderBlockBox {
     pub title: String,
-    pub(crate) rect:Rect,
+    pub rect:Rect,
+    pub margin:EdgeSizes,
+    pub padding:EdgeSizes,
     pub background_color: Option<Color>,
     pub border_color: Option<Color>,
     pub border_width: f32,
@@ -156,8 +158,9 @@ impl<'a> LayoutBox<'a> {
 
     fn get_style_node(&self) -> &'a StyledNode<'a> {
         match self.box_type {
-            BlockNode(node) | InlineNode(node) => node,
-            AnonymousBlock(node) => node
+            BlockNode(node)
+            | InlineNode(node)
+            | AnonymousBlock(node) => node
         }
     }
 
@@ -204,6 +207,8 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_height();
         return RenderBlockBox{
             rect:self.dimensions.content,
+            margin: self.dimensions.margin,
+            padding: self.dimensions.padding,
             children: children,
             title: self.debug_calculate_element_name(),
             background_color: self.get_style_node().color("background-color"),
@@ -334,6 +339,7 @@ impl<'a> LayoutBox<'a> {
         d.border.right = border_right.to_px();
         d.margin.left = margin_left.to_px();
         d.margin.right = margin_right.to_px();
+        //println!("final width is {} padding = {} margin: {}", d.content.width, d.padding.left, d.margin.left);
     }
 
     fn calculate_block_position(&mut self, containing_block: Dimensions) {

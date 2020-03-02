@@ -7,11 +7,14 @@ head {
 body {
     background-color: aqua;
     border-color: black;
-    border-width: 3px;
+    margin: 10px;
+    border-width: 10px;
+    padding: 10px;
 }
 div {
     display: block;
-    border-width: 3px;
+    border-width: 10px;
+    margin: 10px;
     padding: 10px;
     background-color: red;
     border-color: blue;
