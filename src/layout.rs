@@ -9,6 +9,8 @@ use crate::css::{load_stylesheet, Color};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
+use std::alloc::Layout;
+use crate::render::BLACK;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -111,6 +113,7 @@ pub struct RenderLineBox {
 pub struct RenderTextBox {
     pub(crate) rect:Rect,
     pub(crate) text:String,
+    pub color:Option<Color>,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
@@ -199,9 +202,6 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font);
         self.calculate_block_height();
-        // println!("name is {}", self.debug_calculate_element_name());
-        // println!("laying out block {:#?}", self.get_style_node().specified_values);
-        // println!("bg color is {:#?}", self.get_style_node().color("background-color"));
         return RenderBlockBox{
             rect:self.dimensions.content,
             children: children,
@@ -218,8 +218,8 @@ impl<'a> LayoutBox<'a> {
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
+        let color = BLACK;
         for child in &mut self.children {
-            // println!("checking child {:#?}", child.box_type);
             //calc child width
             let text = match child.box_type {
                 InlineNode(snode) => {
@@ -231,25 +231,17 @@ impl<'a> LayoutBox<'a> {
                 _ => "".to_string()
             };
             let trimmed = text.trim();
-            // println!("laying out text \"{}\"",trimmed);
             if trimmed.len() <= 0 {
-                // println!("empty text. skipping");
                 continue;
             }
-            // let line_width = text.len() as f32 *10.0;
-            // println!("   inline width {} vs {}", line_width, containing_block.content.width);
-            // if line_width > containing_block.content.width {
-            //     println!("overflow!")
-            // }
 
             let mut len = 0.0;
             let mut line:String = String::new();
-            // let mut lines:Vec<String> = Vec::new();
             let mut y = d.content.y;
             for word in trimmed.split_whitespace() {
                 let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
-                    lines.push(generate_line_box(d, y, line_height, len, line));
+                    lines.push(generate_line_box(d, y, line_height, len, line, &color));
                     len = 0.0;
                     line = String::new();
                     d.content.height += line_height;
@@ -259,7 +251,7 @@ impl<'a> LayoutBox<'a> {
                 line.push_str(word);
                 line.push_str(" ");
             }
-            lines.push(generate_line_box(d, y, line_height, len, line));
+            lines.push(generate_line_box(d, y, line_height, len, line, &color));
             d.content.height += line_height;
         }
         return RenderAnonymousBox {
@@ -381,7 +373,7 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String) -> RenderLineBox {
+fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String, color:&Color) -> RenderLineBox {
     RenderLineBox {
         rect: Rect {
             x: d.content.x + 1.0,
@@ -398,6 +390,7 @@ fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String
                     height: line_height-4.0,
                 },
                 text: line,
+                color: Some(color.clone())
             }]
     }
 }

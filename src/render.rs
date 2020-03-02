@@ -15,6 +15,7 @@ pub const RED:Color = Color { r:255, g:0, b:0, a:255 };
 #[allow(dead_code)]
 pub const BLUE:Color = Color { r:0, g:0, b:255, a:255 };
 pub const AQUA:Color = Color { r:0, g:255, b:255, a:255 };
+pub const YELLOW:Color = Color { r:255, g:255, b:0, a:255 };
 #[allow(dead_code)]
 pub const GREEN:Color = Color { r:0, g:255, b:0, a:255 };
 pub const PURPLE:Color = Color { r:255, g:0, b:255, a:255 };
@@ -87,7 +88,10 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
                     // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                     let trimmed = inline.text.trim();
                     if trimmed.len() > 0 {
-                        draw_text(dt, font, &inline.rect, &trimmed, &render_color_to_source(&BLACK));
+                        match &inline.color {
+                            Some(color) => draw_text(dt, font, &inline.rect, &trimmed, &render_color_to_source(color)),
+                            _ => {}
+                        }
                     }
                 }
             }
