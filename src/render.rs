@@ -89,6 +89,7 @@ fn render_color_to_source(c:&Color) -> Source {
 }
 
 pub fn draw_block_box(dt:&mut DrawTarget, bb:&LayoutBox, font:&Font) {
+    // println!("drawing a block node {} {}", bb.dimensions.content.width, bb.dimensions.content.height);
     fill_rect(dt,&bb.dimensions.content, &render_color_to_source(&BLUE));
     stroke_rect(dt,&bb.dimensions.content, &render_color_to_source(&GREEN), bb.dimensions.border.left);
 
@@ -96,7 +97,6 @@ pub fn draw_block_box(dt:&mut DrawTarget, bb:&LayoutBox, font:&Font) {
         match &child.box_type {
             BlockNode(node) => {
                 draw_block_box(dt, child,font);
-                // println!("drawing a block node")
             }
             InlineNode => {
                 println!("drawing an inline node")

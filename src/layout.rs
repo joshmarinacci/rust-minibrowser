@@ -145,10 +145,19 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_height();
     }
 
+    /// Calculate the width of a block-level non-replaced element in normal flow.
+    ///
+    /// http://www.w3.org/TR/CSS2/visudet.html#blockwidth
+    ///
+    /// Sets the horizontal margin/padding/border dimensions, and the `width`.
     fn calculate_block_width(&mut self, containing_block:Dimensions) {
         let style = self.get_style_node();
+
+        // 'width' has initial value 'auto'
         let auto = Keyword("auto".to_string());
         let mut width = style.value("width").unwrap_or(auto.clone());
+
+        // margin, border, and padding have initial value of 0
         let zero = Length(0.0, Px);
         let mut margin_left = style.lookup("margin-left","margin", &zero);
         let mut margin_right = style.lookup("margin-right","margin", &zero);
@@ -157,6 +166,7 @@ impl<'a> LayoutBox<'a> {
         let padding_left = style.lookup("padding-left","padding", &zero);
         let padding_right = style.lookup("padding-right","padding", &zero);
 
+        // If width is not auto and the total is wider than the container, treat auto margins as 0.
         let total = sum([&margin_left, &margin_right, &border_left, &border_right,
             &padding_left, &padding_right, &width].iter().map(|v| v.to_px()));
         if width != auto && total > containing_block.content.width {
@@ -168,6 +178,9 @@ impl<'a> LayoutBox<'a> {
             }
         }
 
+        // Adjust used values so that the above sum equals `containing_block.width`.
+        // Each arm of the `match` should increase the total width by exactly `underflow`,
+        // and afterward all values should be absolute lengths in px.
         let underflow = containing_block.content.width - total;
 
         match (width == auto, margin_left == auto, margin_right == auto) {
@@ -191,6 +204,15 @@ impl<'a> LayoutBox<'a> {
                 margin_right = Length(underflow / 2.0, Px);
             }
         }
+
+        let d = &mut self.dimensions;
+        d.content.width = width.to_px();
+        d.padding.left = padding_left.to_px();
+        d.padding.right = padding_right.to_px();
+        d.border.left = border_left.to_px();
+        d.border.right = border_right.to_px();
+        d.margin.left = margin_left.to_px();
+        d.margin.right = margin_right.to_px();
     }
 
     fn calculate_block_position(&mut self, containing_block: Dimensions) {

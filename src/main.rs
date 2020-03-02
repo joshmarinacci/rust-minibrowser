@@ -34,8 +34,8 @@ fn main() {
         h: size.1 as f32,
     };
 
-    let doc = load_doc("tests/test1.html");
-    let stylesheet = load_stylesheet("tests/foo.css");
+    let doc = load_doc("tests/simple.html");
+    let stylesheet = load_stylesheet("tests/default.css");
     let styled = style_tree(&doc,&stylesheet);
 
     let mut bbox = layout::build_layout_tree(&styled);
@@ -43,7 +43,7 @@ fn main() {
         content: Rect {
             x: 0.0,
             y: 0.0,
-            width: 200.0,
+            width: 235.0,
             height: 0.0,
         },
         padding: Default::default(),
