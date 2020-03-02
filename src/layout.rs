@@ -220,14 +220,10 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn calculate_block_height(&mut self) {
-        if let Some(Length(h,Px)) = self.get_style_node().value("height") {
-            println!("has height");
-        } else {
-            println!("block has no height");
-        }
         if let Some(Length(h, Px)) = self.get_style_node().value("height") {
             self.dimensions.content.height = h;
         }
+        println!("final block height is {}",self.dimensions.content.height)
     }
 
 }
@@ -268,8 +264,9 @@ fn calculate_word_length(font:&Font, text:&str) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let doc = load_doc("tests/test1.html");
-    let stylesheet = load_stylesheet("tests/foo.css");
+    let doc = load_doc("tests/simple.html");
+    let stylesheet = load_stylesheet("tests/default.css");
+    // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc,&stylesheet);
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
@@ -289,7 +286,6 @@ fn test_layout<'a>() {
         margin: Default::default()
     };
     root_box.layout(containing_block);
-    // let bnode = perform_layout(&snode, &font, 300 as f32);
     // println!("final bnode is {:#?}", root_box)
 }
 
