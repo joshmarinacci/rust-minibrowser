@@ -4,10 +4,15 @@
 head {
     display: none;
 }
+body {
+    background-color: aqua;
+    border-color: black;
+    border-width: 3px;
+}
 div {
     display: block;
-    /*height: 100px;*/
-    border-width: 1px;
+    border-width: 3px;
     padding: 10px;
     background-color: red;
+    border-color: blue;
 }

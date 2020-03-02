@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text};
 use crate::css::Value::{Keyword, ColorValue, Length};
-use crate::render::BLACK;
+use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA};
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -48,10 +48,21 @@ impl StyledNode<'_> {
         }
     }
 
-    pub fn color(&self, name: &str) -> Color {
+    pub fn color(&self, name: &str) -> Option<Color> {
         match self.value(name) {
-            Some(ColorValue(c)) => c,
-            _ => BLACK,
+            Some(ColorValue(c)) => Some(c),
+            Some(Keyword(name)) => {
+                return match name.as_str() {
+                    "blue" => Some(BLUE),
+                    "red" => Some(RED),
+                    "green" => Some(GREEN),
+                    "black" => Some(BLACK),
+                    "white" => Some(WHITE),
+                    "aqua" => Some(AQUA),
+                    _ => None,
+                }
+            }
+            _ => None,
         }
     }
     pub fn insets(&self, name: &str) -> f32 {

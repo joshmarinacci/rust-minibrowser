@@ -5,7 +5,7 @@ use font_kit::source::SystemSource;
 
 use crate::dom::{load_doc, NodeType};
 use crate::style::{StyledNode, style_tree, Display};
-use crate::css::load_stylesheet;
+use crate::css::{load_stylesheet, Color};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
@@ -92,6 +92,9 @@ pub enum RenderBox {
 pub struct RenderBlockBox {
     pub title: String,
     pub(crate) rect:Rect,
+    pub background_color: Option<Color>,
+    pub border_color: Option<Color>,
+    pub border_width: f32,
     pub children: Vec<RenderBox>,
 }
 #[derive(Debug)]
@@ -124,15 +127,15 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
     for child in &style_node.children {
         match child.display() {
             Display::Block => {
-                println!("block display for child {:#?}", child.node.node_type);
+                // println!("block display for child {:#?}", child.node.node_type);
                 root.children.push(build_layout_tree(&child))
             },
             Display::Inline => {
-                println!("inline display for child {:#?}", child.node.node_type);
+                // println!("inline display for child {:#?}", child.node.node_type);
                 root.get_inline_container().children.push(build_layout_tree(&child))
             },
             Display::None => {
-                println!("skipping display for child {:#?}", child.node.node_type);
+                // println!("skipping display for child {:#?}", child.node.node_type);
             },
         }
     }
@@ -196,10 +199,16 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font);
         self.calculate_block_height();
+        // println!("name is {}", self.debug_calculate_element_name());
+        // println!("laying out block {:#?}", self.get_style_node().specified_values);
+        // println!("bg color is {:#?}", self.get_style_node().color("background-color"));
         return RenderBlockBox{
             rect:self.dimensions.content,
             children: children,
-            title: self.debug_calculate_element_name()
+            title: self.debug_calculate_element_name(),
+            background_color: self.get_style_node().color("background-color"),
+            border_width: self.get_style_node().insets("border-width"),
+            border_color: self.get_style_node().color("border-color"),
         }
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
@@ -209,7 +218,7 @@ impl<'a> LayoutBox<'a> {
         d.content.y = containing_block.content.height + containing_block.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
         for child in &mut self.children {
-            println!("checking child {:#?}", child.box_type);
+            // println!("checking child {:#?}", child.box_type);
             //calc child width
             let text = match child.box_type {
                 InlineNode(snode) => {
@@ -221,9 +230,9 @@ impl<'a> LayoutBox<'a> {
                 _ => "".to_string()
             };
             let trimmed = text.trim();
-            println!("laying out text \"{}\"",trimmed);
+            // println!("laying out text \"{}\"",trimmed);
             if trimmed.len() <= 0 {
-                println!("empty text. skipping");
+                // println!("empty text. skipping");
                 continue;
             }
             // let line_width = text.len() as f32 *10.0;

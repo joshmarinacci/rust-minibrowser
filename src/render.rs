@@ -56,7 +56,17 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
-            // stroke_rect(dt, &block.rect, &render_color_to_source(&GREEN), 1 as f32);
+            match &block.background_color {
+                Some(color) => fill_rect(dt, &block.rect, &render_color_to_source(color)),
+                _ => {}
+            }
+            if block.border_width > 0.0 {
+                match &block.border_color {
+                    Some(color) => stroke_rect(dt, &block.rect, &render_color_to_source(color), block.border_width),
+                    _ => {}
+                }
+            }
+            // stroke_rect(dt, &block.rect, &render_color_to_source(&BLACK), 1 as f32);
             for ch in block.children.iter() {
                 draw_render_box(&ch,dt,font);
             }
@@ -69,11 +79,11 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
             if block.children.len() <= 0 {
                 return;
             }
-            stroke_rect(dt, &block.rect, &render_color_to_source(&RED), 1 as f32);
+            // stroke_rect(dt, &block.rect, &render_color_to_source(&RED), 1 as f32);
             for line in block.children.iter() {
-                stroke_rect(dt, &line.rect, &render_color_to_source(&AQUA), 1 as f32);
+                // stroke_rect(dt, &line.rect, &render_color_to_source(&AQUA), 1 as f32);
                 for inline in line.children.iter() {
-                    stroke_rect(dt, &inline.rect, &render_color_to_source(&PURPLE), 1 as f32);
+                    // stroke_rect(dt, &inline.rect, &render_color_to_source(&PURPLE), 1 as f32);
                     // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                     let trimmed = inline.text.trim();
                     if trimmed.len() > 0 {
