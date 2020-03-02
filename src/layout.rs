@@ -174,10 +174,10 @@ impl<'a> LayoutBox<'a> {
 
     pub fn layout(&mut self, containing_block: Dimensions, font:&Font) -> RenderBox {
         match self.box_type {
-            BlockNode(node) => {
+            BlockNode(_node) => {
                 RenderBox::Block(self.layout_block(containing_block, font))
             },
-            InlineNode(node) => {
+            InlineNode(_node) => {
                 RenderBox::Inline()
             },
             AnonymousBlock => {
@@ -214,6 +214,7 @@ impl<'a> LayoutBox<'a> {
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
         let d = &mut self.dimensions;
         let line_height = 20.0;
+        d.content.x = containing_block.content.x;
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
@@ -248,24 +249,7 @@ impl<'a> LayoutBox<'a> {
             for word in trimmed.split_whitespace() {
                 let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
-                    lines.push(RenderLineBox{
-                        rect: Rect {
-                            x: 1.0,
-                            y: y+ 1.0,
-                            width: containing_block.content.width-2.0,
-                            height: line_height- 2.0
-                        },
-                        children: vec![
-                            RenderTextBox {
-                                rect: Rect {
-                                    x: 0.0,
-                                    y: y+2.0,
-                                    width: len,
-                                    height: line_height-4.0,
-                                },
-                                text: line,
-                            }]
-                    });
+                    lines.push(generate_line_box(d, y, line_height, len, line));
                     len = 0.0;
                     line = String::new();
                     d.content.height += line_height;
@@ -275,24 +259,7 @@ impl<'a> LayoutBox<'a> {
                 line.push_str(word);
                 line.push_str(" ");
             }
-            lines.push(RenderLineBox{
-                rect: Rect {
-                    x: 1.0,
-                    y: y+ 1.0,
-                    width: containing_block.content.width-2.0,
-                    height: line_height- 2.0
-                },
-                children: vec![
-                    RenderTextBox {
-                        rect: Rect {
-                            x: 0.0,
-                            y: y+2.0,
-                            width: len,
-                            height: line_height-4.0,
-                        },
-                        text: line,
-                    }]
-            });
+            lines.push(generate_line_box(d, y, line_height, len, line));
             d.content.height += line_height;
         }
         return RenderAnonymousBox {
@@ -305,6 +272,7 @@ impl<'a> LayoutBox<'a> {
             children:lines,
         }
     }
+
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
     ///
@@ -397,7 +365,7 @@ impl<'a> LayoutBox<'a> {
     fn layout_block_children(&mut self, font:&Font) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
-        for mut child in self.children.iter_mut() {
+        for child in self.children.iter_mut() {
             let bx = child.layout(*d,font);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
             children.push(bx)
@@ -411,6 +379,27 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+}
+
+fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String) -> RenderLineBox {
+    RenderLineBox {
+        rect: Rect {
+            x: d.content.x + 1.0,
+            y: y + 1.0,
+            width: d.content.width-2.0,
+            height: line_height- 2.0
+        },
+        children: vec![
+            RenderTextBox {
+                rect: Rect {
+                    x: d.content.x + 2.0,
+                    y: y+2.0,
+                    width: len,
+                    height: line_height-4.0,
+                },
+                text: line,
+            }]
+    }
 }
 
 
@@ -455,7 +444,7 @@ fn test_layout<'a>() {
 }
 fn expand_tab(tab:i32) -> String {
     let mut string = String::new();
-    for i in 0..tab {
+    for _i in 0..tab {
         string.push(' ')
     }
     return string;
