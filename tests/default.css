@@ -1,6 +1,9 @@
 * {
     display: block;
 }
+head {
+    display: none;
+}
 div {
     display: block;
     height: 100px;

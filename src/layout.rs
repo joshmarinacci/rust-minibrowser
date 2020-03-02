@@ -4,7 +4,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use crate::dom::{load_doc};
-use crate::style::{StyledNode, style_tree};
+use crate::style::{StyledNode, style_tree, Display};
 use crate::css::load_stylesheet;
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
@@ -71,30 +71,41 @@ pub enum BoxType<'a> {
     AnonymousBlock,
 }
 
-#[derive(Debug)]
-pub enum Display {
-    Block,
-    Inline,
-    None,
-}
+/*
+block contains blocks
+block contains anonymous which contains inlines
+
+during layout phase
+block_layout_children should loop through the children
+if all block children, then do normal block routines
+if all inline children, then do normal inline routines
+
+*/
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
+    // println!("build_layout_tree {:#?}", style_node.node.node_type);
+    // println!("styles {:#?}", style_node.specified_values);
+    // println!("display is {:#?}", style_node.display());
     let mut root = LayoutBox::new(match style_node.display() {
-        Block => BlockNode(style_node),
-        Inline => InlineNode(style_node),
-        DisplayNone => panic!("Root node has display none.")
+        Display::Block => BlockNode(style_node),
+        Display::Inline => InlineNode(style_node),
+        Display::None => panic!("Root node has display none.")
     });
 
 
     for child in &style_node.children {
         match child.display() {
-            Block => {
+            Display::Block => {
+                println!("block display for child {:#?}", child.node.node_type);
                 root.children.push(build_layout_tree(&child))
             },
-            Inline => {
+            Display::Inline => {
+                println!("inline display for child {:#?}", child.node.node_type);
                 root.get_inline_container().children.push(build_layout_tree(&child))
             },
-            DisplayNone => {},
+            Display::None => {
+                println!("skipping display for child {:#?}", child.node.node_type);
+            },
         }
     }
     return root;
@@ -131,18 +142,31 @@ impl<'a> LayoutBox<'a> {
     }
 
     pub fn layout(&mut self, containing_block: Dimensions) {
+        // println!("     layout {:#?}",self);
         match self.box_type {
-            BlockNode(_) => self.layout_block(containing_block),
-            InlineNode(_) => {},
-            AnonymousBlock => {},
+            BlockNode(node) => {
+                println!("doing block layout for {:#?}", node.node.node_type);
+                // println!("doing layout for a block {:#?}", self.box_type);
+                self.layout_block(containing_block)
+            },
+            InlineNode(node) => {
+                println!("doing layout for an inline node {:#?}", node.node.node_type);
+            },
+            AnonymousBlock => {
+                println!("doing layout for anonymous");
+                self.layout_anonymous(containing_block)
+            },
         }
     }
     fn layout_block(&mut self, containing_block: Dimensions) {
-        //println!("laying out a block. container: {:#?} ", self.box_type);
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
         self.layout_block_children();
         self.calculate_block_height();
+        // println!("final dimensions for {:#?}", self.dimensions.content)
+    }
+    fn layout_anonymous(&mut self, containing_block:Dimensions) {
+        self.layout_block_children();
     }
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
@@ -245,7 +269,6 @@ impl<'a> LayoutBox<'a> {
         if let Some(Length(h, Px)) = self.get_style_node().value("height") {
             self.dimensions.content.height = h;
         }
-        println!("final block height is {}",self.dimensions.content.height)
     }
 
 }
@@ -295,6 +318,7 @@ fn test_layout<'a>() {
         .unwrap()
         .load()
         .unwrap();
+    println!(" ======== build layout boxes ========");
     let mut root_box = build_layout_tree(&snode);
     let containing_block = Dimensions {
         content: Rect {
@@ -307,6 +331,8 @@ fn test_layout<'a>() {
         border: Default::default(),
         margin: Default::default()
     };
+    //println!("roob box is {:#?}",root_box);
+    println!(" ======== layout phase ========");
     root_box.layout(containing_block);
     // println!("final bnode is {:#?}", root_box)
 }

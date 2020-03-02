@@ -5,10 +5,16 @@ use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text};
 use crate::css::Value::{Keyword, ColorValue, Length};
-use crate::layout::Display;
 use crate::render::BLACK;
 
 type PropertyMap = HashMap<String, Value>;
+
+#[derive(Debug)]
+pub enum Display {
+    Block,
+    Inline,
+    None,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct StyledNode<'a> {
@@ -26,6 +32,12 @@ impl StyledNode<'_> {
             .unwrap_or_else(||default.clone()))
     }
     pub fn display(&self) -> Display {
+        match self.node.node_type {
+            Text(_) => {
+                return Display::Inline;
+            }
+            _ => {}
+        }
         match self.value("display") {
             Some(Keyword(s)) => match &*s {
                 "block" => Display::Block,
