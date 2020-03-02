@@ -429,7 +429,7 @@ fn test_layout<'a>() {
     };
     //println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(containing_block);
+    let render_box = root_box.layout(containing_block, &font);
     println!("final render box is {:#?}", render_box);
     dump_layout(&root_box,0);
 }
