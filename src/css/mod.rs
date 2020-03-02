@@ -99,11 +99,16 @@ fn v2s(v:&Vec<u8>) -> String {
     str::from_utf8(v).unwrap().to_string()
 }
 
+pub fn star(term:u8) -> bool {
+    term == b'*'
+}
+
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
         = space()
         * sym(b'.').opt()
-        + is_a(alpha).repeat(1..)
+        + (is_a(star).repeat(1..2)
+        | is_a(alpha).repeat(1..))
     ;
     r.map(|(class_prefix,name)| {
         if class_prefix.is_none() {
@@ -134,6 +139,11 @@ fn test_class_selector() {
     println!("{:?}", selector().parse(input));
 }
 
+#[test]
+fn test_all_selector() {
+    let input = br#"*"#;
+    println!("{:?}", selector().parse(input));
+}
 
 fn identifier<'a>() -> Parser<'a, u8, String> {
     let r
