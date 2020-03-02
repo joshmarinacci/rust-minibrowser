@@ -56,7 +56,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
-            stroke_rect(dt, &block.rect, &render_color_to_source(&GREEN), 1 as f32);
+            // stroke_rect(dt, &block.rect, &render_color_to_source(&GREEN), 1 as f32);
             for ch in block.children.iter() {
                 draw_render_box(&ch,dt,font);
             }
@@ -65,6 +65,10 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
 
         },
         RenderBox::Anonymous(block) => {
+            //don't draw anonymous blocks that are empty
+            if block.children.len() <= 0 {
+                return;
+            }
             stroke_rect(dt, &block.rect, &render_color_to_source(&RED), 1 as f32);
             for line in block.children.iter() {
                 stroke_rect(dt, &line.rect, &render_color_to_source(&AQUA), 1 as f32);
@@ -77,30 +81,6 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
                     }
                 }
             }
-        }
-    }
-}
-pub fn draw_block_box(dt:&mut DrawTarget, bb:&LayoutBox, font:&Font) {
-    // println!("drawing a block node {} {}", bb.dimensions.content.width, bb.dimensions.content.height);
-    fill_rect(dt,&bb.dimensions.content, &render_color_to_source(&BLUE));
-    stroke_rect(dt,&bb.dimensions.content, &render_color_to_source(&GREEN), bb.dimensions.border.left);
-
-    for child in bb.children.iter() {
-        match &child.box_type {
-            BlockNode(node) => {
-                draw_block_box(dt, child,font);
-            }
-            InlineNode => {
-                //println!("drawing an inline node")
-                // draw_inline
-            }
-            AnonymousBlock => {
-                println!("doing an anonymous block")
-            }
-
-            // RenderBox::Line(text) => {
-            //     draw_text(dt, &font, &text.pos, &text.text, &text.color);
-            // }
         }
     }
 }

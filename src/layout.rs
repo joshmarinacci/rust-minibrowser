@@ -196,36 +196,69 @@ impl<'a> LayoutBox<'a> {
         let line_height = 20.0;
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
-        let mut lines = vec![];
+        let mut lines:Vec<RenderLineBox> = vec![];
         for child in &mut self.children {
-            println!("   checking child {:#?}", child.box_type);
+            println!("checking child {:#?}", child.box_type);
             //calc child width
-            let line_width:f32 = match child.box_type {
+            let text = match child.box_type {
                 InlineNode(snode) => {
                     match &snode.node.node_type {
-                        NodeType::Text(string) => string.len() as f32 * 10.0,
-                        _ => 0.0
+                        NodeType::Text(string) => string.clone(),
+                        _ => "".to_string()
                     }
                 },
-                _ => 0.0
+                _ => "".to_string()
             };
+            let trimmed = text.trim();
+            println!("laying out text \"{}\"",trimmed);
+            if trimmed.len() <= 0 {
+                println!("empty text. skipping");
+                continue;
+            }
+            let line_width = text.len() as f32 *10.0;
             println!("   inline width {} vs {}", line_width, containing_block.content.width);
             if line_width > containing_block.content.width {
                 println!("overflow!")
             }
-            let child_text = match child.box_type {
-                InlineNode(snode) => {
-                    match &snode.node.node_type {
-                        NodeType::Text(text) => text.to_string(),
-                        _ => " X ".to_string(),
-                    }
-                },
-                _ => "non-inline".to_string(),
-            };
-            lines.push(RenderLineBox {
+
+            let mut len = 0.0;
+            let mut line:String = String::new();
+            // let mut lines:Vec<String> = Vec::new();
+            let mut y = d.content.y;
+            for word in trimmed.split_whitespace() {
+                let wlen:f32 = calculate_word_length(word);
+                if len + wlen > containing_block.content.width {
+                    lines.push(RenderLineBox{
+                        rect: Rect {
+                            x: 1.0,
+                            y: y+ 1.0,
+                            width: containing_block.content.width-2.0,
+                            height: line_height- 2.0
+                        },
+                        children: vec![
+                            RenderTextBox {
+                                rect: Rect {
+                                    x: 0.0,
+                                    y: y+2.0,
+                                    width: line_width,
+                                    height: line_height-4.0,
+                                },
+                                text: line,
+                            }]
+                    });
+                    len = 0.0;
+                    line = String::new();
+                    d.content.height += line_height;
+                    y += line_height;
+                }
+                len += wlen;
+                line.push_str(word);
+                line.push_str(" ");
+            }
+            lines.push(RenderLineBox{
                 rect: Rect {
                     x: 1.0,
-                    y: d.content.y+ 1.0,
+                    y: y+ 1.0,
                     width: containing_block.content.width-2.0,
                     height: line_height- 2.0
                 },
@@ -233,17 +266,22 @@ impl<'a> LayoutBox<'a> {
                     RenderTextBox {
                         rect: Rect {
                             x: 0.0,
-                            y: d.content.y+2.0,
+                            y: y+2.0,
                             width: line_width,
                             height: line_height-4.0,
                         },
-                        text: child_text.to_string(),
+                        text: line,
                     }]
-            })
+            });
+            d.content.height += line_height;
         }
-        d.content.height = line_height;
         return RenderAnonymousBox {
-            rect: d.content,
+            rect: Rect {
+                x: d.content.x+2.0,
+                y: d.content.y+2.0,
+                width: d.content.width-4.0,
+                height: d.content.height-4.0,
+            },
             children:lines,
         }
     }
@@ -355,38 +393,17 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn layout_lines(font:&Font, text:&str, width:f32)-> Vec<String>{
-    let mut len = 0.0;
-    let mut line:String = String::new();
-    let mut lines:Vec<String> = Vec::new();
-    for word in text.split_whitespace() {
-        let wlen:f32 = calculate_word_length(font, word)/60.0;
-        if len + wlen > width as f32 {
-            lines.push(line);
-            len = 0.0;
-            line = String::new();
-        }
-        len += wlen;
-        line.push_str(word);
-        line.push_str(" ");
-    }
 
-    lines.push(line);
-
-    for line in lines.iter() {
-        println!("line is {}",line);
-    }
-    return lines;
-}
-
-
-fn calculate_word_length(font:&Font, text:&str) -> f32 {
+fn calculate_word_length(text:&str) -> f32 {
+    /*
     let mut sum = 0.0;
     for ch in text.chars() {
         let gid = font.glyph_for_char(ch).unwrap();
         sum += font.advance(gid).unwrap().x;
     }
     return sum;
+    */
+    text.len() as f32 *10.0
 }
 
 #[test]
