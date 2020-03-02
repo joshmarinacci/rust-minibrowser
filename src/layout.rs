@@ -82,6 +82,33 @@ if all inline children, then do normal inline routines
 
 */
 
+#[derive(Debug)]
+pub enum RenderBox {
+    Block(RenderBlockBox),
+    Anonymous(RenderAnonymousBox),
+    Inline(),
+}
+#[derive(Debug)]
+pub struct RenderBlockBox {
+    pub(crate) rect:Rect,
+    pub children: Vec<RenderBox>,
+}
+#[derive(Debug)]
+pub struct RenderAnonymousBox {
+    pub(crate) rect:Rect,
+    pub children: Vec<RenderLineBox>,
+}
+#[derive(Debug)]
+pub struct RenderLineBox {
+    pub(crate) rect:Rect,
+    pub(crate) children: Vec<RenderTextBox>,
+}
+#[derive(Debug)]
+pub struct RenderTextBox {
+    pub(crate) rect:Rect,
+    pub(crate) text:String,
+}
+
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
     // println!("build_layout_tree {:#?}", style_node.node.node_type);
     // println!("styles {:#?}", style_node.specified_values);
@@ -141,60 +168,84 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing_block: Dimensions) {
-        // println!("     layout {:#?}",self);
+    pub fn layout(&mut self, containing_block: Dimensions) -> RenderBox {
         match self.box_type {
             BlockNode(node) => {
-                // println!("doing block layout for {:#?}", node.node.node_type);
-                // println!("doing layout for a block {:#?}", self.box_type);
-                self.layout_block(containing_block)
+                RenderBox::Block(self.layout_block(containing_block))
             },
             InlineNode(node) => {
-                println!("doing layout for an inline node {:#?}", node.node.node_type);
+                RenderBox::Inline()
             },
             AnonymousBlock => {
-                println!("doing layout for anonymous");
-                self.layout_anonymous(containing_block)
+                RenderBox::Anonymous(self.layout_anonymous(containing_block))
             },
         }
     }
-    fn layout_block(&mut self, containing_block: Dimensions) {
+    fn layout_block(&mut self, containing_block: Dimensions) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
-        self.layout_block_children();
+        let children:Vec<RenderBox> = self.layout_block_children();
         self.calculate_block_height();
-        // println!("final dimensions for {:#?}", self.dimensions.content)
+        return RenderBlockBox{
+            rect:self.dimensions.content,
+            children: children,
+        }
     }
-    fn layout_anonymous(&mut self, containing_block:Dimensions) {
+    fn layout_anonymous(&mut self, containing_block:Dimensions) -> RenderAnonymousBox {
         let d = &mut self.dimensions;
-        // println!("   anonymous dims {:#?}",self.dimensions);
         let line_height = 20.0;
-        let char_width = 20.0;
         d.content.width = containing_block.content.width;
+        d.content.y = containing_block.content.height + containing_block.content.y;
+        let mut lines = vec![];
         for child in &mut self.children {
             println!("   checking child {:#?}", child.box_type);
             //calc child width
-            let line_width = match child.box_type {
+            let line_width:f32 = match child.box_type {
                 InlineNode(snode) => {
-                    println!("   calculating width of inline node");
-                    50.0
+                    match &snode.node.node_type {
+                        NodeType::Text(string) => string.len() as f32 * 10.0,
+                        _ => 0.0
+                    }
                 },
-                _ => {
-                    println!("   not an inline node");
-                    0.0
-                }
+                _ => 0.0
             };
             println!("   inline width {} vs {}", line_width, containing_block.content.width);
             if line_width > containing_block.content.width {
                 println!("overflow!")
             }
-            //if child width greater than containing block
-            //wrap
-            // child.layout(*d);
-            // println!("   final child width {}",child.dimensions.content.width);
-            // d.content.height = d.content.height + child.dimensions.margin_box().height;
+            let child_text = match child.box_type {
+                InlineNode(snode) => {
+                    match &snode.node.node_type {
+                        NodeType::Text(text) => text.to_string(),
+                        _ => " X ".to_string(),
+                    }
+                },
+                _ => "non-inline".to_string(),
+            };
+            lines.push(RenderLineBox {
+                rect: Rect {
+                    x: 1.0,
+                    y: d.content.y+ 1.0,
+                    width: containing_block.content.width-2.0,
+                    height: line_height- 2.0
+                },
+                children: vec![
+                    RenderTextBox {
+                        rect: Rect {
+                            x: 0.0,
+                            y: d.content.y+2.0,
+                            width: line_width,
+                            height: line_height-4.0,
+                        },
+                        text: child_text.to_string(),
+                    }]
+            })
         }
         d.content.height = line_height;
+        return RenderAnonymousBox {
+            rect: d.content,
+            children:lines,
+        }
     }
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
@@ -285,15 +336,15 @@ impl<'a> LayoutBox<'a> {
             d.margin.top + d.border.top + d.padding.top;
     }
 
-    fn layout_block_children(&mut self) {
+    fn layout_block_children(&mut self) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
-        for child in &mut self.children {
-            println!("   checking child");
-            child.layout(*d);
-            println!("   final child width {}",child.dimensions.content.width);
-            println!("   final child height {}",child.dimensions.content.height);
+        let mut children:Vec<RenderBox> = vec![];
+        for mut child in self.children.iter_mut() {
+            let bx = child.layout(*d);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
-        }
+            children.push(bx)
+        };
+        return children;
     }
 
     fn calculate_block_height(&mut self) {
@@ -364,8 +415,8 @@ fn test_layout<'a>() {
     };
     //println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    root_box.layout(containing_block);
-    // println!("final bnode is {:#?}", root_box)
+    let render_box = root_box.layout(containing_block);
+    println!("final render box is {:#?}", render_box);
     dump_layout(&root_box,0);
 }
 fn expand_tab(tab:i32) -> String {
