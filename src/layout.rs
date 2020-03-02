@@ -10,7 +10,7 @@ use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use std::alloc::Layout;
-use crate::render::BLACK;
+use crate::render::{BLACK, RED};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -70,7 +70,7 @@ pub struct LayoutBox<'a> {
 pub enum BoxType<'a> {
     BlockNode(&'a StyledNode<'a>),
     InlineNode(&'a StyledNode<'a>),
-    AnonymousBlock,
+    AnonymousBlock(&'a StyledNode<'a>),
 }
 
 /*
@@ -157,18 +157,18 @@ impl<'a> LayoutBox<'a> {
     fn get_style_node(&self) -> &'a StyledNode<'a> {
         match self.box_type {
             BlockNode(node) | InlineNode(node) => node,
-            AnonymousBlock => panic!("anonymous block box has no style node")
+            AnonymousBlock(node) => node
         }
     }
 
     fn get_inline_container(&mut self) -> &mut LayoutBox<'a> {
         match self.box_type {
-            InlineNode(_) | AnonymousBlock => self,
-            BlockNode(_) => {
+            InlineNode(_) | AnonymousBlock(_) => self,
+            BlockNode(node) => {
                 // if last child is anonymous block, keep using it
                 match self.children.last() {
-                    Some(&LayoutBox { box_type: AnonymousBlock, ..}) => {},
-                    _ => self.children.push(LayoutBox::new(AnonymousBlock)),
+                    Some(&LayoutBox { box_type: AnonymousBlock(node), ..}) => {},
+                    _ => self.children.push(LayoutBox::new(AnonymousBlock(node))),
                 }
                 self.children.last_mut().unwrap()
             }
@@ -183,7 +183,7 @@ impl<'a> LayoutBox<'a> {
             InlineNode(_node) => {
                 RenderBox::Inline()
             },
-            AnonymousBlock => {
+            AnonymousBlock(_node) => {
                 RenderBox::Anonymous(self.layout_anonymous(containing_block, font))
             },
         }
@@ -212,13 +212,13 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
+        let color = self.get_style_node().lookup_color("color", &BLACK);
         let d = &mut self.dimensions;
         let line_height = 20.0;
         d.content.x = containing_block.content.x;
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
-        let color = BLACK;
         for child in &mut self.children {
             //calc child width
             let text = match child.box_type {
@@ -433,7 +433,7 @@ fn test_layout<'a>() {
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(containing_block, &font);
     println!("final render box is {:#?}", render_box);
-    // dump_layout(&root_box,0);
+    dump_layout(&root_box,0);
 }
 fn expand_tab(tab:i32) -> String {
     let mut string = String::new();
@@ -458,7 +458,7 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
             };
             format!("inline {}",st)
         },
-        AnonymousBlock => "anonymous".to_string(),
+        AnonymousBlock(snode) => "anonymous".to_string(),
     };
     println!("{}layout {}", expand_tab(tab), bt);
     for child in root.children.iter() {

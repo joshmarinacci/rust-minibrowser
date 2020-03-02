@@ -30,6 +30,12 @@ impl StyledNode<'_> {
         self.value(name).unwrap_or_else(||self.value(fallback_name)
             .unwrap_or_else(||default.clone()))
     }
+    pub fn lookup_color(&self, name:&str, default: &Color) -> Color {
+        match self.color(name) {
+            Some(color) => color,
+            _ => default.clone(),
+        }
+    }
     pub fn display(&self) -> Display {
         match self.node.node_type {
             Text(_) => {
