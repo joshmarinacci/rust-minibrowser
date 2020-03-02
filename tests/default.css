@@ -1,4 +1,8 @@
+* {
+    display: block;
+}
 div {
+    display: block;
     height: 100px;
     border-width: 1px;
 }

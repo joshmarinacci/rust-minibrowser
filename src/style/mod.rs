@@ -59,8 +59,10 @@ fn matches(elem: &ElementData, selector: &Selector) -> bool {
 
 fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> bool {
     //return false for mis-matches
-    if selector.tag_name.iter().any(|name| elem.tag_name != *name) {
-        return false;
+    if selector.tag_name.iter().any(|name|  "*" != *name) {
+        if selector.tag_name.iter().any(|name| elem.tag_name != *name) {
+            return false;
+        }
     }
     if selector.id.iter().any(|id| elem.id() != Some(id)) {
         return false;
