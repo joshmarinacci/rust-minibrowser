@@ -1,11 +1,10 @@
 use crate::dom::{Node, ElementData, load_doc};
 use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, load_stylesheet};
 use std::collections::HashMap;
-//use serde_json::Value;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text};
 use crate::css::Value::{Keyword, ColorValue, Length};
-use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA};
+use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -18,9 +17,9 @@ pub enum Display {
 
 #[derive(Debug, PartialEq)]
 pub struct StyledNode<'a> {
-    pub(crate) node: &'a Node,
+    pub node: &'a Node,
     pub specified_values: PropertyMap,
-    pub(crate) children: Vec<StyledNode<'a>>,
+    pub children: Vec<StyledNode<'a>>,
 }
 
 impl StyledNode<'_> {
@@ -59,6 +58,7 @@ impl StyledNode<'_> {
                     "black" => Some(BLACK),
                     "white" => Some(WHITE),
                     "aqua" => Some(AQUA),
+                    "yellow" => Some(YELLOW),
                     _ => None,
                 }
             }
