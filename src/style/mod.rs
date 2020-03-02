@@ -36,6 +36,14 @@ impl StyledNode<'_> {
             _ => default.clone(),
         }
     }
+    pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
+        match self.value(name) {
+            Some(Length(v,unit)) => {
+                return v;
+            },
+            _ => default,
+        }
+    }
     pub fn display(&self) -> Display {
         match self.node.node_type {
             Text(_) => {

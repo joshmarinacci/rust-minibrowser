@@ -42,8 +42,8 @@ pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
     dt.stroke(&path, color, &default_stroke_style,  &DrawOptions::new());
 }
 
-fn draw_text(dt: &mut DrawTarget, font:&Font, rect:&Rect, text:&str, c:&Source) {
-    dt.draw_text(font, 18.,
+fn draw_text(dt: &mut DrawTarget, font:&Font, rect:&Rect, text:&str, c:&Source, font_size:f32) {
+    dt.draw_text(font, font_size,
                  text,
                  raqote::Point::new(rect.x as f32, rect.y+rect.height as f32),
                  &c, &DrawOptions::new(),);
@@ -106,7 +106,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
                     let trimmed = inline.text.trim();
                     if trimmed.len() > 0 {
                         match &inline.color {
-                            Some(color) => draw_text(dt, font, &inline.rect, &trimmed, &render_color_to_source(color)),
+                            Some(color) => draw_text(dt, font, &inline.rect, &trimmed, &render_color_to_source(color), inline.font_size),
                             _ => {}
                         }
                     }

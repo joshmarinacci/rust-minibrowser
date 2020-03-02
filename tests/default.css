@@ -1,15 +1,20 @@
 * {
     display: block;
+    font-size: 18px;
 }
 head {
     display: none;
 }
 body {
+    font-size: 18px;
     background-color: aqua;
     border-color: black;
     margin: 10px;
     border-width: 10px;
     padding: 10px;
+}
+h1 {
+    font-size: 36px;
 }
 div {
     display: block;

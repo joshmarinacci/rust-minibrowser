@@ -5,7 +5,7 @@ use font_kit::source::SystemSource;
 
 use crate::dom::{load_doc, NodeType};
 use crate::style::{StyledNode, style_tree, Display};
-use crate::css::{load_stylesheet, Color};
+use crate::css::{load_stylesheet, Color, Unit, Value};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
@@ -116,6 +116,7 @@ pub struct RenderTextBox {
     pub(crate) rect:Rect,
     pub(crate) text:String,
     pub color:Option<Color>,
+    pub font_size:f32,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
@@ -218,8 +219,9 @@ impl<'a> LayoutBox<'a> {
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
+        let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         let d = &mut self.dimensions;
-        let line_height = 20.0;
+        let line_height = font_size*1.1;
         d.content.x = containing_block.content.x;
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
@@ -246,7 +248,7 @@ impl<'a> LayoutBox<'a> {
             for word in trimmed.split_whitespace() {
                 let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
-                    lines.push(generate_line_box(d, y, line_height, len, line, &color));
+                    lines.push(generate_line_box(d, y, line_height, font_size,len, line, &color));
                     len = 0.0;
                     line = String::new();
                     d.content.height += line_height;
@@ -256,7 +258,7 @@ impl<'a> LayoutBox<'a> {
                 line.push_str(word);
                 line.push_str(" ");
             }
-            lines.push(generate_line_box(d, y, line_height, len, line, &color));
+            lines.push(generate_line_box(d, y, line_height, font_size, len, line, &color));
             d.content.height += line_height;
         }
         return RenderAnonymousBox {
@@ -379,7 +381,7 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String, color:&Color) -> RenderLineBox {
+fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, font_size:f32, width:f32, text:String, color:&Color) -> RenderLineBox {
     RenderLineBox {
         rect: Rect {
             x: d.content.x + 1.0,
@@ -392,11 +394,12 @@ fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, len:f32, line:String
                 rect: Rect {
                     x: d.content.x + 2.0,
                     y: y+2.0,
-                    width: len,
+                    width,
                     height: line_height-4.0,
                 },
-                text: line,
-                color: Some(color.clone())
+                text,
+                color: Some(color.clone()),
+                font_size,
             }]
     }
 }

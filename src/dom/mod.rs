@@ -6,6 +6,7 @@ use std::str::{self};
 
 use std::fs::File;
 use std::io::Read;
+use self::pom::char_class::alphanum;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -53,6 +54,30 @@ fn v2s(v:&Vec<u8>) -> String {
     str::from_utf8(v).unwrap().to_string()
 }
 
+fn alphanum_string<'a>() -> Parser<'a, u8, String> {
+    let r = is_a(alphanum).repeat(1..);
+    r.map(|str| String::from_utf8(str).unwrap())
+}
+
+fn element_name<'a>() -> Parser<'a,u8,String> {
+    return alphanum_string()
+}
+#[test]
+fn test_element_name() {
+    let input = br#"div"#;
+    let result = element_name().parse(input);
+    println!("{:?}", result);
+    assert_eq!(String::from("div"), result.unwrap());
+}
+
+#[test]
+fn test_element_name_with_number() {
+    let input = br#"h3"#;
+    let result = element_name().parse(input);
+    println!("{:?}", result);
+    assert_eq!(String::from("h3"), result.unwrap());
+}
+
 fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
     let p
         = space()
@@ -89,15 +114,16 @@ fn test_several_attributes() {
     println!("{:#?}", attributes().parse(input));
 }
 
+
 fn open_element<'a>() -> Parser<'a, u8, (String, AttrMap)> {
     let p
         = space()
         + sym(b'<')
-        + is_a(alpha).repeat(1..)
+        + alphanum_string()
         + attributes()
         - sym(b'>');
     p.map(|((_,name),atts)| {
-        (v2s(&name), atts)
+        (name, atts)
     })
 }
 fn close_element<'a>() -> Parser<'a, u8, String> {
@@ -105,9 +131,9 @@ fn close_element<'a>() -> Parser<'a, u8, String> {
         = space()
         - sym(b'<')
         - sym(b'/')
-        + is_a(alpha).repeat(1..)
+        + alphanum_string()
         - sym(b'>');
-    p.map(|(_,name)| v2s(&name))
+    p.map(|(_,name)| name)
 }
 fn text_content<'a>() -> Parser<'a, u8, Node> {
     none_of(b"<").repeat(1..).map(|content|Node{
@@ -196,6 +222,18 @@ fn test_multi_children() {
 }
 
 
+#[test]
+fn test_multi_children_h3() {
+    let input = br#"
+     <html>
+       <body>
+        <div>part 1</div>
+        <h3>part 2</h3>
+       </body>
+     </html>
+    "#;
+    println!("{:#?}", element().parse(input));
+}
 #[test]
 fn test_file_load() {
     let mut file = File::open("tests/foo.html").unwrap();

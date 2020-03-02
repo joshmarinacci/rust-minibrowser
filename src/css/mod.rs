@@ -103,46 +103,99 @@ pub fn star(term:u8) -> bool {
     term == b'*'
 }
 
+fn alpha_string<'a>() -> Parser<'a, u8, String> {
+    let r = is_a(alpha).repeat(1..);
+    r.map(|str| String::from_utf8(str).unwrap())
+}
+fn alphanum_string<'a>() -> Parser<'a, u8, String> {
+    let r = is_a(alphanum).repeat(1..);
+    r.map(|str| String::from_utf8(str).unwrap())
+}
+fn star_string<'a>() -> Parser<'a, u8, String> {
+    let r = sym(b'*');
+    r.map(|str|{
+        let mut s = String::new();
+        s.push(char::from(str));
+        s
+    })
+}
+fn class_string<'a>() -> Parser<'a,u8,String> {
+    let r = sym(b'.') + alphanum_string();
+    r.map(|(dot,str)| {
+        let mut s = String::from(str);
+        s.insert(0,char::from(dot));
+        s
+    })
+}
+
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
         = space()
-        * sym(b'.').opt()
-        + (is_a(star).repeat(1..2)
-        | is_a(alpha).repeat(1..))
+        + (class_string() | star_string() | alphanum_string())
     ;
-    r.map(|(class_prefix,name)| {
-        if class_prefix.is_none() {
-            Selector::Simple(SimpleSelector {
-                tag_name: Some(v2s(&name)),
-                id: None,
-                class: vec![]
-            })
-        } else {
+    r.map(|(_,name)| {
+        if(name.starts_with(".")) {
             Selector::Simple(SimpleSelector {
                 tag_name: None,
                 id: None,
-                class: vec![v2s(&name)]
+                class: vec![name]
+            })
+        } else {
+            Selector::Simple(SimpleSelector {
+                tag_name: Some(name),
+                id: None,
+                class: vec![]
             })
         }
     })
 }
 
 #[test]
-fn test_tag_selector() {
+fn test_div_selector() {
     let input = br#"div"#;
-    println!("{:?}", selector().parse(input));
+    let result = selector().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Selector::Simple(SimpleSelector{
+        tag_name:Some("div".to_string()),
+        id: None,
+        class: vec![],
+    }), result.unwrap())
+}
+
+#[test]
+fn test_h3_selector() {
+    let input = br#"h3"#;
+    let result = selector().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Selector::Simple(SimpleSelector{
+        tag_name:Some("h3".to_string()),
+        id: None,
+        class: vec![],
+    }), result.unwrap())
 }
 
 #[test]
 fn test_class_selector() {
     let input = br#".cool"#;
-    println!("{:?}", selector().parse(input));
+    let result = selector().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Selector::Simple(SimpleSelector{
+        tag_name:None,
+        id: None,
+        class: vec![".cool".to_string()],
+    }), result.unwrap())
 }
 
 #[test]
 fn test_all_selector() {
     let input = br#"*"#;
-    println!("{:?}", selector().parse(input));
+    let result = selector().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Selector::Simple(SimpleSelector{
+        tag_name:Some("*".to_string()),
+        id: None,
+        class: vec![],
+    }), result.unwrap())
 }
 
 fn identifier<'a>() -> Parser<'a, u8, String> {
@@ -265,6 +318,12 @@ fn test_stylesheet() {
     println!("{:#?}",stylesheet().parse(input))
 }
 
+#[test]
+fn test_font_style() {
+    let input = b"div { font-size: 18px; }";
+    println!("{:#?}",stylesheet().parse(input))
+}
+
 pub fn load_stylesheet(filename:&str) -> Stylesheet {
     let mut file = File::open(filename).unwrap();
     let mut content:Vec<u8>= Vec::new();
@@ -313,7 +372,7 @@ fn test_file_load() {
                     Selector::Simple(SimpleSelector{
                         tag_name: None,
                         id: None,
-                        class: vec![String::from("cool")]
+                        class: vec![String::from(".cool")]
                     })
                 ],
                 declarations: vec![
