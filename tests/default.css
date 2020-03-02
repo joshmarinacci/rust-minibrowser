@@ -8,4 +8,6 @@ div {
     display: block;
     /*height: 100px;*/
     border-width: 1px;
+    padding: 10px;
+    background-color: red;
 }

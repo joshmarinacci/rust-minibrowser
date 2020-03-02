@@ -90,6 +90,7 @@ pub enum RenderBox {
 }
 #[derive(Debug)]
 pub struct RenderBlockBox {
+    pub title: String,
     pub(crate) rect:Rect,
     pub children: Vec<RenderBox>,
 }
@@ -181,6 +182,15 @@ impl<'a> LayoutBox<'a> {
             },
         }
     }
+    fn debug_calculate_element_name(&mut self) -> String{
+        match self.box_type {
+            BlockNode(sn) => match &sn.node.node_type {
+                NodeType::Element(data) => data.tag_name.clone(),
+                _ => "non-element".to_string(),
+            }
+            _ => "non-element".to_string(),
+        }
+    }
     fn layout_block(&mut self, containing_block: Dimensions, font:&Font) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
@@ -189,6 +199,7 @@ impl<'a> LayoutBox<'a> {
         return RenderBlockBox{
             rect:self.dimensions.content,
             children: children,
+            title: self.debug_calculate_element_name()
         }
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
@@ -431,7 +442,7 @@ fn test_layout<'a>() {
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(containing_block, &font);
     println!("final render box is {:#?}", render_box);
-    dump_layout(&root_box,0);
+    // dump_layout(&root_box,0);
 }
 fn expand_tab(tab:i32) -> String {
     let mut string = String::new();
