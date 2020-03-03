@@ -38,7 +38,7 @@ fn main() {
 
     let doc = load_doc("tests/simple.html");
     let stylesheet = load_stylesheet("tests/default.css");
-    let styled = style_tree(&doc,&stylesheet);
+    let styled = style_tree(&doc.root_node,&stylesheet);
 
     let mut bbox = layout::build_layout_tree(&styled);
     let containing_block = Dimensions {

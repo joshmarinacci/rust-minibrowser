@@ -7,8 +7,14 @@ use std::str::{self};
 use std::fs::File;
 use std::io::Read;
 use self::pom::char_class::alphanum;
+use self::pom::parser::seq;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
+
+#[derive(Debug, PartialEq)]
+pub struct Document {
+    pub root_node: Node,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Node {
@@ -234,53 +240,93 @@ fn test_multi_children_h3() {
     "#;
     println!("{:#?}", element().parse(input));
 }
+
+
+fn doctype<'a>() -> Parser<'a, u8, ()> {
+     seq(b"<!DOCTYPE html>").map(|_| ())
+}
+fn document<'a>() -> Parser<'a, u8, Document> {
+    (space().opt() + doctype().opt() + space() + element()).map(|(_,node)| Document {
+        root_node: node
+    })
+}
+
+#[test]
+fn test_doctype() {
+    let input = br#"<!DOCTYPE html>"#;
+    let result = doctype().parse(input);
+    println!("{:?}", result);
+    assert_eq!((), result.unwrap());
+}
+#[test]
+fn test_simple_doc() {
+    let input = br#"
+    <!DOCTYPE html>
+<html>
+</html>
+    "#;
+    let result = document().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Document{
+        root_node: Node {
+            node_type: NodeType::Element(ElementData{
+                tag_name: "html".to_string(),
+                attributes: Default::default()
+            }),
+            children: vec![]
+        }
+    }, result.unwrap());
+}
+
 #[test]
 fn test_file_load() {
     let mut file = File::open("tests/foo.html").unwrap();
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);
-    let parsed = element().parse(content.as_slice()).unwrap();
+    let parsed = document().parse(content.as_slice()).unwrap();
     println!("{:#?}", parsed);
-    let dom = Node {
-        node_type: NodeType::Element(ElementData{
-            tag_name: "html".to_string(),
-            attributes: HashMap::new()
-        }),
-        children: vec![
-            Node {
-                node_type: NodeType::Element(ElementData{
-                    tag_name: "head".to_string(),
-                    attributes: Default::default()
-                }),
-                children: vec![
-                    Node {
-                        node_type: NodeType::Element(ElementData{
-                            tag_name: "title".to_string(),
-                            attributes: Default::default()
-                        }),
-                        children: vec![text("Title".to_string())]
-                    },
-                ]
-            },
-            Node {
-                node_type: NodeType::Element(ElementData{
-                    tag_name: "body".to_string(),
-                    attributes: Default::default()
-                }),
-                children: vec![text("some text".to_string())
-                ],
-            }
-        ]
+    let dom = Document {
+        root_node: Node {
+            node_type: NodeType::Element(ElementData {
+                tag_name: "html".to_string(),
+                attributes: HashMap::new()
+            }),
+            children: vec![
+                Node {
+                    node_type: NodeType::Element(ElementData {
+                        tag_name: "head".to_string(),
+                        attributes: Default::default()
+                    }),
+                    children: vec![
+                        Node {
+                            node_type: NodeType::Element(ElementData {
+                                tag_name: "title".to_string(),
+                                attributes: Default::default()
+                            }),
+                            children: vec![text("Title".to_string())]
+                        },
+                    ]
+                },
+                Node {
+                    node_type: NodeType::Element(ElementData {
+                        tag_name: "body".to_string(),
+                        attributes: Default::default()
+                    }),
+                    children: vec![text("some text".to_string())
+                    ],
+                }
+            ]
+        }
     };
     assert_eq!(dom,parsed)
 }
 
 
-pub fn load_doc(filename:&str) -> Node {
+pub fn load_doc(filename:&str) -> Document {
     let mut file = File::open(filename).unwrap();
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);
-    let parsed = element().parse(content.as_slice()).unwrap();
+    let parsed = document().parse(content.as_slice()).unwrap();
     return parsed;
 }
 
