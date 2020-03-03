@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
+use crate::css::parse_stylesheet;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -318,6 +319,26 @@ fn test_comment_2() {
     // assert_eq!((),result.unwrap())
 }
 
+#[test]
+fn test_style_parse() {
+    let input = br#"<head>
+    <style type="text/css">
+      .foo {
+        color:red;
+       }
+    </style>
+    </head>"#;
+    let result = document().parse(input);
+    println!("{:?}", result);
+    match &result.unwrap().root_node.children[0].children[0].node_type {
+        NodeType::Text(txt) => {
+            println!("got the text {}",txt);
+            let ss = parse_stylesheet(txt);
+            println!("stylesheet is {:#?}",ss);
+        },
+        _ => {}
+    }
+}
 
 #[test]
 fn test_simple_doc() {

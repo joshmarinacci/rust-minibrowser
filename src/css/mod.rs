@@ -360,6 +360,9 @@ pub fn load_stylesheet(filename:&str) -> Stylesheet {
     file.read_to_end(&mut content);
     return stylesheet().parse(content.as_slice()).unwrap();
 }
+pub fn parse_stylesheet(text:&str) -> Stylesheet {
+    return stylesheet().parse(text.as_ref()).unwrap();
+}
 
 #[test]
 fn test_file_load() {
