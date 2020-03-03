@@ -37,6 +37,7 @@ pub enum Value {
     Keyword(String),
     Length(f32, Unit),
     ColorValue(Color),
+    HexColor(String),
 }
 
 impl Value {
@@ -240,6 +241,24 @@ fn test_length_unit() {
     println!("{:?}",length_unit().parse(input))
 }
 
+fn hexcolor<'a>() -> Parser<'a, u8, Value> {
+    let p = sym(b'#')
+    * one_of(b"0123456789ABCDEFabcdef").repeat(6..7);
+    p.map(|mut c| {
+        // i32::from_str_radix(v2s(&c),16)
+        c.insert(0,b'#');
+        Value::HexColor(v2s(&c).to_lowercase())
+    })
+}
+
+#[test]
+fn test_hexcolor() {
+    let input = br"#4455fF";
+    let result = hexcolor().parse(input);
+    println!("{:?}", result);
+    assert_eq!( Value::HexColor("#4455FF".to_lowercase()), result.unwrap());
+}
+
 fn keyword<'a>() -> Parser<'a, u8, Value> {
     let r
         = space()
@@ -257,7 +276,7 @@ fn test_keyword() {
 }
 
 fn value<'a>() -> Parser<'a, u8, Value> {
-    length_unit() | keyword()
+    hexcolor() | length_unit() | keyword()
 }
 
 fn declaration<'a>() -> Parser<'a, u8, Declaration> {
@@ -283,6 +302,17 @@ fn test_prop_def2() {
 #[test]
 fn test_prop_def3() {
     let input = b"border-width:1px;";
+    println!("{:?}", declaration().parse(input))
+}
+#[test]
+fn test_prop_def4() {
+    let input = b"border-color:#ff00aa;";
+    let result = declaration().parse(input);
+    println!("{:?}", result);
+    assert_eq!(Declaration {
+        name: "border-color".to_string(),
+        value: Value::HexColor("#ff00aa".to_lowercase())
+    },result.unwrap());
     println!("{:?}", declaration().parse(input))
 }
 
