@@ -419,7 +419,7 @@ fn test_layout<'a>() {
     let doc = load_doc("tests/simple.html");
     let stylesheet = load_stylesheet("tests/default.css");
     // println!("stylesheet is {:#?}",stylesheet);
-    let snode = style_tree(&doc,&stylesheet);
+    let snode = style_tree(&doc.root_node,&stylesheet);
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -456,14 +456,16 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
         BlockNode(snode) => {
             let st = match &snode.node.node_type {
                 NodeType::Text(_) => "text".to_string(),
-                NodeType::Element(data) => format!("element \"{}\"",data.tag_name)
+                NodeType::Element(data) => format!("element \"{}\"",data.tag_name),
+                NodeType::Meta(data) => format!("meta tag"),
             };
             format!("block {}",st)
         }
         InlineNode(snode) => {
             let st = match &snode.node.node_type {
                 NodeType::Text(data) => format!("text \"{}\"",data),
-                NodeType::Element(data) => format!("element {}",data.tag_name)
+                NodeType::Element(data) => format!("element {}",data.tag_name),
+                NodeType::Meta(data) => format!("meta tag"),
             };
             format!("inline {}",st)
         },

@@ -26,11 +26,17 @@ pub struct Node {
 pub enum NodeType {
     Text(String),
     Element(ElementData),
+    Meta(MetaData),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ElementData {
     pub tag_name: String,
+    pub attributes: AttrMap,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MetaData {
     pub attributes: AttrMap,
 }
 
@@ -85,21 +91,27 @@ fn test_element_name_with_number() {
 }
 
 fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
+    let char_string = none_of(b"\\\"").repeat(1..).convert(String::from_utf8);
     let p
         = space()
         + is_a(alpha).repeat(1..)
         - sym(b'=')
         - sym(b'"')
-        + is_a(alpha).repeat(1..)
+        + char_string
         - sym(b'"');
-    p.map(|((_, key), value)| {
-        return (v2s(&key), v2s(&value))
+    p.map(|((a,key),value)| {
+        return (v2s(&key), value)
     })
 }
 
 #[test]
-fn test_single_attribute() {
+fn test_attribute_simple() {
     let input = b"foo=\"bar\"";
+    println!("{:#?}", attribute().parse(input));
+}
+#[test]
+fn test_attribute_complex() {
+    let input = b"foo=\"bar-foo-8\"";
     println!("{:#?}", attribute().parse(input));
 }
 
@@ -148,7 +160,7 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    text_content() | element()
+    meta_tag() | text_content() | element()
 }
 fn element<'a>() -> Parser<'a, u8, Node> {
     let p
@@ -258,22 +270,66 @@ fn test_doctype() {
     println!("{:?}", result);
     assert_eq!((), result.unwrap());
 }
+
+
+fn meta_tag<'a>() -> Parser<'a, u8, Node> {
+    let p = seq(b"<meta ") + attributes() - seq(b">");
+    p.map(|(a,attributes)| Node {
+        node_type: NodeType::Meta(MetaData{
+            attributes,
+        }),
+        children: vec![]
+    })
+}
+
+#[test]
+fn test_metatag() {
+    let input = br#"<meta charset="UTF-8">"#;
+    let result = meta_tag().parse(input);
+    println!("{:?}", result);
+    let mut atts = HashMap::new();
+    atts.insert("charset".to_string(),"UTF-8".to_string());
+    assert_eq!(Node{
+        node_type: NodeType::Meta(MetaData {
+            attributes: atts
+        }),
+        children: vec![]
+    }, result.unwrap());
+}
+
+
 #[test]
 fn test_simple_doc() {
     let input = br#"
     <!DOCTYPE html>
 <html>
-</html>
+    <head>
+        <meta charset="UTF-8"></head></html>
     "#;
     let result = document().parse(input);
     println!("{:?}", result);
+    let mut atts = HashMap::new();
+    atts.insert("charset".to_string(),"UTF-8".to_string());
     assert_eq!(Document{
         root_node: Node {
             node_type: NodeType::Element(ElementData{
                 tag_name: "html".to_string(),
                 attributes: Default::default()
             }),
-            children: vec![]
+            children: vec![
+                Node {
+                    node_type: NodeType::Element(ElementData {
+                        tag_name:"head".to_string(),
+                        attributes: Default::default()
+                    }),
+                    children: vec![
+                        Node{
+                            node_type: NodeType::Meta(MetaData{ attributes: atts }),
+                            children: vec![]
+                        }
+                    ]
+                }
+            ]
         }
     }, result.unwrap());
 }

@@ -2,7 +2,7 @@ use crate::dom::{Node, ElementData, load_doc};
 use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, load_stylesheet};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
-use crate::dom::NodeType::{Element, Text};
+use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 
@@ -160,6 +160,7 @@ pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<
         specified_values: match root.node_type {
             Element(ref elem) => specified_values(elem, stylesheet),
             Text(_) => HashMap::new(),
+            Meta(_) => HashMap::new(),
         },
         children: root.children.iter().map(|child| style_tree(child, stylesheet)).collect()
     }
@@ -169,7 +170,7 @@ pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<
 fn test_style_tree() {
     let doc = load_doc("tests/test1.html");
     let stylesheet = load_stylesheet("tests/foo.css");
-    let snode = style_tree(&doc,&stylesheet);
+    let snode = style_tree(&doc.root_node,&stylesheet);
     println!("final snode is {:#?}",snode)
 }
 
