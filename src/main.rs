@@ -20,7 +20,7 @@ const HEIGHT: usize = 600;
 fn main() {
 
 
-    let mut window = Window::new("Raqote", WIDTH, HEIGHT, WindowOptions {
+    let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         ..WindowOptions::default()
     }).unwrap();
     let font = SystemSource::new()
