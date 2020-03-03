@@ -7,7 +7,7 @@ use std::str::{self};
 use std::fs::File;
 use std::io::Read;
 use self::pom::char_class::alphanum;
-use self::pom::parser::seq;
+use self::pom::parser::{seq, take};
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -166,6 +166,7 @@ fn element<'a>() -> Parser<'a, u8, Node> {
     let p
         = open_element()
         - space()
+//        - comment()
         + call(element_child).repeat(0..)
         - space()
         + close_element();
@@ -238,8 +239,6 @@ fn test_multi_children() {
     "#;
     println!("{:#?}", element().parse(input));
 }
-
-
 #[test]
 fn test_multi_children_h3() {
     let input = br#"
@@ -295,6 +294,28 @@ fn test_metatag() {
         }),
         children: vec![]
     }, result.unwrap());
+}
+
+fn comment<'a>() -> Parser<'a, u8, ()> {
+    let p = seq(b"<!--") + (!seq(b"-->") + take(1)).repeat(0..) + seq(b"-->");
+    p.map(|((a,c),b)| {
+        println!("comment {}",v2s(&b.to_vec()));
+    })
+}
+#[test]
+fn test_comment() {
+    let input = br"<!-- a cool - comment-->";
+    let result = comment().parse(input);
+    println!("{:?}", result);
+    assert_eq!((),result.unwrap())
+}
+
+#[test]
+fn test_comment_2() {
+    let input = br"<foo> and a better <!-- a cool - comment--></foo>";
+    let result = document().parse(input);
+    println!("{:?}", result);
+    // assert_eq!((),result.unwrap())
 }
 
 
