@@ -9,8 +9,7 @@ use crate::css::{load_stylesheet, Color, Unit, Value};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
-use std::alloc::Layout;
-use crate::render::{BLACK, RED};
+use crate::render::{BLACK};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -465,11 +464,11 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
             let st = match &snode.node.node_type {
                 NodeType::Text(data) => format!("text \"{}\"",data),
                 NodeType::Element(data) => format!("element {}",data.tag_name),
-                NodeType::Meta(data) => format!("meta tag"),
+                NodeType::Meta(_data) => format!("meta tag"),
             };
             format!("inline {}",st)
         },
-        AnonymousBlock(snode) => "anonymous".to_string(),
+        AnonymousBlock(_snode) => "anonymous".to_string(),
     };
     println!("{}layout {}", expand_tab(tab), bt);
     for child in root.children.iter() {

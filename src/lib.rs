@@ -3,6 +3,7 @@ pub mod layout;
 pub mod dom;
 pub mod style;
 pub mod css;
+pub mod net;
 
 #[cfg(test)]
 mod tests {

@@ -38,7 +38,7 @@ impl StyledNode<'_> {
     }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
-            Some(Length(v,unit)) => {
+            Some(Length(v,_unit)) => {
                 return v;
             },
             _ => default,
@@ -88,7 +88,7 @@ impl StyledNode<'_> {
                     _ => None,
                 }
             }
-            Some(Length(v,u)) => None,
+            Some(Length(_,_)) => None,
             None => None,
         }
     }

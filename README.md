@@ -1,17 +1,18 @@
 # rust-minibrowser
-minibrowser written in rust
+mini-browser written in rust
 
 The point of this project is to prove we can build a web-browser in just a few thousand lines of code, provided
 we don't care about:
 
 * speed
 * implementing the full specs
+* error handling
 * javascript
 
 
 The other point of this project is to teach myself Rust.
 
-So far the minibrowser can:
+So far the mini-browser can:
 
 * parse CSS files (not the full spec yet)
 * parse HTML files (not the full spec yet)

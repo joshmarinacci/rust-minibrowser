@@ -6,7 +6,6 @@ use raqote::{DrawTarget,
 use font_kit::font::Font;
 use crate::css::Color;
 use crate::layout::{LayoutBox, Dimensions, Rect, RenderBox};
-use crate::layout::BoxType::BlockNode;
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };

@@ -135,7 +135,7 @@ fn selector<'a>() -> Parser<'a, u8, Selector>{
         + (class_string() | star_string() | alphanum_string())
     ;
     r.map(|(_,name)| {
-        if(name.starts_with(".")) {
+        if name.starts_with(".") {
             Selector::Simple(SimpleSelector {
                 tag_name: None,
                 id: None,

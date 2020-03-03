@@ -17,6 +17,24 @@ pub struct Document {
     pub root_node: Node,
 }
 
+pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
+    match &node.node_type {
+        NodeType::Element(data) => {
+            if data.tag_name == name {
+                return Some(node);
+            }
+        },
+        _  => {},
+    }
+
+    for child in node.children.iter() {
+        let res = getElementsByTagName(&child, name);
+        if res.is_some() { return res }
+    }
+
+    return None
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Node {
     pub node_type: NodeType,
@@ -100,7 +118,7 @@ fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
         - sym(b'"')
         + char_string
         - sym(b'"');
-    p.map(|((a,key),value)| {
+    p.map(|((_,key),value)| {
         return (v2s(&key), value)
     })
 }
@@ -274,7 +292,7 @@ fn test_doctype() {
 
 fn meta_tag<'a>() -> Parser<'a, u8, Node> {
     let p = seq(b"<meta ") + attributes() - seq(b">");
-    p.map(|(a,attributes)| Node {
+    p.map(|(_,attributes)| Node {
         node_type: NodeType::Meta(MetaData{
             attributes,
         }),
@@ -299,7 +317,7 @@ fn test_metatag() {
 
 fn comment<'a>() -> Parser<'a, u8, ()> {
     let p = seq(b"<!--") + (!seq(b"-->") + take(1)).repeat(0..) + seq(b"-->");
-    p.map(|((a,c),b)| {
+    p.map(|((_,_),b)| {
         println!("comment {}",v2s(&b.to_vec()));
     })
 }
@@ -426,5 +444,8 @@ pub fn load_doc(filename:&str) -> Document {
     file.read_to_end(&mut content);
     let parsed = document().parse(content.as_slice()).unwrap();
     return parsed;
+}
+pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
+    return document().parse(buf.as_slice()).unwrap();
 }
 
