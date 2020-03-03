@@ -3,7 +3,7 @@ use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value,
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text};
-use crate::css::Value::{Keyword, ColorValue, Length};
+use crate::css::Value::{Keyword, ColorValue, Length, HexColor};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 
 type PropertyMap = HashMap<String, Value>;
@@ -64,6 +64,18 @@ impl StyledNode<'_> {
     pub fn color(&self, name: &str) -> Option<Color> {
         match self.value(name) {
             Some(ColorValue(c)) => Some(c),
+            Some(HexColor(str)) => {
+                let n = i32::from_str_radix(&str[1..],16).unwrap();
+                let r = (n >> 16) & 0xFF;
+                let g = (n >>  8) & 0xFF;
+                let b = (n >>  0) & 0xFF;
+                Some(Color{
+                    r: r as u8,
+                    g: g as u8,
+                    b: b as u8,
+                    a: 255
+                })
+            },
             Some(Keyword(name)) => {
                 return match name.as_str() {
                     "blue" => Some(BLUE),
@@ -76,7 +88,8 @@ impl StyledNode<'_> {
                     _ => None,
                 }
             }
-            _ => None,
+            Some(Length(v,u)) => None,
+            None => None,
         }
     }
     pub fn insets(&self, name: &str) -> f32 {
