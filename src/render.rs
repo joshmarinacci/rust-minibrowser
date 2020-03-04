@@ -5,7 +5,7 @@ use raqote::{DrawTarget,
 };
 use font_kit::font::Font;
 use crate::css::Color;
-use crate::layout::{LayoutBox, Dimensions, Rect, RenderBox};
+use crate::layout::{LayoutBox, Dimensions, Rect, RenderBox, RenderInlineBoxType};
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
@@ -91,6 +91,9 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
         RenderBox::Inline() => {
 
         },
+        RenderBox::InlineBlock() => {
+
+        },
         RenderBox::Anonymous(block) => {
             //don't draw anonymous blocks that are empty
             if block.children.len() <= 0 {
@@ -100,13 +103,20 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
             for line in block.children.iter() {
                 // stroke_rect(dt, &line.rect, &render_color_to_source(&AQUA), 1 as f32);
                 for inline in line.children.iter() {
-                    // stroke_rect(dt, &inline.rect, &render_color_to_source(&PURPLE), 1 as f32);
-                    // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
-                    let trimmed = inline.text.trim();
-                    if trimmed.len() > 0 {
-                        match &inline.color {
-                            Some(color) => draw_text(dt, font, &inline.rect, &trimmed, &render_color_to_source(color), inline.font_size),
-                            _ => {}
+                    match inline {
+                        RenderInlineBoxType::Text(text) => {
+                            // stroke_rect(dt, &inline.rect, &render_color_to_source(&PURPLE), 1 as f32);
+                            // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
+                            let trimmed = text.text.trim();
+                            if trimmed.len() > 0 {
+                                match &text.color {
+                                    Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
+                                    _ => {}
+                                }
+                            }
+                        }
+                        RenderInlineBoxType::Image(img) => {
+                            fill_rect(dt,&img.rect, &render_color_to_source(&BLUE));
                         }
                     }
                 }

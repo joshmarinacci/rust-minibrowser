@@ -50,7 +50,8 @@ fn main() {
 
     // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
     // let doc = load_doc("tests/nested.html");
-    let doc = load_doc("tests/simple.html");
+    // let doc = load_doc("tests/simple.html");
+    let doc = load_doc("tests/image.html");
     let stylesheet = load_stylesheet_with_fallback(&doc);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled);

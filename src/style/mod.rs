@@ -12,6 +12,7 @@ type PropertyMap = HashMap<String, Value>;
 pub enum Display {
     Block,
     Inline,
+    InlineBlock,
     None,
 }
 
@@ -55,6 +56,7 @@ impl StyledNode<'_> {
             Some(Keyword(s)) => match &*s {
                 "block" => Display::Block,
                 "none" => Display::None,
+                "inline-block" => Display::InlineBlock,
                 _ => Display::Inline,
             },
             _ => Display::Inline,

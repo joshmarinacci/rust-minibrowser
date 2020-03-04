@@ -6,6 +6,9 @@ b {
     display: inline;
     color: red;
 }
+img {
+    display: inline-block;
+}
 head {
     display: none;
 }

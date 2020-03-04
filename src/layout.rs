@@ -6,7 +6,7 @@ use font_kit::source::SystemSource;
 use crate::dom::{load_doc, NodeType};
 use crate::style::{StyledNode, style_tree, Display};
 use crate::css::{load_stylesheet, Color, Unit, Value};
-use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock};
+use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK};
@@ -69,6 +69,7 @@ pub struct LayoutBox<'a> {
 pub enum BoxType<'a> {
     BlockNode(&'a StyledNode<'a>),
     InlineNode(&'a StyledNode<'a>),
+    InlineBlockNode(&'a StyledNode<'a>),
     AnonymousBlock(&'a StyledNode<'a>),
 }
 
@@ -88,6 +89,7 @@ pub enum RenderBox {
     Block(RenderBlockBox),
     Anonymous(RenderAnonymousBox),
     Inline(),
+    InlineBlock(),
 }
 #[derive(Debug)]
 pub struct RenderBlockBox {
@@ -108,14 +110,25 @@ pub struct RenderAnonymousBox {
 #[derive(Debug)]
 pub struct RenderLineBox {
     pub(crate) rect:Rect,
-    pub(crate) children: Vec<RenderTextBox>,
+    pub(crate) children: Vec<RenderInlineBoxType>,
 }
+
+#[derive(Debug)]
+pub enum RenderInlineBoxType {
+    Text(RenderTextBox),
+    Image(RenderImageBox),
+}
+
 #[derive(Debug)]
 pub struct RenderTextBox {
     pub(crate) rect:Rect,
     pub(crate) text:String,
     pub color:Option<Color>,
     pub font_size:f32,
+}
+#[derive(Debug)]
+pub struct RenderImageBox {
+    pub(crate) rect:Rect,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
@@ -125,6 +138,7 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
     let mut root = LayoutBox::new(match style_node.display() {
         Display::Block => BlockNode(style_node),
         Display::Inline => InlineNode(style_node),
+        Display::InlineBlock => InlineBlockNode(style_node),
         Display::None => panic!("Root node has display none.")
     });
 
@@ -139,6 +153,9 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
                 // println!("inline display for child {:#?}", child.node.node_type);
                 root.get_inline_container().children.push(build_layout_tree(&child))
             },
+            Display::InlineBlock => {
+                root.get_inline_container().children.push(build_layout_tree(&child))
+            }
             Display::None => {
                 // println!("skipping display for child {:#?}", child.node.node_type);
             },
@@ -160,13 +177,14 @@ impl<'a> LayoutBox<'a> {
         match self.box_type {
             BlockNode(node)
             | InlineNode(node)
+            | InlineBlockNode(node)
             | AnonymousBlock(node) => node
         }
     }
 
     fn get_inline_container(&mut self) -> &mut LayoutBox<'a> {
         match self.box_type {
-            InlineNode(_) | AnonymousBlock(_) => self,
+            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) => self,
             BlockNode(node) => {
                 // if last child is anonymous block, keep using it
                 match self.children.last() {
@@ -186,6 +204,9 @@ impl<'a> LayoutBox<'a> {
             InlineNode(_node) => {
                 RenderBox::Inline()
             },
+            InlineBlockNode(_node) => {
+                RenderBox::InlineBlock()
+            }
             AnonymousBlock(_node) => {
                 RenderBox::Anonymous(self.layout_anonymous(containing_block, font))
             },
@@ -243,85 +264,107 @@ impl<'a> LayoutBox<'a> {
         for child in &mut self.children {
             // println!("child node {:#?}",child.box_type);
             let mut color = color.clone();
-            let text = match child.box_type {
-                InlineNode(styled) => {
-                    match &styled.node.node_type {
-                        NodeType::Text(string) => string.clone(),
-                        NodeType::Element(data) => {
+
+            let is_inline_block = match child.box_type {
+                InlineBlockNode(styled) => true,
+                _ => false,
+            };
+            if is_inline_block {
+                let image = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
+                line_box.children.push(RenderInlineBoxType::Image(RenderImageBox {
+                    rect: Rect {
+                        x: x,
+                        y: y  + line_height - image.height,
+                        width: image.width,
+                        height: image.height,
+                    }
+                }));
+                x += image.width;
+            } else {
+                let text = match child.box_type {
+                    InlineNode(styled) => {
+                        match &styled.node.node_type {
+                            NodeType::Text(string) => string.clone(),
+                            NodeType::Element(data) => {
                             // println!("got the styled node {:#?}",styled);
-                            color = styled.lookup_color("color",&color);
-                            match &styled.children[0].node.node_type {
-                                NodeType::Text(string) => string.clone(),
-                                _ => "".to_string()
+                                color = styled.lookup_color("color", &color);
+                                if data.tag_name == "img" {
+                                    "".to_string()
+                                } else {
+                                    match &styled.children[0].node.node_type {
+                                        NodeType::Text(string) => string.clone(),
+                                        _ => "".to_string()
+                                    }
+                                }
+                            }
+                            _ => {
+                                "".to_string()
                             }
                         }
-                        _ => {
-                            "".to_string()
-                        }
                     }
-                }
-                _ => "".to_string()
-            };
-            let text = text.trim();
-            if text.len() <= 0 { continue; }
+                    _ => "".to_string()
+                };
+                let text = text.trim();
+                if text.len() <= 0 { continue; }
 
-            let mut current_line = String::new();
-            // println!("got the text {}", text);
-            for word in text.split_whitespace() {
-                // println!("len is {}", len);
-                let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
-                if len + wlen > containing_block.content.width {
-                    // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
-                    line_box.children.push(RenderTextBox {
-                        rect: Rect {
-                            x: x,
-                            y: y+2.0,
-                            width: len,
-                            height: line_height-4.0,
-                        },
-                        text:current_line,
-                        color: Some(color.clone()),
-                        font_size,
-                    });
+                let mut current_line = String::new();
+                // println!("got the text {}", text);
+                for word in text.split_whitespace() {
+                    // println!("len is {}", len);
+                    let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
+                    if len + wlen > containing_block.content.width {
+                        // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
+                        line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
+                            rect: Rect {
+                                x: x,
+                                y: y + 2.0,
+                                width: len,
+                                height: line_height - 4.0,
+                            },
+                            text: current_line,
+                            color: Some(color.clone()),
+                            font_size,
+                        }));
 
-                    // println!("adding line box");
-                    lines.push(line_box);
-                    line_box = RenderLineBox {
-                        rect: Rect{
-                            x: d.content.x+2.0,
-                            y:0.0,
-                            width: 0.0,
-                            height: 0.0
-                        },
-                        children: vec![]
-                    };
-                    len = 0.0;
-                    line = String::new();
-                    current_line = String::new();
-                    d.content.height += line_height;
-                    y += line_height;
-                    x = d.content.x;
+                        // println!("adding line box");
+                        lines.push(line_box);
+                        line_box = RenderLineBox {
+                            rect: Rect {
+                                x: d.content.x + 2.0,
+                                y: 0.0,
+                                width: 0.0,
+                                height: 0.0
+                            },
+                            children: vec![]
+                        };
+                        len = 0.0;
+                        line = String::new();
+                        current_line = String::new();
+                        d.content.height += line_height;
+                        y += line_height;
+                        x = d.content.x;
+                    }
+                    len += wlen;
+                    line.push_str(word);
+                    line.push_str(" ");
+                    current_line.push_str(word);
+                    current_line.push_str(" ");
                 }
-                len += wlen;
-                line.push_str(word);
-                line.push_str(" ");
-                current_line.push_str(word);
-                current_line.push_str(" ");
+                // println!("ending text box -{}- at {} : {}",current_line,x,len);
+                line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
+                    rect: Rect {
+                        x: x,
+                        y: y + 2.0,
+                        width: len,
+                        height: line_height - 4.0,
+                    },
+                    text: current_line,
+                    color: Some(color.clone()),
+                    font_size,
+                }));
+                current_line = String::new();
+                x += len;
             }
-            // println!("ending text box -{}- at {} : {}",current_line,x,len);
-            line_box.children.push(RenderTextBox {
-                rect: Rect {
-                    x: x,
-                    y: y+2.0,
-                    width: len,
-                    height: line_height-4.0,
-                },
-                text:current_line,
-                color: Some(color.clone()),
-                font_size,
-            });
-            current_line = String::new();
-            x += len;
         }
 
         lines.push(line_box);
@@ -448,30 +491,6 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn generate_line_box(d:&Dimensions, y:f32, line_height:f32, font_size:f32, width:f32, text:String, color:&Color) -> RenderLineBox {
-    RenderLineBox {
-        rect: Rect {
-            x: d.content.x + 1.0,
-            y: y + 1.0,
-            width: d.content.width-2.0,
-            height: line_height- 2.0
-        },
-        children: vec![
-            RenderTextBox {
-                rect: Rect {
-                    x: d.content.x + 2.0,
-                    y: y+2.0,
-                    width,
-                    height: line_height-4.0,
-                },
-                text,
-                color: Some(color.clone()),
-                font_size,
-            }]
-    }
-}
-
-
 fn calculate_word_length(text:&str, font:&Font) -> f32 {
     let mut sum = 0.0;
     for ch in text.chars() {
@@ -486,7 +505,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let doc = load_doc("tests/nested.html");
+    let doc = load_doc("tests/image.html");
     let stylesheet = load_stylesheet("tests/default.css");
     // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc.root_node,&stylesheet);
@@ -512,7 +531,7 @@ fn test_layout<'a>() {
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(containing_block, &font);
     println!("final render box is {:#?}", render_box);
-    dump_layout(&root_box,0);
+    // dump_layout(&root_box,0);
 }
 fn expand_tab(tab:i32) -> String {
     let mut string = String::new();
@@ -539,6 +558,9 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
             };
             format!("inline {}",st)
         },
+        InlineBlockNode(snode) => {
+            format!("inline-block")
+        }
         AnonymousBlock(_snode) => "anonymous".to_string(),
     };
     println!("{}layout {}", expand_tab(tab), bt);
