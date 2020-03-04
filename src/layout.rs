@@ -217,7 +217,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
-        let color = self.get_style_node().lookup_color("color", &BLACK);
+        let mut color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
@@ -239,14 +239,17 @@ impl<'a> LayoutBox<'a> {
             },
             children: vec![]
         };
+        let mut x = d.content.x;
         for child in &mut self.children {
             // println!("child node {:#?}",child.box_type);
-
+            let mut color = color.clone();
             let text = match child.box_type {
                 InlineNode(styled) => {
                     match &styled.node.node_type {
                         NodeType::Text(string) => string.clone(),
                         NodeType::Element(data) => {
+                            // println!("got the styled node {:#?}",styled);
+                            color = styled.lookup_color("color",&color);
                             match &styled.children[0].node.node_type {
                                 NodeType::Text(string) => string.clone(),
                                 _ => "".to_string()
@@ -262,19 +265,21 @@ impl<'a> LayoutBox<'a> {
             let text = text.trim();
             if text.len() <= 0 { continue; }
 
+            let mut current_line = String::new();
             // println!("got the text {}", text);
             for word in text.split_whitespace() {
+                // println!("len is {}", len);
                 let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
-                    // println!("adding text for wrap {}", line);
+                    // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
                     line_box.children.push(RenderTextBox {
                         rect: Rect {
-                            x: d.content.x + 2.0,
+                            x: x,
                             y: y+2.0,
                             width: len,
                             height: line_height-4.0,
                         },
-                        text:line,
+                        text:current_line,
                         color: Some(color.clone()),
                         font_size,
                     });
@@ -283,7 +288,7 @@ impl<'a> LayoutBox<'a> {
                     lines.push(line_box);
                     line_box = RenderLineBox {
                         rect: Rect{
-                            x: 0.0,
+                            x: d.content.x+2.0,
                             y:0.0,
                             width: 0.0,
                             height: 0.0
@@ -292,26 +297,32 @@ impl<'a> LayoutBox<'a> {
                     };
                     len = 0.0;
                     line = String::new();
+                    current_line = String::new();
                     d.content.height += line_height;
                     y += line_height;
+                    x = d.content.x;
                 }
                 len += wlen;
                 line.push_str(word);
                 line.push_str(" ");
+                current_line.push_str(word);
+                current_line.push_str(" ");
             }
+            // println!("ending text box -{}- at {} : {}",current_line,x,len);
+            line_box.children.push(RenderTextBox {
+                rect: Rect {
+                    x: x,
+                    y: y+2.0,
+                    width: len,
+                    height: line_height-4.0,
+                },
+                text:current_line,
+                color: Some(color.clone()),
+                font_size,
+            });
+            current_line = String::new();
+            x += len;
         }
-        // println!("ending text box -{}-",line);
-        line_box.children.push(RenderTextBox {
-            rect: Rect {
-                x: d.content.x + 2.0,
-                y: y+2.0,
-                width: len,
-                height: line_height-4.0,
-            },
-            text:line,
-            color: Some(color.clone()),
-            font_size,
-        });
 
         lines.push(line_box);
         d.content.height += line_height;
@@ -465,8 +476,11 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
     let mut sum = 0.0;
     for ch in text.chars() {
         let gid = font.glyph_for_char(ch).unwrap();
-        sum += font.advance(gid).unwrap().x;
+        let len = font.advance(gid).unwrap().x;
+        sum += len;
+        // println!("   len of {} is {}",ch,len);
     }
+    // println!("length of {} is {}",text, sum);
     return sum;
 }
 
