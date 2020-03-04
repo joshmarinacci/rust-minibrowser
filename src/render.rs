@@ -116,7 +116,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
-                            fill_rect(dt,&img.rect, &render_color_to_source(&BLUE));
+                            dt.draw_image_at(img.rect.x,img.rect.y,&img.image.to_image(), &DrawOptions::default());
                         }
                     }
                 }

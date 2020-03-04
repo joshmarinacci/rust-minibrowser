@@ -10,6 +10,7 @@ use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockN
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK};
+use crate::image::{LoadedImage, load_image_from_path};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -129,6 +130,7 @@ pub struct RenderTextBox {
 #[derive(Debug)]
 pub struct RenderImageBox {
     pub(crate) rect:Rect,
+    pub(crate) image:LoadedImage,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
@@ -270,16 +272,40 @@ impl<'a> LayoutBox<'a> {
                 _ => false,
             };
             if is_inline_block {
-                let image = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
+                let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
+                let mut path = "";
+                match child.box_type {
+                    InlineBlockNode(styled) => {
+                        match &styled.node.node_type {
+                            NodeType::Element(data) => {
+                                println!("looking at element data {:#?}", data);
+                                let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
+                                println!("got width {}",width);
+                                image_size.width = width as f32;
+
+                                let height = data.attributes.get("height").unwrap().parse::<u32>().unwrap();
+                                println!("got height {}",height);
+                                image_size.height = height as f32;
+                                let url = data.attributes.get("src").unwrap();
+                                println!("got source {}",url);
+                                path = url;
+                            }
+                            _ => {}
+                        }
+                        // println!("checking the size {:#?}", styled);
+                    }
+                    _ => {}
+                }
                 line_box.children.push(RenderInlineBoxType::Image(RenderImageBox {
                     rect: Rect {
                         x: x,
-                        y: y  + line_height - image.height,
-                        width: image.width,
-                        height: image.height,
-                    }
+                        y: y - image_size.height + line_height,
+                        width: image_size.width,
+                        height: image_size.height,
+                    },
+                    image: load_image_from_path(path)
                 }));
-                x += image.width;
+                x += image_size.width;
             } else {
                 let text = match child.box_type {
                     InlineNode(styled) => {
