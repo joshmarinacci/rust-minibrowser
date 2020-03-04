@@ -219,35 +219,77 @@ impl<'a> LayoutBox<'a> {
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
+        // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
         let line_height = font_size*1.1;
         d.content.x = containing_block.content.x;
         d.content.width = containing_block.content.width;
         d.content.y = containing_block.content.height + containing_block.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
+        // println!("doing anonymous block layout");
+        let mut y = d.content.y;
+        let mut len = 0.0;
+        let mut line:String = String::new();
+        let mut line_box = RenderLineBox {
+            rect: Rect{
+                x: d.content.x + 1.0,
+                y: 0.0,
+                width: d.content.width - 2.0,
+                height: line_height - 2.0,
+            },
+            children: vec![]
+        };
         for child in &mut self.children {
-            //calc child width
+            // println!("child node {:#?}",child.box_type);
+
             let text = match child.box_type {
-                InlineNode(snode) => {
-                    match &snode.node.node_type {
+                InlineNode(styled) => {
+                    match &styled.node.node_type {
                         NodeType::Text(string) => string.clone(),
-                        _ => "".to_string()
+                        NodeType::Element(data) => {
+                            match &styled.children[0].node.node_type {
+                                NodeType::Text(string) => string.clone(),
+                                _ => "".to_string()
+                            }
+                        }
+                        _ => {
+                            "".to_string()
+                        }
                     }
-                },
+                }
                 _ => "".to_string()
             };
-            let trimmed = text.trim();
-            if trimmed.len() <= 0 {
-                continue;
-            }
+            let text = text.trim();
+            if text.len() <= 0 { continue; }
 
-            let mut len = 0.0;
-            let mut line:String = String::new();
-            let mut y = d.content.y;
-            for word in trimmed.split_whitespace() {
+            // println!("got the text {}", text);
+            for word in text.split_whitespace() {
                 let wlen:f32 = calculate_word_length(word, font)/2048.0*18.0;
                 if len + wlen > containing_block.content.width {
-                    lines.push(generate_line_box(d, y, line_height, font_size,len, line, &color));
+                    // println!("adding text for wrap {}", line);
+                    line_box.children.push(RenderTextBox {
+                        rect: Rect {
+                            x: d.content.x + 2.0,
+                            y: y+2.0,
+                            width: len,
+                            height: line_height-4.0,
+                        },
+                        text:line,
+                        color: Some(color.clone()),
+                        font_size,
+                    });
+
+                    // println!("adding line box");
+                    lines.push(line_box);
+                    line_box = RenderLineBox {
+                        rect: Rect{
+                            x: 0.0,
+                            y:0.0,
+                            width: 0.0,
+                            height: 0.0
+                        },
+                        children: vec![]
+                    };
                     len = 0.0;
                     line = String::new();
                     d.content.height += line_height;
@@ -257,9 +299,24 @@ impl<'a> LayoutBox<'a> {
                 line.push_str(word);
                 line.push_str(" ");
             }
-            lines.push(generate_line_box(d, y, line_height, font_size, len, line, &color));
-            d.content.height += line_height;
         }
+        // println!("ending text box -{}-",line);
+        line_box.children.push(RenderTextBox {
+            rect: Rect {
+                x: d.content.x + 2.0,
+                y: y+2.0,
+                width: len,
+                height: line_height-4.0,
+            },
+            text:line,
+            color: Some(color.clone()),
+            font_size,
+        });
+
+        lines.push(line_box);
+        d.content.height += line_height;
+        y += line_height;
+
         return RenderAnonymousBox {
             rect: Rect {
                 x: d.content.x+2.0,
@@ -415,7 +472,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let doc = load_doc("tests/simple.html");
+    let doc = load_doc("tests/nested.html");
     let stylesheet = load_stylesheet("tests/default.css");
     // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc.root_node,&stylesheet);

@@ -2,6 +2,10 @@
     display: block;
     font-size: 18px;
 }
+b {
+    display: inline;
+    color: red;
+}
 head {
     display: none;
 }
