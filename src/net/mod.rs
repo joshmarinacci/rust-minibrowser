@@ -1,6 +1,8 @@
 use crate::dom::{load_doc_from_buffer, getElementsByTagName, NodeType, Document};
 use crate::css::parse_stylesheet;
 use crate::style::style_tree;
+use crate::image::{load_image_from_buffer, LoadedImage};
+use image::ImageError;
 
 pub fn load_doc_from_net(url:&str) -> Option<Document> {
     let mut resp = reqwest::blocking::get("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
@@ -13,9 +15,22 @@ pub fn load_doc_from_net(url:&str) -> Option<Document> {
     // println!("text is {:#?}",buf);
     // println!("text is {:#?}",String::from_utf8(buf).unwrap());
 
-    let doc = load_doc_from_buffer(buf);
+    let mut doc = load_doc_from_buffer(buf);
+    doc.base_url = String::from(url);
     return Some(doc);
 }
+
+pub fn load_image_from_net(url:&str) -> Result<LoadedImage, ImageError> {
+    let mut resp = reqwest::blocking::get(url).unwrap();
+    let status = resp.status();
+    let len = resp.content_length();
+    println!("{:#?}\n content length = {:#?}\n status = {:#?}", resp, len, status);
+
+    let mut buf: Vec<u8> = vec![];
+    resp.copy_to(&mut buf);
+    return load_image_from_buffer(buf);
+}
+
 #[test]
 fn test_request() -> Result<(), Box<dyn std::error::Error>> {
     let mut resp = reqwest::blocking::get("https://apps.josh.earth/rust-minibrowser/test1.html")?;
@@ -45,3 +60,4 @@ fn test_request() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+

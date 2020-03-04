@@ -15,8 +15,10 @@ use crate::css::parse_stylesheet;
 #[derive(Debug, PartialEq)]
 pub struct Document {
     pub root_node: Node,
+    pub base_url:String,
 }
 
+#[allow(non_snake_case)]
 pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
     match &node.node_type {
         NodeType::Element(data) => {
@@ -277,7 +279,8 @@ fn doctype<'a>() -> Parser<'a, u8, ()> {
 }
 fn document<'a>() -> Parser<'a, u8, Document> {
     (space().opt() + doctype().opt() + space() + element()).map(|(_,node)| Document {
-        root_node: node
+        root_node: node,
+        base_url: "".to_string()
     })
 }
 
@@ -390,7 +393,8 @@ fn test_simple_doc() {
                     ]
                 }
             ]
-        }
+        },
+        base_url: "".to_string()
     }, result.unwrap());
 }
 
@@ -432,7 +436,8 @@ fn test_file_load() {
                     ],
                 }
             ]
-        }
+        },
+        base_url: "".to_string()
     };
     assert_eq!(dom,parsed)
 }
@@ -442,7 +447,8 @@ pub fn load_doc(filename:&str) -> Document {
     let mut file = File::open(filename).unwrap();
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);
-    let parsed = document().parse(content.as_slice()).unwrap();
+    let mut parsed = document().parse(content.as_slice()).unwrap();
+    parsed.base_url = filename.to_string();
     return parsed;
 }
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {

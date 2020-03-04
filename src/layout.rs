@@ -11,6 +11,8 @@ use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK};
 use crate::image::{LoadedImage, load_image_from_path};
+use std::path::Path;
+use crate::net::{load_doc_from_net, load_image_from_net};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -138,7 +140,7 @@ pub struct RenderErrorBox {
     pub(crate) rect:Rect,
 }
 
-pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
+pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, base_url:&str) -> LayoutBox<'a> {
     // println!("build_layout_tree {:#?}", style_node.node.node_type);
     // println!("styles {:#?}", style_node.specified_values);
     // println!("display is {:#?}", style_node.display());
@@ -154,14 +156,14 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
         match child.display() {
             Display::Block => {
                 // println!("block display for child {:#?}", child.node.node_type);
-                root.children.push(build_layout_tree(&child))
+                root.children.push(build_layout_tree(&child, base_url))
             },
             Display::Inline => {
                 // println!("inline display for child {:#?}", child.node.node_type);
-                root.get_inline_container().children.push(build_layout_tree(&child))
+                root.get_inline_container().children.push(build_layout_tree(&child, base_url))
             },
             Display::InlineBlock => {
-                root.get_inline_container().children.push(build_layout_tree(&child))
+                root.get_inline_container().children.push(build_layout_tree(&child, base_url))
             }
             Display::None => {
                 // println!("skipping display for child {:#?}", child.node.node_type);
@@ -203,10 +205,10 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing_block: Dimensions, font:&Font) -> RenderBox {
+    pub fn layout(&mut self, containing_block: Dimensions, font:&Font, base_url:&str) -> RenderBox {
         match self.box_type {
             BlockNode(_node) => {
-                RenderBox::Block(self.layout_block(containing_block, font))
+                RenderBox::Block(self.layout_block(containing_block, font, base_url))
             },
             InlineNode(_node) => {
                 RenderBox::Inline()
@@ -215,7 +217,7 @@ impl<'a> LayoutBox<'a> {
                 RenderBox::InlineBlock()
             }
             AnonymousBlock(_node) => {
-                RenderBox::Anonymous(self.layout_anonymous(containing_block, font))
+                RenderBox::Anonymous(self.layout_anonymous(containing_block, font, base_url))
             },
         }
     }
@@ -228,10 +230,10 @@ impl<'a> LayoutBox<'a> {
             _ => "non-element".to_string(),
         }
     }
-    fn layout_block(&mut self, containing_block: Dimensions, font:&Font) -> RenderBlockBox {
+    fn layout_block(&mut self, containing_block: Dimensions, font:&Font, base_url:&str) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
-        let children:Vec<RenderBox> = self.layout_block_children(font);
+        let children:Vec<RenderBox> = self.layout_block_children(font, base_url);
         self.calculate_block_height();
         return RenderBlockBox{
             rect:self.dimensions.content,
@@ -244,7 +246,7 @@ impl<'a> LayoutBox<'a> {
             border_color: self.get_style_node().color("border-color"),
         }
     }
-    fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font) -> RenderAnonymousBox {
+    fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font, base_url:&str) -> RenderAnonymousBox {
         let mut color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         // println!("using the font size: {}",font_size);
@@ -277,7 +279,7 @@ impl<'a> LayoutBox<'a> {
                 _ => false,
             };
             if is_inline_block {
-                match layout_image(&child, x, y, line_height) {
+                match layout_image(&child, x, y, line_height, base_url) {
                     Ok(blk) => {
                         x += blk.rect.width;
                         line_box.children.push(RenderInlineBoxType::Image(blk));
@@ -479,11 +481,11 @@ impl<'a> LayoutBox<'a> {
             d.margin.top + d.border.top + d.padding.top;
     }
 
-    fn layout_block_children(&mut self, font:&Font) -> Vec<RenderBox>{
+    fn layout_block_children(&mut self, font:&Font, base_url:&str) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
         for child in self.children.iter_mut() {
-            let bx = child.layout(*d,font);
+            let bx = child.layout(*d,font, base_url);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
             children.push(bx)
         };
@@ -498,9 +500,9 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32) -> Result<RenderImageBox, RenderErrorBox> {
+fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, base_url:&str) -> Result<RenderImageBox, RenderErrorBox> {
     let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
-    let mut path = "";
+    let mut path = String::from("");
     match child.box_type {
         InlineBlockNode(styled) => {
             match &styled.node.node_type {
@@ -515,7 +517,14 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32) -> Result<Rende
                     image_size.height = height as f32;
                     let url = data.attributes.get("src").unwrap();
                     println!("got source {}",url);
-                    path = url;
+                    // path = url;
+                    println!("the base url is {}", base_url);
+                    let page_path = Path::new(base_url);
+                    let parent = page_path.parent().unwrap();
+                    println!("parent path is {:#?}", parent);
+                    let img_path = parent.join(url);
+                    println!("image url is {:#?}",img_path);
+                    path = String::from(img_path.to_str().unwrap());
                 }
                 _ => {}
             }
@@ -523,7 +532,14 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32) -> Result<Rende
         }
         _ => {}
     }
-    let image = load_image_from_path(path);
+    let image = match path.starts_with("http") {
+        true => {
+            load_image_from_net(&path)
+        },
+        false => {
+            load_image_from_path(&path)
+        },
+    };
     match image {
         Ok(image) => {
             Ok(RenderImageBox {
@@ -564,7 +580,8 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let doc = load_doc("tests/image.html");
+    let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
+    // let doc = load_doc("tests/image.html");
     let stylesheet = load_stylesheet("tests/default.css");
     // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc.root_node,&stylesheet);
@@ -574,7 +591,7 @@ fn test_layout<'a>() {
         .load()
         .unwrap();
     println!(" ======== build layout boxes ========");
-    let mut root_box = build_layout_tree(&snode);
+    let mut root_box = build_layout_tree(&snode, &*doc.base_url);
     let containing_block = Dimensions {
         content: Rect {
             x: 0.0,
@@ -588,8 +605,8 @@ fn test_layout<'a>() {
     };
     //println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(containing_block, &font);
-    println!("final render box is {:#?}", render_box);
+    let render_box = root_box.layout(containing_block, &font, &doc.base_url);
+    // println!("final render box is {:#?}", render_box);
     // dump_layout(&root_box,0);
 }
 fn expand_tab(tab:i32) -> String {

@@ -4,13 +4,9 @@ use raqote::{Image, DrawTarget, PathBuilder, Gradient, GradientStop, Color, Poin
 use std::fmt::{Debug, Formatter, Error, Display};
 use std::fmt;
 use self::image::ImageError;
-
-const WHITE_SOURCE: Source = Source::Solid(SolidSource {
-    r: 0xff,
-    g: 0xff,
-    b: 0xff,
-    a: 0xff,
-});
+use self::image::io::Reader;
+use std::io::Cursor;
+use crate::net::load_image_from_net;
 
 #[derive(Debug,PartialEq)]
 pub struct LoadedImage {
@@ -57,9 +53,44 @@ pub fn load_image_from_path(path:&str) -> Result<LoadedImage, ImageError> {
     }
     return Result::Ok(loaded);
 }
+
+pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
+    let reader = Reader::new(Cursor::new(buf)).with_guessed_format().expect("cursor io never fails");
+    let img = reader.decode()?;
+    // let img = image::open(buf)?;
+    let (w,h) = img.dimensions();
+    let mut loaded = LoadedImage {
+        path: String::from("--network--"),
+        width: w as i32,
+        height: h as i32,
+        data: vec![255 as u32;(w*h) as usize]
+    };
+    // let mut data2 = vec![255 as u32;(w*h) as usize];
+    for (x,y,pixel) in img.pixels() {
+        let n = ((y*w+x)) as usize;
+        loaded.data[n]
+            = 0xFF000000
+            | ((pixel[0] as u32)<<16)
+            | ((pixel[1] as u32)<< 8)
+            | ((pixel[2] as u32)<< 0)
+        ;
+    }
+    return Result::Ok(loaded);
+}
+
 #[test]
 fn test_image_load() {
     let image  = load_image_from_path("tests/images/cat.jpg").unwrap();
+    let mut dt = DrawTarget::new(image.width, image.height);
+    dt.draw_image_at(0.,0., &image.to_image(), &DrawOptions::default());
+    dt.write_png("output.png");
+}
+
+#[test]
+fn test_remote_image_load() {
+    // let image  = load_image_from_path("tests/images/cat.jpg").unwrap();
+    let image = load_image_from_net("https://apps.josh.earth/rust-minibrowser/cat.jpg").unwrap();
+
     let mut dt = DrawTarget::new(image.width, image.height);
     dt.draw_image_at(0.,0., &image.to_image(), &DrawOptions::default());
     dt.write_png("output.png");

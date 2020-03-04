@@ -48,13 +48,13 @@ fn main() {
         height: size.1 as f32,
     };
 
-    // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
+    let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
     // let doc = load_doc("tests/nested.html");
     // let doc = load_doc("tests/simple.html");
-    let doc = load_doc("tests/image.html");
+    // let doc = load_doc("tests/image.html");
     let stylesheet = load_stylesheet_with_fallback(&doc);
     let styled = style_tree(&doc.root_node,&stylesheet);
-    let mut bbox = layout::build_layout_tree(&styled);
+    let mut bbox = layout::build_layout_tree(&styled, &doc.base_url);
     let containing_block = Dimensions {
         content: Rect {
             x: 0.0,
@@ -66,7 +66,8 @@ fn main() {
         border: Default::default(),
         margin: Default::default()
     };
-    let render_root = bbox.layout(containing_block, &font);
+    let render_root = bbox.layout(containing_block, &font, &doc.base_url);
+    // println!("render root is {:#?}",render_root);
 
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     loop {
