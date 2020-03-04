@@ -259,10 +259,13 @@ fn test_hexcolor() {
     assert_eq!( Value::HexColor("#4455FF".to_lowercase()), result.unwrap());
 }
 
+
 fn keyword<'a>() -> Parser<'a, u8, Value> {
     let r
         = space()
-        + (is_a(alpha)).repeat(0..)
+        + (is_a(|term:u8| {
+            (term >= 0x41 && term < 0x5A) || (term >= 0x61 && term <= 0x7A) || (term == '-' as u8)
+            })).repeat(0..)
         ;
     r.map(|(_,c)| {
         Value::Keyword(String::from_utf8(c).unwrap())
@@ -273,6 +276,13 @@ fn keyword<'a>() -> Parser<'a, u8, Value> {
 fn test_keyword() {
     let input = br"black";
     println!("{:#?}",keyword().parse(input))
+}
+#[test]
+fn test_keyword_dash() {
+    let input = b"inline-block";
+    let result = keyword().parse(input);
+    println!("{:?}", result);
+    assert_eq!( Value::Keyword("inline-block".to_lowercase()), result.unwrap());
 }
 
 fn value<'a>() -> Parser<'a, u8, Value> {
