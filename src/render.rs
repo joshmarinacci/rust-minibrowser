@@ -17,7 +17,7 @@ pub const AQUA:Color = Color { r:0, g:255, b:255, a:255 };
 pub const YELLOW:Color = Color { r:255, g:255, b:0, a:255 };
 #[allow(dead_code)]
 pub const GREEN:Color = Color { r:0, g:255, b:0, a:255 };
-pub const PURPLE:Color = Color { r:255, g:0, b:255, a:255 };
+pub const MAGENTA:Color = Color { r:255, g:0, b:255, a:255 };
 
 pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
     let mut pb = PathBuilder::new();
@@ -117,6 +117,9 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
                         }
                         RenderInlineBoxType::Image(img) => {
                             dt.draw_image_at(img.rect.x,img.rect.y,&img.image.to_image(), &DrawOptions::default());
+                        }
+                        RenderInlineBoxType::Error(err) => {
+                            fill_rect(dt, &err.rect, &render_color_to_source(&MAGENTA))
                         }
                     }
                 }

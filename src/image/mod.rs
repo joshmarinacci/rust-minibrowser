@@ -3,6 +3,7 @@ use image::{GenericImageView, DynamicImage};
 use raqote::{Image, DrawTarget, PathBuilder, Gradient, GradientStop, Color, Point, Spread, DrawOptions, Source, SolidSource};
 use std::fmt::{Debug, Formatter, Error, Display};
 use std::fmt;
+use self::image::ImageError;
 
 const WHITE_SOURCE: Source = Source::Solid(SolidSource {
     r: 0xff,
@@ -34,8 +35,8 @@ impl fmt::Display for LoadedImage {
     }
 }
 
-pub fn load_image_from_path(path:&str) -> LoadedImage {
-    let img = image::open(path).unwrap();
+pub fn load_image_from_path(path:&str) -> Result<LoadedImage, ImageError> {
+    let img = image::open(path)?;
     let (w,h) = img.dimensions();
 
     let mut loaded = LoadedImage {
@@ -54,13 +55,12 @@ pub fn load_image_from_path(path:&str) -> LoadedImage {
             | ((pixel[2] as u32)<< 0)
         ;
     }
-    return loaded;
+    return Result::Ok(loaded);
 }
 #[test]
 fn test_image_load() {
-    let image  = load_image_from_path("tests/images/cat.jpg");
+    let image  = load_image_from_path("tests/images/cat.jpg").unwrap();
     let mut dt = DrawTarget::new(image.width, image.height);
     dt.draw_image_at(0.,0., &image.to_image(), &DrawOptions::default());
     dt.write_png("output.png");
-
 }

@@ -118,6 +118,7 @@ pub struct RenderLineBox {
 pub enum RenderInlineBoxType {
     Text(RenderTextBox),
     Image(RenderImageBox),
+    Error(RenderErrorBox),
 }
 
 #[derive(Debug)]
@@ -131,6 +132,10 @@ pub struct RenderTextBox {
 pub struct RenderImageBox {
     pub(crate) rect:Rect,
     pub(crate) image:LoadedImage,
+}
+#[derive(Debug)]
+pub struct RenderErrorBox {
+    pub(crate) rect:Rect,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>) -> LayoutBox<'a> {
@@ -272,40 +277,16 @@ impl<'a> LayoutBox<'a> {
                 _ => false,
             };
             if is_inline_block {
-                let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
-                let mut path = "";
-                match child.box_type {
-                    InlineBlockNode(styled) => {
-                        match &styled.node.node_type {
-                            NodeType::Element(data) => {
-                                println!("looking at element data {:#?}", data);
-                                let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
-                                println!("got width {}",width);
-                                image_size.width = width as f32;
-
-                                let height = data.attributes.get("height").unwrap().parse::<u32>().unwrap();
-                                println!("got height {}",height);
-                                image_size.height = height as f32;
-                                let url = data.attributes.get("src").unwrap();
-                                println!("got source {}",url);
-                                path = url;
-                            }
-                            _ => {}
-                        }
-                        // println!("checking the size {:#?}", styled);
-                    }
-                    _ => {}
-                }
-                line_box.children.push(RenderInlineBoxType::Image(RenderImageBox {
-                    rect: Rect {
-                        x: x,
-                        y: y - image_size.height + line_height,
-                        width: image_size.width,
-                        height: image_size.height,
+                match layout_image(&child, x, y, line_height) {
+                    Ok(blk) => {
+                        x += blk.rect.width;
+                        line_box.children.push(RenderInlineBoxType::Image(blk));
                     },
-                    image: load_image_from_path(path)
-                }));
-                x += image_size.width;
+                    Err(blk) => {
+                        x += blk.rect.width;
+                        line_box.children.push(RenderInlineBoxType::Error(blk))
+                    }
+                }
             } else {
                 let text = match child.box_type {
                     InlineNode(styled) => {
@@ -515,6 +496,58 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+}
+
+fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32) -> Result<RenderImageBox, RenderErrorBox> {
+    let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
+    let mut path = "";
+    match child.box_type {
+        InlineBlockNode(styled) => {
+            match &styled.node.node_type {
+                NodeType::Element(data) => {
+                    println!("looking at element data {:#?}", data);
+                    let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
+                    println!("got width {}",width);
+                    image_size.width = width as f32;
+
+                    let height = data.attributes.get("height").unwrap().parse::<u32>().unwrap();
+                    println!("got height {}",height);
+                    image_size.height = height as f32;
+                    let url = data.attributes.get("src").unwrap();
+                    println!("got source {}",url);
+                    path = url;
+                }
+                _ => {}
+            }
+            // println!("checking the size {:#?}", styled);
+        }
+        _ => {}
+    }
+    let image = load_image_from_path(path);
+    match image {
+        Ok(image) => {
+            Ok(RenderImageBox {
+                rect: Rect {
+                    x: x,
+                    y: y - image_size.height + line_height,
+                    width: image_size.width,
+                    height: image_size.height,
+                },
+                image: image
+            })
+        },
+        Err(str) => {
+            println!("error loading the image for {} : {}", path, str);
+            Err(RenderErrorBox {
+                rect: Rect {
+                    x: x,
+                    y: y - image_size.height + line_height,
+                    width: image_size.width,
+                    height: image_size.height,
+                },
+            })
+        }
+    }
 }
 
 fn calculate_word_length(text:&str, font:&Font) -> f32 {
