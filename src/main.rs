@@ -78,7 +78,8 @@ fn main() {
         if left_down && !prev_left_down {
             let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
             println!("Left mouse is down at {} , {}",x,y);
-            render_root.find_box_containing(x,y);
+            let res = render_root.find_box_containing(x,y);
+            println!("got a result under the click: {:#?}", res);
         }
         prev_left_down = left_down;
 

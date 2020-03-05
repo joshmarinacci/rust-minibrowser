@@ -13,6 +13,7 @@ use crate::render::{BLACK};
 use crate::image::{LoadedImage, load_image_from_path};
 use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net};
+use raqote::PathOp::QuadTo;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -50,6 +51,9 @@ impl Rect {
             width: self.width + edge.left + edge.right,
             height: self.height + edge.top + edge.bottom,
         }
+    }
+    pub fn contains(self, x:f32, y:f32) -> bool {
+        self.x <= x && self.x + self.width >= x && self.y <= y && self.y + self.height > y
     }
 }
 
@@ -94,10 +98,31 @@ pub enum RenderBox {
     Inline(),
     InlineBlock(),
 }
+
+#[derive(Debug)]
+pub enum QueryResult<'a> {
+    Text(&'a RenderTextBox),
+    None(),
+}
+impl QueryResult<'_> {
+    fn is_none(&self) -> bool {
+        match self {
+            QueryResult::None() =>true,
+            _ => false
+        }
+    }
+}
+
+
 impl RenderBox {
-    pub fn find_box_containing(&self, x:f32, y:f32) -> Option<RenderBox> {
-        println!("checking at {} {}",x,y);
-        return None;
+    pub fn find_box_containing(&self, x:f32, y:f32) -> QueryResult {
+        match self {
+            RenderBox::Block(bx) => bx.find_box_containing(x,y),
+            RenderBox::Anonymous(bx) => bx.find_box_containing(x,y),
+            _ => {
+                QueryResult::None()
+            }
+        }
     }
 }
 
@@ -112,15 +137,53 @@ pub struct RenderBlockBox {
     pub border_width: f32,
     pub children: Vec<RenderBox>,
 }
+
+impl RenderBlockBox {
+    pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
+        for child in self.children.iter() {
+            let res = child.find_box_containing(x,y);
+            if !res.is_none() {
+                return res
+            }
+        }
+        return QueryResult::None();
+    }
+}
+
 #[derive(Debug)]
 pub struct RenderAnonymousBox {
     pub(crate) rect:Rect,
     pub children: Vec<RenderLineBox>,
 }
+impl RenderAnonymousBox {
+    pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
+        for child in self.children.iter() {
+            let res = child.find_box_containing(x,y);
+            if !res.is_none() {
+                return res
+            }
+        }
+        return QueryResult::None()
+    }
+}
 #[derive(Debug)]
 pub struct RenderLineBox {
     pub(crate) rect:Rect,
     pub(crate) children: Vec<RenderInlineBoxType>,
+}
+impl RenderLineBox {
+    pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
+        for child in self.children.iter() {
+            let res = match child {
+                RenderInlineBoxType::Text(node) => node.find_box_containing(x,y),
+                _ => QueryResult::None()
+            };
+            if !res.is_none() {
+                return res
+            }
+        }
+        return QueryResult::None()
+    }
 }
 
 #[derive(Debug)]
@@ -137,6 +200,15 @@ pub struct RenderTextBox {
     pub color:Option<Color>,
     pub font_size:f32,
 }
+impl RenderTextBox {
+    pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
+        if self.rect.contains(x,y) {
+            return QueryResult::Text(&self)
+        }
+        return QueryResult::None()
+    }
+}
+
 #[derive(Debug)]
 pub struct RenderImageBox {
     pub(crate) rect:Rect,
