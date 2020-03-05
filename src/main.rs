@@ -2,7 +2,7 @@ use rust_minibrowser::dom::{load_doc, getElementsByTagName, NodeType, Document};
 use rust_minibrowser::style;
 use rust_minibrowser::layout;
 
-use minifb::{ Window, WindowOptions,};
+use minifb::{Window, WindowOptions, MouseButton, MouseMode};
 use raqote::{DrawTarget, SolidSource, Source};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
@@ -12,6 +12,7 @@ use rust_minibrowser::css::{load_stylesheet, parse_stylesheet, Stylesheet};
 use rust_minibrowser::layout::{Dimensions, Rect};
 use rust_minibrowser::render::draw_render_box;
 use rust_minibrowser::net::load_doc_from_net;
+use rust_minibrowser::globals::make_globals;
 
 
 const WIDTH: usize = 400;
@@ -31,6 +32,7 @@ fn load_stylesheet_with_fallback(doc:&Document) -> Stylesheet {
 }
 
 fn main() {
+    let globals = make_globals();
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         ..WindowOptions::default()
     }).unwrap();
@@ -48,8 +50,8 @@ fn main() {
         height: size.1 as f32,
     };
 
-    let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    // let doc = load_doc("tests/nested.html");
+    // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
+    let doc = load_doc("tests/nested.html");
     // let doc = load_doc("tests/simple.html");
     // let doc = load_doc("tests/image.html");
     let stylesheet = load_stylesheet_with_fallback(&doc);
@@ -70,7 +72,16 @@ fn main() {
     // println!("render root is {:#?}",render_root);
 
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
+    let mut prev_left_down = false;
     loop {
+        let left_down = window.get_mouse_down(MouseButton::Left);
+        if left_down && !prev_left_down {
+            let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
+            println!("Left mouse is down at {} , {}",x,y);
+            render_root.find_box_containing(x,y);
+        }
+        prev_left_down = left_down;
+
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         draw_render_box(&render_root, &mut dt, &font);
         window.update_with_buffer(dt.get_data(), size.width as usize, size.height as usize).unwrap();

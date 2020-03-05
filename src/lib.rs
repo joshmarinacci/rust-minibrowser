@@ -5,6 +5,7 @@ pub mod style;
 pub mod css;
 pub mod net;
 pub mod image;
+pub mod globals;
 
 #[cfg(test)]
 mod tests {

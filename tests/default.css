@@ -6,6 +6,10 @@ b {
     display: inline;
     color: red;
 }
+a {
+    display: inline;
+    color: blue;
+}
 img {
     display: inline-block;
 }
