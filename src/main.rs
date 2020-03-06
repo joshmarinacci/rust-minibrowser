@@ -9,10 +9,11 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 use rust_minibrowser::style::style_tree;
 use rust_minibrowser::css::{load_stylesheet, parse_stylesheet, Stylesheet};
-use rust_minibrowser::layout::{Dimensions, Rect};
+use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::draw_render_box;
 use rust_minibrowser::net::load_doc_from_net;
 use rust_minibrowser::globals::make_globals;
+use font_kit::loaders::core_text::Font;
 
 
 const WIDTH: usize = 400;
@@ -29,6 +30,15 @@ fn load_stylesheet_with_fallback(doc:&Document) -> Stylesheet {
         _ => {}
     }
     return load_stylesheet("tests/default.css");
+}
+
+fn navigate_to_doc(url:&str, font:&Font, containing_block:Dimensions) -> (Document, RenderBox) {
+    let doc = load_doc(url);
+    let stylesheet = load_stylesheet_with_fallback(&doc);
+    let styled = style_tree(&doc.root_node,&stylesheet);
+    let mut bbox = layout::build_layout_tree(&styled, &doc.base_url);
+    let render_root = bbox.layout(containing_block, &font, &doc.base_url);
+    return (doc,render_root)
 }
 
 fn main() {
@@ -51,12 +61,9 @@ fn main() {
     };
 
     // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    let doc = load_doc("tests/nested.html");
+
     // let doc = load_doc("tests/simple.html");
     // let doc = load_doc("tests/image.html");
-    let stylesheet = load_stylesheet_with_fallback(&doc);
-    let styled = style_tree(&doc.root_node,&stylesheet);
-    let mut bbox = layout::build_layout_tree(&styled, &doc.base_url);
     let containing_block = Dimensions {
         content: Rect {
             x: 0.0,
@@ -68,9 +75,9 @@ fn main() {
         border: Default::default(),
         margin: Default::default()
     };
-    let render_root = bbox.layout(containing_block, &font, &doc.base_url);
     // println!("render root is {:#?}",render_root);
 
+    let (mut doc, mut render_root) = navigate_to_doc("tests/page1.html", &font, containing_block);
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
     loop {
@@ -80,6 +87,22 @@ fn main() {
             println!("Left mouse is down at {} , {}",x,y);
             let res = render_root.find_box_containing(x,y);
             println!("got a result under the click: {:#?}", res);
+            match res {
+                QueryResult::Text(bx) => {
+                    match &bx.link {
+                        Some(href) => {
+                            println!("going to load {}", href);
+                            let res = navigate_to_doc(href, &font, containing_block);
+                            doc = res.0;
+                            render_root = res.1;
+                        }
+                        _ => {}
+                    }
+                }
+
+                _ => {}
+            }
+
         }
         prev_left_down = left_down;
 

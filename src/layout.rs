@@ -199,6 +199,7 @@ pub struct RenderTextBox {
     pub(crate) text:String,
     pub color:Option<Color>,
     pub font_size:f32,
+    pub link:Option<String>,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -369,13 +370,17 @@ impl<'a> LayoutBox<'a> {
                     }
                 }
             } else {
+                let mut link:Option<&String> = Option::None;
                 let text = match child.box_type {
                     InlineNode(styled) => {
                         match &styled.node.node_type {
                             NodeType::Text(string) => string.clone(),
                             NodeType::Element(data) => {
-                            // println!("got the styled node {:#?}",styled);
+                                println!("got the styled node {:#?}",styled);
                                 color = styled.lookup_color("color", &color);
+                                if data.tag_name == "a" {
+                                    link = data.attributes.get("href");
+                                }
                                 if data.tag_name == "img" {
                                     "".to_string()
                                 } else {
@@ -412,6 +417,7 @@ impl<'a> LayoutBox<'a> {
                             text: current_line,
                             color: Some(color.clone()),
                             font_size,
+                            link: link.map(|s| String::from(s)),
                         }));
 
                         // println!("adding line box");
@@ -449,6 +455,7 @@ impl<'a> LayoutBox<'a> {
                     text: current_line,
                     color: Some(color.clone()),
                     font_size,
+                    link: link.map(|s| String::from(s)),
                 }));
                 current_line = String::new();
                 x += len;
