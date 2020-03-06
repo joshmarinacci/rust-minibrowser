@@ -11,6 +11,7 @@ use std::io::Read;
 #[derive(Debug, PartialEq)]
 pub struct Stylesheet {
     pub(crate) rules: Vec<Rule>,
+    pub parent: Option<Box<Stylesheet>>,
 }
 #[derive(Debug, PartialEq)]
 pub struct Rule {
@@ -349,7 +350,7 @@ fn test_rule() {
     println!("{:#?}",rule().parse(input))
 }
 fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
-    rule().repeat(0..).map(|rules| Stylesheet { rules })
+    rule().repeat(0..).map(|rules| Stylesheet { rules, parent: None, })
 }
 
 #[test]
@@ -382,6 +383,7 @@ fn test_file_load() {
     let parsed = stylesheet().parse(content.as_slice()).unwrap();
     println!("{:#?}", parsed);
     let ss = Stylesheet {
+        parent: None,
         rules: vec![
             Rule {
                 selectors: vec![

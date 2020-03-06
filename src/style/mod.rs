@@ -137,8 +137,28 @@ fn match_rule<'a>(elem: &ElementData, rule: &'a Rule) -> Option<MatchedRule<'a>>
 }
 
 //find all matching rules for an element
-fn matching_rules<'a>(elem: &ElementData, stylesheeet: &'a Stylesheet) -> Vec<MatchedRule<'a>> {
-    stylesheeet.rules.iter().filter_map(|rule| match_rule(elem,rule)).collect()
+fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<MatchedRule<'a>> {
+    let mut rules:Vec<MatchedRule> = match &stylesheet.parent {
+        Some(parent) => parent.rules.iter().filter_map(|rule| match_rule(elem,rule)).collect(),
+        None => vec![],
+    };
+    let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter().filter_map(|rule| match_rule(elem,rule)).collect();
+    rules.append(&mut rules2);
+    return rules;
+}
+
+#[test]
+fn test_multifile_cascade() {
+    let stylesheet_parent = load_stylesheet("tests/default.css");
+    let mut stylesheet = load_stylesheet("tests/child.css");
+    stylesheet.parent = Some(Box::new(stylesheet_parent));
+    let elem = ElementData {
+        tag_name: String::from("div"),
+        attributes: Default::default()
+    };
+    let values = specified_values(&elem, &stylesheet);
+    println!("got the values {:#?}", values);
+    assert_eq!(values.get("background-color").unwrap(),&Value::Keyword(String::from("blue")));
 }
 
 // get all values set by all rules

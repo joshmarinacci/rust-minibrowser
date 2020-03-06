@@ -21,15 +21,19 @@ const HEIGHT: usize = 600;
 
 fn load_stylesheet_with_fallback(doc:&Document) -> Stylesheet {
     let style_node = getElementsByTagName(&doc.root_node, "style");
+    let default_stylesheet = load_stylesheet("tests/default.css");
+
     match style_node {
         Some(node) => {
             if let NodeType::Text(text) = &node.children[0].node_type {
-                return parse_stylesheet(text);
+                let mut ss = parse_stylesheet(text);
+                ss.parent = Some(Box::new(default_stylesheet));
+                return ss
             }
         }
         _ => {}
     }
-    return load_stylesheet("tests/default.css");
+    return default_stylesheet;
 }
 
 fn navigate_to_doc(url:&str, font:&Font, containing_block:Dimensions) -> (Document, RenderBox) {
