@@ -181,8 +181,38 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    meta_tag() | text_content() | element()
+    meta_tag() | text_content() | standalone_element() | element()
 }
+fn standalone_tag<'a>() -> Parser<'a, u8, String> {
+    (seq(b"img")|seq(b"link"))
+        .map(|f| v2s(&f.to_vec()))
+}
+
+fn standalone_element<'a>() -> Parser<'a, u8, Node> {
+    let p
+        = space()
+        + sym(b'<')
+        + standalone_tag()
+        + attributes()
+        - sym(b'>');
+    p.map(|((_, tag_name), attributes)|{
+        Node {
+            node_type: NodeType::Element(ElementData{
+                tag_name,
+                attributes,
+            }),
+            children: vec![],
+        }
+    })
+}
+
+#[test]
+fn test_standlone_elements() {
+    assert!(standalone_element().parse(b"<img>").is_ok());
+    assert!(standalone_element().parse(br#"<img src="foo.png">"#).is_ok());
+    assert!(standalone_element().parse(b"<link>").is_ok());
+}
+
 fn element<'a>() -> Parser<'a, u8, Node> {
     let p
         = open_element()
@@ -205,14 +235,10 @@ fn element<'a>() -> Parser<'a, u8, Node> {
 
 #[test]
 fn test_element() {
-    let input = b"<head>";
-    println!("{:#?}", open_element().parse(input));
-    let input = b"</head>";
-    println!("{:#?}", close_element().parse(input));
-    let input = b" some foo text ";
-    println!("{:#?}", element_child().parse(input));
-    let input = b"<head></head>";
-    println!("{:#?}", element_child().parse(input));
+    assert!(open_element().parse(b"<head>").is_ok());
+    assert!(close_element().parse(b"</head>").is_ok());
+    assert!(element_child().parse(b"some foo text").is_ok());
+    assert!(element_child().parse(b"<head></head>").is_ok());
 }
 
 #[test]
@@ -273,6 +299,15 @@ fn test_multi_children_h3() {
     println!("{:#?}", element().parse(input));
 }
 
+#[test]
+fn test_div_with_img_child() {
+    let input = br#"
+     <div>
+        <img src="foo.png">
+     </div>
+    "#;
+    println!("{:#?}", element().parse(input));
+}
 
 fn doctype<'a>() -> Parser<'a, u8, ()> {
      seq(b"<!DOCTYPE html>").map(|_| ())
