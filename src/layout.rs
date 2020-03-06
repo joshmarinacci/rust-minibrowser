@@ -13,7 +13,6 @@ use crate::render::{BLACK};
 use crate::image::{LoadedImage, load_image_from_path};
 use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net};
-use raqote::PathOp::QuadTo;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -277,7 +276,7 @@ impl<'a> LayoutBox<'a> {
             BlockNode(node) => {
                 // if last child is anonymous block, keep using it
                 match self.children.last() {
-                    Some(&LayoutBox { box_type: AnonymousBlock(node), ..}) => {},
+                    Some(&LayoutBox { box_type: AnonymousBlock(_node), ..}) => {},
                     _ => self.children.push(LayoutBox::new(AnonymousBlock(node))),
                 }
                 self.children.last_mut().unwrap()
@@ -327,7 +326,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font, base_url:&str) -> RenderAnonymousBox {
-        let mut color = self.get_style_node().lookup_color("color", &BLACK);
+        let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
@@ -355,7 +354,7 @@ impl<'a> LayoutBox<'a> {
             let mut color = color.clone();
 
             let is_inline_block = match child.box_type {
-                InlineBlockNode(styled) => true,
+                InlineBlockNode(_styled) => true,
                 _ => false,
             };
             if is_inline_block {
@@ -457,14 +456,12 @@ impl<'a> LayoutBox<'a> {
                     font_size,
                     link: link.map(|s| String::from(s)),
                 }));
-                current_line = String::new();
                 x += len;
             }
         }
 
         lines.push(line_box);
         d.content.height += line_height;
-        y += line_height;
 
         return RenderAnonymousBox {
             rect: Rect {
@@ -708,7 +705,7 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
             let st = match &snode.node.node_type {
                 NodeType::Text(_) => "text".to_string(),
                 NodeType::Element(data) => format!("element \"{}\"",data.tag_name),
-                NodeType::Meta(data) => format!("meta tag"),
+                NodeType::Meta(_data) => format!("meta tag"),
             };
             format!("block {}",st)
         }
@@ -720,7 +717,7 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
             };
             format!("inline {}",st)
         },
-        InlineBlockNode(snode) => {
+        InlineBlockNode(_snode) => {
             format!("inline-block")
         }
         AnonymousBlock(_snode) => "anonymous".to_string(),

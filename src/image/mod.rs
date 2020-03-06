@@ -1,7 +1,7 @@
 extern crate image;
-use image::{GenericImageView, DynamicImage};
-use raqote::{Image, DrawTarget, PathBuilder, Gradient, GradientStop, Color, Point, Spread, DrawOptions, Source, SolidSource};
-use std::fmt::{Debug, Formatter, Error, Display};
+use image::{GenericImageView};
+use raqote::{Image, DrawTarget,  Color, DrawOptions};
+use std::fmt::{Debug, Formatter, Display};
 use std::fmt;
 use self::image::ImageError;
 use self::image::io::Reader;
