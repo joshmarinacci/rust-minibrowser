@@ -9,6 +9,7 @@ use std::io::Read;
 use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
 use crate::css::parse_stylesheet;
+use std::path::Path;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -478,13 +479,14 @@ fn test_file_load() {
 }
 
 
-pub fn load_doc(filename:&str) -> Document {
+pub fn load_doc(filename:&Path) -> Result<Document,String> {
+    println!("Loading doc from file {}", filename.display());
     let mut file = File::open(filename).unwrap();
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);
     let mut parsed = document().parse(content.as_slice()).unwrap();
-    parsed.base_url = filename.to_string();
-    return parsed;
+    parsed.base_url = String::from(filename.to_str().unwrap());
+    return Ok(parsed);
 }
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
     return document().parse(buf.as_slice()).unwrap();

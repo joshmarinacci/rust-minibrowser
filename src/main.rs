@@ -14,6 +14,11 @@ use rust_minibrowser::render::draw_render_box;
 use rust_minibrowser::net::load_doc_from_net;
 use rust_minibrowser::globals::make_globals;
 use font_kit::loaders::core_text::Font;
+use reqwest::Url;
+use std::string::ParseError;
+use std::error::Error;
+use std::env::current_dir;
+use std::path::{PathBuf, Path};
 
 
 const WIDTH: usize = 400;
@@ -36,13 +41,24 @@ fn load_stylesheet_with_fallback(doc:&Document) -> Stylesheet {
     return default_stylesheet;
 }
 
-fn navigate_to_doc(url:&str, font:&Font, containing_block:Dimensions) -> (Document, RenderBox) {
-    let doc = load_doc(url);
+fn navigate_to_doc(url:Url, font:&Font, containing_block:Dimensions) -> (Document, RenderBox) {
+    let doc = load_doc_from_net(&url).unwrap();
     let stylesheet = load_stylesheet_with_fallback(&doc);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc.base_url);
     let render_root = bbox.layout(containing_block, &font, &doc.base_url);
     return (doc,render_root)
+}
+fn relative_path_to_absolute_url(path:&str) -> Url {
+    let cwd = current_dir().unwrap();
+    let p = PathBuf::from(path);
+    let final_path = cwd.join(p);;
+    println!("final path is {}", final_path.display());
+    let file_url_str = format!("file://{}",final_path.to_str().unwrap());
+    println!("final path 2 is {}",file_url_str);
+    let base_url = Url::parse(&*file_url_str).unwrap();
+    println!("final url {}",base_url);
+    return base_url;
 }
 
 fn main() {
@@ -81,7 +97,9 @@ fn main() {
     };
     // println!("render root is {:#?}",render_root);
 
-    let (mut doc, mut render_root) = navigate_to_doc("tests/page1.html", &font, containing_block);
+    let start_page = relative_path_to_absolute_url("tests/page1.html");
+    // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
+    let (mut doc, mut render_root) = navigate_to_doc(start_page, &font, containing_block);
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
     loop {
@@ -95,8 +113,12 @@ fn main() {
                 QueryResult::Text(bx) => {
                     match &bx.link {
                         Some(href) => {
-                            println!("going to load {}", href);
-                            let res = navigate_to_doc(href, &font, containing_block);
+                            println!("going to load {} {}", href, doc.base_url);
+                            let base_url = Url::parse(&*format!("file://{}", doc.base_url)).unwrap();
+                            println!("base is {}", base_url);
+                            let url = base_url.join(href).unwrap();
+                            println!("going to the new url {}",url);
+                            let res = navigate_to_doc(url, &font, containing_block);
                             doc = res.0;
                             render_root = res.1;
                         }
