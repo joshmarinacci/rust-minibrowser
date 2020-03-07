@@ -14,3 +14,4 @@ serde_json = "1.0"
 pom = "3.1.0"
 reqwest = { version = "0.10", features = ["blocking", "json"] }
 image = "0.23.0"
+url = "2.1.1"

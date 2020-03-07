@@ -7,6 +7,7 @@ use self::image::ImageError;
 use self::image::io::Reader;
 use std::io::Cursor;
 use crate::net::load_image_from_net;
+use url::Url;
 
 #[derive(Debug,PartialEq)]
 pub struct LoadedImage {
@@ -31,7 +32,7 @@ impl fmt::Display for LoadedImage {
     }
 }
 
-pub fn load_image_from_path(path:&str) -> Result<LoadedImage, ImageError> {
+pub fn load_image_from_filepath(path:&str) -> Result<LoadedImage, ImageError> {
     let img = image::open(path)?;
     let (w,h) = img.dimensions();
 
@@ -80,7 +81,7 @@ pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
 
 #[test]
 fn test_image_load() {
-    let image  = load_image_from_path("tests/images/cat.jpg").unwrap();
+    let image  = load_image_from_filepath("tests/images/cat.jpg").unwrap();
     let mut dt = DrawTarget::new(image.width, image.height);
     dt.draw_image_at(0.,0., &image.to_image(), &DrawOptions::default());
     dt.write_png("output.png");
@@ -89,7 +90,7 @@ fn test_image_load() {
 #[test]
 fn test_remote_image_load() {
     // let image  = load_image_from_path("tests/images/cat.jpg").unwrap();
-    let image = load_image_from_net("https://apps.josh.earth/rust-minibrowser/cat.jpg").unwrap();
+    let image = load_image_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/cat.jpg").unwrap()).unwrap();
 
     let mut dt = DrawTarget::new(image.width, image.height);
     dt.draw_image_at(0.,0., &image.to_image(), &DrawOptions::default());

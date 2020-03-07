@@ -1,10 +1,12 @@
 use crate::dom::{Node, ElementData, load_doc};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, load_stylesheet};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
+use crate::net::{load_stylesheet_from_net, relative_filepath_to_url};
+use url::Url;
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -149,8 +151,8 @@ fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<Mat
 
 #[test]
 fn test_multifile_cascade() {
-    let stylesheet_parent = load_stylesheet("tests/default.css");
-    let mut stylesheet = load_stylesheet("tests/child.css");
+    let stylesheet_parent = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css").unwrap()).unwrap();
+    let mut stylesheet = load_stylesheet_from_net(&Url::parse("tests/child.css").unwrap()).unwrap();
     stylesheet.parent = Some(Box::new(stylesheet_parent));
     let elem = ElementData {
         tag_name: String::from("div"),
@@ -190,8 +192,8 @@ pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<
 
 #[test]
 fn test_style_tree() {
-    let doc = load_doc("tests/test1.html");
-    let stylesheet = load_stylesheet("tests/foo.css");
+    let doc = load_doc("tests/test1.html".as_ref()).unwrap();
+    let stylesheet = load_stylesheet_from_net(&Url::parse("tests/foo.css").unwrap()).unwrap();
     let snode = style_tree(&doc.root_node,&stylesheet);
     println!("final snode is {:#?}",snode)
 }

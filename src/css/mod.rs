@@ -5,7 +5,7 @@ use std::str::{self, FromStr};
 use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
-
+use crate::net::BrowserError;
 
 
 #[derive(Debug, PartialEq)]
@@ -365,14 +365,11 @@ fn test_font_style() {
     println!("{:#?}",stylesheet().parse(input))
 }
 
-pub fn load_stylesheet(filename:&str) -> Stylesheet {
-    let mut file = File::open(filename).unwrap();
-    let mut content:Vec<u8>= Vec::new();
-    file.read_to_end(&mut content);
-    return stylesheet().parse(content.as_slice()).unwrap();
+pub fn parse_stylesheet_from_buffer(content:Vec<u8>) -> Result<Stylesheet, BrowserError> {
+    Ok(stylesheet().parse(content.as_slice())?)
 }
-pub fn parse_stylesheet(text:&str) -> Stylesheet {
-    return stylesheet().parse(text.as_ref()).unwrap();
+pub fn parse_stylesheet(text:&str) -> Result<Stylesheet, BrowserError> {
+    Ok(stylesheet().parse(text.as_ref())?)
 }
 
 #[test]

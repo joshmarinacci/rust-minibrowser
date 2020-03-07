@@ -10,13 +10,15 @@ use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
 use crate::css::parse_stylesheet;
 use std::path::Path;
+use url::Url;
+use crate::net::BrowserError;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
 #[derive(Debug, PartialEq)]
 pub struct Document {
     pub root_node: Node,
-    pub base_url:String,
+    pub base_url:Url,
 }
 
 #[allow(non_snake_case)]
@@ -316,7 +318,7 @@ fn doctype<'a>() -> Parser<'a, u8, ()> {
 fn document<'a>() -> Parser<'a, u8, Document> {
     (space().opt() + doctype().opt() + space() + element()).map(|(_,node)| Document {
         root_node: node,
-        base_url: "".to_string()
+        base_url: Url::parse("https://www.mozilla.org/").unwrap(),
     })
 }
 
@@ -430,7 +432,7 @@ fn test_simple_doc() {
                 }
             ]
         },
-        base_url: "".to_string()
+        base_url: Url::parse("").unwrap()
     }, result.unwrap());
 }
 
@@ -473,19 +475,22 @@ fn test_file_load() {
                 }
             ]
         },
-        base_url: "".to_string()
+        base_url: Url::parse("http://foo.com/").unwrap()
     };
     assert_eq!(dom,parsed)
 }
 
 
-pub fn load_doc(filename:&Path) -> Result<Document,String> {
+pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
     println!("Loading doc from file {}", filename.display());
     let mut file = File::open(filename).unwrap();
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);
     let mut parsed = document().parse(content.as_slice()).unwrap();
-    parsed.base_url = String::from(filename.to_str().unwrap());
+    let str = filename.to_str().unwrap();
+    let base_url = format!("file://{}",str);
+    println!("using base url {}", base_url);
+    parsed.base_url = Url::parse(base_url.as_str()).unwrap();
     return Ok(parsed);
 }
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
