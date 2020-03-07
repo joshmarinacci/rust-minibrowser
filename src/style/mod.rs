@@ -5,7 +5,7 @@ use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
-use crate::net::{load_stylesheet_from_net, relative_filepath_to_url};
+use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, url_from_relative_filepath};
 use url::Url;
 use std::fs::File;
 use std::io::Read;
@@ -182,7 +182,7 @@ fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<Mat
 #[test]
 fn test_multifile_cascade() {
     let stylesheet_parent = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css").unwrap()).unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&Url::parse("tests/child.css").unwrap()).unwrap();
+    let mut stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/child.css").unwrap()).unwrap();
     stylesheet.parent = Some(Box::new(stylesheet_parent));
     let elem = ElementData {
         tag_name: String::from("div"),
@@ -222,8 +222,8 @@ pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<
 
 #[test]
 fn test_style_tree() {
-    let doc = load_doc("tests/test1.html".as_ref()).unwrap();
-    let stylesheet = load_stylesheet_from_net(&Url::parse("tests/foo.css").unwrap()).unwrap();
+    let doc = load_doc_from_net(&relative_filepath_to_url("tests/test1.html").unwrap()).unwrap();
+    let stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/foo.css").unwrap()).unwrap();
     let snode = style_tree(&doc.root_node,&stylesheet);
     println!("final snode is {:#?}",snode)
 }
