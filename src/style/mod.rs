@@ -7,23 +7,47 @@ use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url};
 use url::Url;
+use std::fs::File;
+use std::io::Read;
+use std::io::BufReader;
 
 type PropertyMap = HashMap<String, Value>;
 
 
+fn hexstring_to_color(str:&str) -> Color {
+    let n = i32::from_str_radix(&str[1..], 16).unwrap();
+    let r = (n >> 16) & 0xFF;
+    let g = (n >> 8) & 0xFF;
+    let b = (n >> 0) & 0xFF;
+    Color {
+        r: r as u8,
+        g: g as u8,
+        b: b as u8,
+        a: 255
+    }
+}
+fn load_css_json() -> HashMap<String, Color>{
+    let file = File::open("res/css-color-names.json").unwrap();
+    let reader = BufReader::new(file);
+    let json:serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+    let mut map:HashMap<String,Color> = HashMap::new();
+    if let serde_json::Value::Object(obj) = json {
+        for (key, value) in obj.iter() {
+            if let serde_json::Value::String(val) = value {
+                map.insert(key.to_string(),hexstring_to_color(&*val));
+            }
+        }
+    }
+    map
+}
+
 lazy_static! {
-    static ref COLORS_MAP: HashMap<&'static str, Color> = {
-        let mut map = HashMap::new();
-        map.insert("amber", Color { r:255, g: 191, b: 0, a:255});
-        map.insert("blue", Color { r:0, g: 0, b: 255, a:255});
-        map.insert("red", Color { r:255, g: 0, b: 0, a:255});
-        map.insert("green", Color { r:0, g: 255, b: 0, a:255});
-        map.insert("black", Color { r:0, g: 0, b: 0, a:255});
-        map
-    };
+    static ref COLORS_MAP: HashMap<String, Color> = { load_css_json() };
 }
 pub fn find_color_lazy_static(name: &str) -> Option<Color> {
-    COLORS_MAP.get(name.to_lowercase().as_str()).cloned()
+    println!("looking up {}",name);
+    COLORS_MAP.get(&name.to_lowercase()).cloned()
 }
 
 #[derive(Debug)]
