@@ -3,12 +3,28 @@ use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value,
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
-use crate::css::Value::{Keyword, ColorValue, Length, HexColor};
+use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url};
 use url::Url;
 
 type PropertyMap = HashMap<String, Value>;
+
+
+lazy_static! {
+    static ref COLORS_MAP: HashMap<&'static str, Color> = {
+        let mut map = HashMap::new();
+        map.insert("amber", Color { r:255, g: 191, b: 0, a:255});
+        map.insert("blue", Color { r:0, g: 0, b: 255, a:255});
+        map.insert("red", Color { r:255, g: 0, b: 0, a:255});
+        map.insert("green", Color { r:0, g: 255, b: 0, a:255});
+        map.insert("black", Color { r:0, g: 0, b: 0, a:255});
+        map
+    };
+}
+pub fn find_color_lazy_static(name: &str) -> Option<Color> {
+    COLORS_MAP.get(name.to_lowercase().as_str()).cloned()
+}
 
 #[derive(Debug)]
 pub enum Display {
@@ -80,18 +96,7 @@ impl StyledNode<'_> {
                     a: 255
                 })
             },
-            Some(Keyword(name)) => {
-                return match name.as_str() {
-                    "blue" => Some(BLUE),
-                    "red" => Some(RED),
-                    "green" => Some(GREEN),
-                    "black" => Some(BLACK),
-                    "white" => Some(WHITE),
-                    "aqua" => Some(AQUA),
-                    "yellow" => Some(YELLOW),
-                    _ => None,
-                }
-            }
+            Some(Keyword(name)) => find_color_lazy_static(&name),
             Some(Length(_,_)) => None,
             None => None,
         }
