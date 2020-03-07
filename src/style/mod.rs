@@ -27,6 +27,7 @@ fn hexstring_to_color(str:&str) -> Color {
     }
 }
 fn load_css_json() -> HashMap<String, Color>{
+    println!("loading css-color-names.json");
     let file = File::open("res/css-color-names.json").unwrap();
     let reader = BufReader::new(file);
     let json:serde_json::Value = serde_json::from_reader(reader).unwrap();
@@ -43,7 +44,7 @@ fn load_css_json() -> HashMap<String, Color>{
 }
 
 lazy_static! {
-    static ref COLORS_MAP: HashMap<String, Color> = { load_css_json() };
+    pub static ref COLORS_MAP: HashMap<String, Color> = { load_css_json() };
 }
 pub fn find_color_lazy_static(name: &str) -> Option<Color> {
     println!("looking up {}",name);
