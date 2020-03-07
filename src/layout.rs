@@ -12,7 +12,7 @@ use crate::css::Unit::Px;
 use crate::render::{BLACK};
 use crate::image::{LoadedImage};
 use std::path::Path;
-use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image};
+use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
 use url::Url;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -658,7 +658,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 fn test_layout<'a>() {
     let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
     // let doc = load_doc("tests/image.html");
-    let ss_url = url_from_relative_filepath("tests/default.css").unwrap();
+    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
     let stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
     // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc.root_node,&stylesheet);
