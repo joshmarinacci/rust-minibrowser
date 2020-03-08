@@ -1,7 +1,18 @@
 * {
     display: block;
-    font-size: 18px;
     color: inherit;
+    background-image: none;
+    background-repeat: repeat;
+    font-family: inherit;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: normal;
+}
+html {
+    color: black;
+    background-color: white;
+    font-family: sans-serif;
+    font-size: 18px;
 }
 b {
     display: inline;
