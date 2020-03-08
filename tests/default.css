@@ -53,3 +53,9 @@ div {
     border-color: blue;
     color: #ffff00;
 }
+pre {
+    white-space: pre;
+}
+code {
+    font-family: monospace;
+}
