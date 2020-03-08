@@ -14,6 +14,7 @@ use crate::image::{LoadedImage};
 use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
 use url::Url;
+use crate::dom::NodeType::{Text, Element};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -326,6 +327,39 @@ impl<'a> LayoutBox<'a> {
             border_color: self.get_style_node().color("border-color"),
         }
     }
+
+    fn make_flat_children(&self) -> Vec<LayoutBox>{
+        let mut v:Vec<LayoutBox> = vec![];
+
+        for ch in &self.children {
+            match ch.box_type {
+                InlineNode(styled) => {
+                    match &styled.node.node_type {
+                        Text(_text) => {
+                            println!("found a text inline {:#?}", styled);
+                            v.push(LayoutBox {
+                                dimensions: Default::default(),
+                                box_type: BoxType::InlineNode(styled),
+                                children: vec![]
+                            })
+                            // v.push(ch);
+                        }
+                        Element(_ed) => {
+                            // println!("found a nested child {:#?}",styled);
+                            let v2 = ch.make_flat_children();
+                            println!("made children");
+                            v.extend(v2);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+            //println!("looking at child {:#?}",ch.box_type)
+        }
+        return v;
+    }
+
     fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
@@ -350,8 +384,10 @@ impl<'a> LayoutBox<'a> {
             children: vec![]
         };
         let mut x = d.content.x;
+        // let v2 = self.make_flat_children();
+        // for child in v2.iter() {
         for child in &mut self.children {
-            // println!("child node {:#?}",child.box_type);
+        //  println!("child node {:#?}",child.box_type);
             let mut color = color.clone();
 
             let is_inline_block = match child.box_type {
@@ -458,6 +494,7 @@ impl<'a> LayoutBox<'a> {
                     link: link.map(|s| String::from(s)),
                 }));
                 x += len;
+                len = 0.0;
             }
         }
 
@@ -595,7 +632,6 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
                     let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
                     println!("got width {}",width);
                     image_size.width = width as f32;
-
                     let height = data.attributes.get("height").unwrap().parse::<u32>().unwrap();
                     println!("got height {}",height);
                     image_size.height = height as f32;
@@ -657,7 +693,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 #[test]
 fn test_layout<'a>() {
     let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
-    // let doc = load_doc("tests/image.html");
+    // let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
     let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
     let stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
     // println!("stylesheet is {:#?}",stylesheet);
