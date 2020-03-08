@@ -1,6 +1,7 @@
 * {
     display: block;
     font-size: 18px;
+    color: inherit;
 }
 b {
     display: inline;
