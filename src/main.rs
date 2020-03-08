@@ -13,10 +13,10 @@ use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::draw_render_box;
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheet_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use rust_minibrowser::globals::make_globals;
-use font_kit::loaders::core_text::Font;
 use std::env::current_dir;
 use std::path::{PathBuf, Path};
 use url::Url;
+use font_kit::font::Font;
 
 
 const WIDTH: usize = 400;
