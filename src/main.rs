@@ -19,8 +19,8 @@ use url::Url;
 use font_kit::font::Font;
 
 
-const WIDTH: usize = 400;
-const HEIGHT: usize = 600;
+const WIDTH: usize = 600;
+const HEIGHT: usize = 800;
 
 
 fn navigate_to_doc(url:Url, font:&Font, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {

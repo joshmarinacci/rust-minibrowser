@@ -629,10 +629,19 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
             match &styled.node.node_type {
                 NodeType::Element(data) => {
                     println!("looking at element data {:#?}", data);
-                    let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
+                    // let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
+                    let width = if data.attributes.contains_key("width") {
+                        data.attributes.get("width").unwrap().parse::<u32>().unwrap()
+                    } else {
+                        100
+                    };
                     println!("got width {}",width);
                     image_size.width = width as f32;
-                    let height = data.attributes.get("height").unwrap().parse::<u32>().unwrap();
+                    let height = if data.attributes.contains_key("height") {
+                        data.attributes.get("height").unwrap().parse::<u32>().unwrap()
+                    } else {
+                        100
+                    };
                     println!("got height {}",height);
                     image_size.height = height as f32;
                     src = data.attributes.get("src").unwrap().clone();
