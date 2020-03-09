@@ -127,6 +127,16 @@ fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
         return (v2s(&key), value)
     })
 }
+fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
+    let p
+        = space()
+        + is_a(alpha).repeat(1..)
+        ;
+    p.map(|(_,key)| {
+        let key = v2s(&key);
+        return (key.clone(),key.clone())
+    })
+}
 
 #[test]
 fn test_attribute_simple() {
@@ -138,9 +148,13 @@ fn test_attribute_complex() {
     let input = b"foo=\"bar-foo-8\"";
     println!("{:#?}", attribute().parse(input));
 }
-
+#[test]
+fn test_attribute_standalone() {
+    let input = b"foo=\"bar\" baz";
+    println!("{:#?}", attributes().parse(input));
+}
 fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
-    let p = attribute().repeat(0..);
+    let p = (attribute() | standalone_attribute()).repeat(0..);
     p.map(|a|{
         let mut map = AttrMap::new();
         for (key,value) in a {
@@ -163,6 +177,7 @@ fn open_element<'a>() -> Parser<'a, u8, (String, AttrMap)> {
         + sym(b'<')
         + alphanum_string()
         + attributes()
+        - space()
         - sym(b'>');
     p.map(|((_,name),atts)| {
         (name, atts)
@@ -184,11 +199,30 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    meta_tag() | text_content() | standalone_element() | element()
+    meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
 }
 fn standalone_tag<'a>() -> Parser<'a, u8, String> {
-    (seq(b"img")|seq(b"link"))
+    (seq(b"img")|seq(b"link") | seq(b"input"))
         .map(|f| v2s(&f.to_vec()))
+}
+
+fn selfclosed_element<'a>() -> Parser<'a, u8, Node> {
+    let p
+        = space()
+        + sym(b'<')
+        + standalone_tag()
+        + attributes()
+        - space()
+        - seq(b"/>");
+    p.map(|((_, tag_name), attributes)|{
+        Node {
+            node_type: NodeType::Element(ElementData{
+                tag_name,
+                attributes,
+            }),
+            children: vec![],
+        }
+    })
 }
 
 fn standalone_element<'a>() -> Parser<'a, u8, Node> {
@@ -214,6 +248,13 @@ fn test_standlone_elements() {
     assert!(standalone_element().parse(b"<img>").is_ok());
     assert!(standalone_element().parse(br#"<img src="foo.png">"#).is_ok());
     assert!(standalone_element().parse(b"<link>").is_ok());
+    assert!(element_child().parse(b"<link/>").is_ok());
+}
+
+#[test]
+fn test_standalone_attribute() {
+    assert!(element_child().parse(br#"<iframe width="853" height="480" src="https://www.youtube.com/embed/YslQ2625TR4" frameborder="0" allowfullscreen></iframe>"#).is_ok());
+
 }
 
 fn element<'a>() -> Parser<'a, u8, Node> {
@@ -361,6 +402,16 @@ fn test_metatag_with_closing_element() {
     assert!(meta_tag().parse(b"<meta />").is_ok())
 }
 
+#[test]
+fn test_linktag_with_closing_element() {
+    assert!(element_child().parse(br#"<link rel="stylesheet" href="tufte.css"/>"#).is_ok())
+}
+#[test]
+fn test_input_element() {
+    assert!(element_child().parse(br#"<input />"#).is_ok());
+    assert!(element_child().parse(br#"<input ></input>"#).is_ok());
+}
+
 fn comment<'a>() -> Parser<'a, u8, ()> {
     let p = seq(b"<!--") + (!seq(b"-->") + take(1)).repeat(0..) + seq(b"-->");
     p.map(|((_,_),b)| {
@@ -490,35 +541,16 @@ fn test_file_load() {
 
 #[test]
 fn test_tufte() {
-    /*
-    let input = br#"<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8"/>
-  </head>
-  <body>
-    <article>
-      <h1 id="tufte-css">Tufte CSS</h1>
-      <p class="subtitle">Dave Liepmann</p>
-      <section>
-        <p>Tufte CSS provides tools to style web articles using the ideas demonstrated by Edward Tufte’s books and handouts. Tufte’s style is known for its simplicity, extensive use of sidenotes, tight integration of graphics with text, and carefully chosen typography.</p>
-    </section>
-</article>
-</body>
-</html>
-"#;
-*/
-    // let result = document().parse(input);
     let mut file = File::open("tests/tufte.html").unwrap();
-    let mut content: Vec<u8> = Vec::new();
-    file.read_to_end(&mut content);
-    let mut result = document().parse(content.as_slice());
-
-    println!("error is {:#?}",result.err());
-    for (i,bt) in content.iter().enumerate() {
-        println!("foo {} {} {} {}", i, (*bt) as char, bt, 47 as char);
-    }
-    // assert!(result.is_ok())
+    let mut input: Vec<u8> = Vec::new();
+    file.read_to_end(&mut input);
+    let mut result = document().parse(input.as_slice());
+    //
+    // println!("error is {:#?}",result.err());
+    // for (i,bt) in input.iter().enumerate() {
+    //     println!("foo {} {} {} {}", i, (*bt) as char, bt, 47 as char);
+    // }
+    assert!(result.is_ok())
 }
 
 pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
