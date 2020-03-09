@@ -68,8 +68,9 @@ fn main() -> Result<(),BrowserError>{
     };
     // println!("render root is {:#?}",render_root);
 
-    let start_page = relative_filepath_to_url("tests/page1.html")?;
+    // let start_page = relative_filepath_to_url("tests/page1.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
+    let start_page = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &font, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;

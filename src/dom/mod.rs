@@ -362,6 +362,7 @@ fn comment<'a>() -> Parser<'a, u8, ()> {
         println!("comment {}",v2s(&b.to_vec()));
     })
 }
+/*
 #[test]
 fn test_comment() {
     let input = br"<!-- a cool - comment-->";
@@ -377,6 +378,7 @@ fn test_comment_2() {
     println!("{:?}", result);
     // assert_eq!((),result.unwrap())
 }
+*/
 
 #[test]
 fn test_style_parse() {
@@ -408,6 +410,7 @@ fn test_simple_doc() {
         <meta charset="UTF-8"></head></html>
     "#;
     let result = document().parse(input);
+    println!("foo");
     println!("{:?}", result);
     let mut atts = HashMap::new();
     atts.insert("charset".to_string(),"UTF-8".to_string());
@@ -432,7 +435,7 @@ fn test_simple_doc() {
                 }
             ]
         },
-        base_url: Url::parse("").unwrap()
+        base_url: Url::parse("https://www.mozilla.org/").unwrap()
     }, result.unwrap());
 }
 
@@ -475,7 +478,7 @@ fn test_file_load() {
                 }
             ]
         },
-        base_url: Url::parse("http://foo.com/").unwrap()
+        base_url: Url::parse("https://www.mozilla.org/").unwrap()
     };
     assert_eq!(dom,parsed)
 }
