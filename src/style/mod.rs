@@ -1,12 +1,11 @@
-use crate::dom::{Node, ElementData, load_doc};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color};
+use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
-use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, url_from_relative_filepath};
-use url::Url;
+use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 use std::fs::File;
 use std::io::Read;
 use std::io::BufReader;
@@ -188,13 +187,18 @@ fn test_multifile_cascade() {
         tag_name: String::from("div"),
         attributes: Default::default()
     };
-    let values = specified_values(&elem, &stylesheet);
+    let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
+    let values = specified_values(&elem, &stylesheet, &mut a2);
     println!("got the values {:#?}", values);
     assert_eq!(values.get("background-color").unwrap(),&Value::Keyword(String::from("blue")));
 }
 
 // get all values set by all rules
-fn specified_values(elem: &ElementData, stylesheet: &Stylesheet) -> PropertyMap {
+fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> PropertyMap {
+    // println!("styling with ancestors {:#?}", ancestors.len());
+    // for an in ancestors.iter() {
+    //     println!("   ancestor {:#?} {:#?}", an.0.node_type, an.1);
+    // }
     let mut values:HashMap<String,Value> = HashMap::new();
     let mut rules = matching_rules(elem,stylesheet);
 
@@ -202,21 +206,97 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet) -> PropertyMap 
     rules.sort_by(|&(a,_),&(b,_)| a.cmp(&b));
     for (_,rule) in rules {
         for declaration in &rule.declarations {
-            values.insert(declaration.name.clone(), declaration.value.clone());
+            // println!("checking {} {:#?}", declaration.name, declaration.value);
+            let mut vv = &declaration.value;
+            if declaration.name == "color" && declaration.value == Keyword(String::from("inherit")) {
+                // println!("other inherit");
+                for (node,props) in ancestors.iter() {
+                    if props.contains_key("color") {
+                        // println!("found an ancestor match {:#?}", props.get("color"));
+                        vv = props.get("color").unwrap();
+                    }
+                }
+            }
+            values.insert(declaration.name.clone(), vv.clone());
         }
     }
     return values;
 }
 
 pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
+    let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
+    return real_style_tree(root, stylesheet, &mut ansc);
+}
+pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> StyledNode<'a> {
+    let specified = match root.node_type {
+        Element(ref elem) => specified_values(elem, stylesheet, ancestors),
+        Text(_) => HashMap::new(),
+        Meta(_) => HashMap::new(),
+    };
+    let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
+    a2.push((root, &specified));
+    let ch2 = root.children.iter().map(|child| real_style_tree(child, stylesheet, &mut a2)).collect();
     StyledNode {
         node: root,
-        specified_values: match root.node_type {
-            Element(ref elem) => specified_values(elem, stylesheet),
-            Text(_) => HashMap::new(),
-            Meta(_) => HashMap::new(),
-        },
-        children: root.children.iter().map(|child| style_tree(child, stylesheet)).collect()
+        specified_values: specified,
+        children: ch2,
+    }
+}
+
+#[test]
+fn test_inherited_match() {
+    let doc_text = br#"
+    <html>
+        <b>cool</b>
+    </html>
+    "#;
+    let css_text = br#"
+        * {
+            color: inherit;
+        }
+        html {
+            color: black;
+        }
+        b {
+            foo:bar;
+        }
+        a {
+            color: blue;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+    dump_stylednode(&snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check html b element
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check html b text element
+    // assert_eq!(snode.children[0].children[0].specified_values.get("color").unwrap(),
+    //            &Keyword(String::from("black")));
+    // println!("done")
+
+}
+
+fn dump_stylednode(node:&StyledNode) {
+    println!("node {}", dump_nodetype(&node.node.node_type));
+    println!(" styles {:#?}", node.specified_values);
+    for ch in node.children.iter() {
+        dump_stylednode(&ch);
+    }
+}
+fn dump_nodetype(typ:&NodeType) -> String {
+    match typ {
+        Text(txt) => format!("TEXT -{}-",txt),
+        Element(ed) => format!("{}",&ed.tag_name),
+        _ => {"other".to_string()}
     }
 }
 

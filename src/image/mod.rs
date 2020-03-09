@@ -1,6 +1,6 @@
 extern crate image;
 use image::{GenericImageView};
-use raqote::{Image, DrawTarget,  Color, DrawOptions};
+use raqote::{Image, DrawTarget,  DrawOptions};
 use std::fmt::{Debug, Formatter, Display};
 use std::fmt;
 use self::image::ImageError;

@@ -147,7 +147,7 @@ fn test_request() -> Result<(), BrowserError> {
     let res = getElementsByTagName(&doc.root_node, "style");
     println!("result is {:#?}",res);
     if res.is_some() {
-        let mut style_node = res.unwrap();
+        let style_node = res.unwrap();
         if let NodeType::Text(text) = &style_node.children[0].node_type {
             println!("got the text {}", text);
             let stylesheet = parse_stylesheet(text)?;

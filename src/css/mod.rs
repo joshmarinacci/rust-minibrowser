@@ -368,6 +368,9 @@ fn test_font_style() {
 pub fn parse_stylesheet_from_buffer(content:Vec<u8>) -> Result<Stylesheet, BrowserError> {
     Ok(stylesheet().parse(content.as_slice())?)
 }
+pub fn parse_stylesheet_from_bytestring(content:&[u8]) -> Result<Stylesheet, BrowserError> {
+    Ok(stylesheet().parse(content)?)
+}
 pub fn parse_stylesheet(text:&str) -> Result<Stylesheet, BrowserError> {
     Ok(stylesheet().parse(text.as_ref())?)
 }

@@ -496,4 +496,7 @@ pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
     return document().parse(buf.as_slice()).unwrap();
 }
+pub fn load_doc_from_bytestring(buf:&[u8]) -> Document {
+    return document().parse(buf).unwrap();
+}
 
