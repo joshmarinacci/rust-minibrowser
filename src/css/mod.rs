@@ -6,6 +6,8 @@ use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
+use crate::css::Value::Length;
+use crate::css::Unit::Px;
 
 
 #[derive(Debug, PartialEq)]
@@ -53,6 +55,7 @@ impl Value {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Unit {
     Px,
+    Em,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -219,10 +222,15 @@ fn test_identifier() {
 }
 
 //if px, then turn Unit::px
-fn unit<'a>() -> Parser<'a, u8, Unit> {
-    seq(&br"px"[0..]).map(|_| Unit::Px)
+fn unit_px<'a>() -> Parser<'a, u8, Unit> {
+    seq(b"px").map(|_| Unit::Px)
 }
-
+fn unit_em<'a>() -> Parser<'a, u8, Unit> {
+    seq(b"em").map(|_| Unit::Em)
+}
+fn unit<'a>() -> Parser<'a, u8, Unit> {
+    unit_px() | unit_em()
+}
 #[test]
 fn test_unit() {
     let input = br"px";
@@ -237,9 +245,9 @@ fn length_unit<'a>() -> Parser<'a, u8, Value> {
 }
 
 #[test]
-fn test_length_unit() {
-    let input = br"3px";
-    println!("{:?}",length_unit().parse(input))
+fn test_length_units() {
+    assert_eq!(length_unit().parse(br"3px"), Ok(Length(3.0,Unit::Px)));
+    assert_eq!(length_unit().parse(br"3em"), Ok(Length(3.0,Unit::Em)));
 }
 
 fn hexcolor<'a>() -> Parser<'a, u8, Value> {
