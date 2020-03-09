@@ -35,7 +35,6 @@ head {
 }
 body {
     font-size: 18px;
-    background-color: aqua;
     border-color: black;
     margin: 10px;
     border-width: 10px;
@@ -58,7 +57,6 @@ div {
     border-width: 10px;
     margin: 10px;
     padding: 10px;
-    background-color: red;
     border-color: blue;
     color: #ffff00;
 }
