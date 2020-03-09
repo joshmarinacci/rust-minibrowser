@@ -20,7 +20,7 @@ use font_kit::font::Font;
 
 
 const WIDTH: usize = 600;
-const HEIGHT: usize = 800;
+const HEIGHT: usize = 1100;
 
 
 fn navigate_to_doc(url:Url, font:&Font, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
@@ -70,7 +70,8 @@ fn main() -> Result<(),BrowserError>{
 
     // let start_page = relative_filepath_to_url("tests/page1.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    let start_page = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
+    // let start_page = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
+    let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &font, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
