@@ -2,8 +2,8 @@ use rust_minibrowser::dom::{load_doc, getElementsByTagName, NodeType, Document};
 use rust_minibrowser::style;
 use rust_minibrowser::layout;
 
-use minifb::{Window, WindowOptions, MouseButton, MouseMode};
-use raqote::{DrawTarget, SolidSource, Source};
+use minifb::{Window, WindowOptions, MouseButton, MouseMode, KeyRepeat, Key};
+use raqote::{DrawTarget, SolidSource, Source, Point, Transform};
 use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
@@ -75,7 +75,17 @@ fn main() -> Result<(),BrowserError>{
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &font, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
+    let mut viewport = Rect{
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0
+    };
     loop {
+        scroll_viewport(&window, &mut viewport);
+        let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, viewport.y);
+        dt.set_transform(&ts);
+
         let left_down = window.get_mouse_down(MouseButton::Left);
         if left_down && !prev_left_down {
             let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
@@ -101,8 +111,30 @@ fn main() -> Result<(),BrowserError>{
         prev_left_down = left_down;
 
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
-        draw_render_box(&render_root, &mut dt, &font);
+        draw_render_box(&render_root, &mut dt, &font, &viewport);
         window.update_with_buffer(dt.get_data(), size.width as usize, size.height as usize).unwrap();
     }
 }
 
+fn scroll_viewport(window:&Window, viewport:&mut Rect) {
+    let mut keys = window.get_keys_pressed(KeyRepeat::No);
+    println!("keys pressed {:#?}",keys);
+    if keys.is_some() {
+        match keys {
+            Some(keys) => {
+                for key in keys {
+                    match key {
+                        Key::Up => viewport.y += 100.0,
+                        Key::Down => viewport.y -= 100.0,
+                        Key::Left => viewport.x += 100.0,
+                        Key::Right => viewport.x -= 100.0,
+                        _ => {}
+                    }
+                }
+            },
+            None => {
+
+            },
+        };
+    }
+}

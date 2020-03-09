@@ -223,12 +223,14 @@ pub struct RenderErrorBox {
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> LayoutBox<'a> {
     // println!("build_layout_tree {:#?}", style_node.node.node_type);
+    /*
     match &style_node.node.node_type {
         Element(ed) => {
             println!(" {} ", ed.tag_name);
         },
         _ => {}
     };
+    */
     // println!("styles {:#?}", style_node.specified_values);
     // println!("display is {:#?}", style_node.display());
     let mut root = LayoutBox::new(match style_node.display() {

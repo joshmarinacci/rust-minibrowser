@@ -52,7 +52,7 @@ fn render_color_to_source(c:&Color) -> Source {
     return Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b));
 }
 
-pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
+pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport:&Rect) {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
@@ -85,7 +85,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font) {
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&BLACK), 1 as f32);
             for ch in block.children.iter() {
-                draw_render_box(&ch,dt,font);
+                draw_render_box(&ch,dt,font, viewport);
             }
         },
         RenderBox::Inline() => {
