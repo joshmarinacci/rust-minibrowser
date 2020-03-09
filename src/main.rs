@@ -78,12 +78,12 @@ fn main() -> Result<(),BrowserError>{
     let mut viewport = Rect{
         x: 0.0,
         y: 0.0,
-        width: 0.0,
-        height: 0.0
+        width: WIDTH as f32,
+        height: HEIGHT as f32,
     };
     loop {
         scroll_viewport(&window, &mut viewport);
-        let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, viewport.y);
+        let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, -viewport.y);
         dt.set_transform(&ts);
 
         let left_down = window.get_mouse_down(MouseButton::Left);
@@ -124,8 +124,8 @@ fn scroll_viewport(window:&Window, viewport:&mut Rect) {
             Some(keys) => {
                 for key in keys {
                     match key {
-                        Key::Up => viewport.y += 100.0,
-                        Key::Down => viewport.y -= 100.0,
+                        Key::Up => viewport.y -= 100.0,
+                        Key::Down => viewport.y += 100.0,
                         Key::Left => viewport.x += 100.0,
                         Key::Right => viewport.x -= 100.0,
                         _ => {}

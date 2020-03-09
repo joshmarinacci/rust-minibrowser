@@ -52,7 +52,7 @@ fn render_color_to_source(c:&Color) -> Source {
     return Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b));
 }
 
-pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport:&Rect) {
+pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport:&Rect) -> bool {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
@@ -85,19 +85,33 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&BLACK), 1 as f32);
             for ch in block.children.iter() {
-                draw_render_box(&ch,dt,font, viewport);
+                match ch {
+                    RenderBox::Block(blk) => {
+                        if (blk.rect.y > viewport.y + viewport.height) {
+                            println!("outside! {}", blk.rect.y);
+                            return false;
+                        }
+                    }
+                    _ => {}
+                }
+
+                let ret = draw_render_box(&ch,dt,font, viewport);
+                if ret == false {
+                    return false;
+                }
             }
+            return true;
         },
         RenderBox::Inline() => {
-
+            return true;
         },
         RenderBox::InlineBlock() => {
-
+            return true;
         },
         RenderBox::Anonymous(block) => {
             //don't draw anonymous blocks that are empty
             if block.children.len() <= 0 {
-                return;
+                return true;
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&RED), 1 as f32);
             for line in block.children.iter() {
@@ -124,6 +138,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport
                     }
                 }
             }
+            return true;
         }
     }
 }
