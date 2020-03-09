@@ -223,6 +223,12 @@ pub struct RenderErrorBox {
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> LayoutBox<'a> {
     // println!("build_layout_tree {:#?}", style_node.node.node_type);
+    match &style_node.node.node_type {
+        Element(ed) => {
+            println!(" {} ", ed.tag_name);
+        },
+        _ => {}
+    };
     // println!("styles {:#?}", style_node.specified_values);
     // println!("display is {:#?}", style_node.display());
     let mut root = LayoutBox::new(match style_node.display() {
@@ -412,7 +418,7 @@ impl<'a> LayoutBox<'a> {
                         match &styled.node.node_type {
                             NodeType::Text(string) => string.clone(),
                             NodeType::Element(data) => {
-                                println!("got the styled node {:#?}",styled);
+                                // println!("got the styled node {:#?}",styled);
                                 color = styled.lookup_color("color", &color);
                                 if data.tag_name == "a" {
                                     link = data.attributes.get("href");
@@ -420,9 +426,14 @@ impl<'a> LayoutBox<'a> {
                                 if data.tag_name == "img" {
                                     "".to_string()
                                 } else {
-                                    match &styled.children[0].node.node_type {
-                                        NodeType::Text(string) => string.clone(),
-                                        _ => "".to_string()
+                                    if styled.children.len() < 1 {
+                                        println!("WARNING: inline element without a text child {:#?}",child);
+                                        "".to_string()
+                                    } else {
+                                        match &styled.children[0].node.node_type {
+                                            NodeType::Text(string) => string.clone(),
+                                            _ => "".to_string()
+                                        }
                                     }
                                 }
                             }
@@ -628,21 +639,21 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
         InlineBlockNode(styled) => {
             match &styled.node.node_type {
                 NodeType::Element(data) => {
-                    println!("looking at element data {:#?}", data);
+                    // println!("looking at element data {:#?}", data);
                     // let width = data.attributes.get("width").unwrap().parse::<u32>().unwrap();
                     let width = if data.attributes.contains_key("width") {
                         data.attributes.get("width").unwrap().parse::<u32>().unwrap()
                     } else {
                         100
                     };
-                    println!("got width {}",width);
+                    // println!("got width {}",width);
                     image_size.width = width as f32;
                     let height = if data.attributes.contains_key("height") {
                         data.attributes.get("height").unwrap().parse::<u32>().unwrap()
                     } else {
                         100
                     };
-                    println!("got height {}",height);
+                    // println!("got height {}",height);
                     image_size.height = height as f32;
                     src = data.attributes.get("src").unwrap().clone();
                     // println!("got source {}",url);

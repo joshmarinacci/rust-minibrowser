@@ -46,7 +46,6 @@ lazy_static! {
     pub static ref COLORS_MAP: HashMap<String, Color> = { load_css_json() };
 }
 pub fn find_color_lazy_static(name: &str) -> Option<Color> {
-    println!("looking up {}",name);
     COLORS_MAP.get(&name.to_lowercase()).cloned()
 }
 
