@@ -11,7 +11,7 @@ use self::pom::parser::{seq, take};
 use crate::css::parse_stylesheet;
 use std::path::Path;
 use url::Url;
-use crate::net::BrowserError;
+use crate::net::{BrowserError, load_doc_from_net};
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -332,7 +332,7 @@ fn test_doctype() {
 
 
 fn meta_tag<'a>() -> Parser<'a, u8, Node> {
-    let p = seq(b"<meta ") + attributes() - seq(b">");
+    let p = seq(b"<meta ") + attributes() - (seq(b">") | seq(b"/>"));
     p.map(|(_,attributes)| Node {
         node_type: NodeType::Meta(MetaData{
             attributes,
@@ -354,6 +354,11 @@ fn test_metatag() {
         }),
         children: vec![]
     }, result.unwrap());
+}
+
+#[test]
+fn test_metatag_with_closing_element() {
+    assert!(meta_tag().parse(b"<meta />").is_ok())
 }
 
 fn comment<'a>() -> Parser<'a, u8, ()> {
@@ -483,6 +488,26 @@ fn test_file_load() {
     assert_eq!(dom,parsed)
 }
 
+#[test]
+fn test_tufte() {
+    let input = br#"<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+  </head>
+</html>
+"#;
+
+    let result = document().parse(input);
+    // let url = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
+    // let doc = load_doc_from_net(&url).unwrap();
+
+    println!("error is {:#?}",result.err());
+    for (i,bt) in input.iter().enumerate() {
+        println!("foo {} {} {} {}", i, (*bt) as char, bt, 47 as char);
+    }
+    // assert!(result.is_ok())
+}
 
 pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
     println!("Loading doc from file {}", filename.display());
