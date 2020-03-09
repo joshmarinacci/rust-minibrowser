@@ -490,20 +490,32 @@ fn test_file_load() {
 
 #[test]
 fn test_tufte() {
+    /*
     let input = br#"<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
   </head>
+  <body>
+    <article>
+      <h1 id="tufte-css">Tufte CSS</h1>
+      <p class="subtitle">Dave Liepmann</p>
+      <section>
+        <p>Tufte CSS provides tools to style web articles using the ideas demonstrated by Edward Tufte’s books and handouts. Tufte’s style is known for its simplicity, extensive use of sidenotes, tight integration of graphics with text, and carefully chosen typography.</p>
+    </section>
+</article>
+</body>
 </html>
 "#;
-
-    let result = document().parse(input);
-    // let url = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
-    // let doc = load_doc_from_net(&url).unwrap();
+*/
+    // let result = document().parse(input);
+    let mut file = File::open("tests/tufte.html").unwrap();
+    let mut content: Vec<u8> = Vec::new();
+    file.read_to_end(&mut content);
+    let mut result = document().parse(content.as_slice());
 
     println!("error is {:#?}",result.err());
-    for (i,bt) in input.iter().enumerate() {
+    for (i,bt) in content.iter().enumerate() {
         println!("foo {} {} {} {}", i, (*bt) as char, bt, 47 as char);
     }
     // assert!(result.is_ok())
