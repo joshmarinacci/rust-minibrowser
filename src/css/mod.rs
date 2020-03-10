@@ -6,8 +6,9 @@ use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::Length;
+use crate::css::Value::{Length, Keyword};
 use crate::css::Unit::Px;
+use self::pom::set::Set;
 
 
 #[derive(Debug, PartialEq)]
@@ -439,4 +440,94 @@ fn test_tufte_rules() {
     let parsed = stylesheet().parse(content.as_slice()).unwrap();
     println!("parsed {:#?}",parsed);
 
+}
+#[test]
+fn test_atrule() {
+    let mut input = b"@charset \"UTF-8\";";
+    // let result = at_rule_def().parse(input.as_ref());
+    // println!("{:?}", result);
+    // assert_eq!(Declaration {
+    //     name: "border-color".to_string(),
+    //     value: Value::HexColor("#ff00aa".to_lowercase())
+    // },result.unwrap());
+    // println!("{:?}", declaration().parse(input))
+}
+
+#[test]
+fn test_fontface() {
+    let mut input = br#"@font-face {
+    font-family: "et-book";
+    src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");
+    src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot?#iefix") format("embedded-opentype"),
+         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.woff") format("woff"),
+         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf") format("truetype"),
+         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.svg#etbookromanosf") format("svg");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+"#;
+    // let result = fontface().parse(input.as_ref());
+    // println!("{:?}", result);
+    // assert_eq!(AtRule {
+    //     name:"font-face".to_string(),
+    //     declarations: vec![
+    //         //src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot")
+    //         Declaration { name: String::from("font-family"), value: StringValue(String::from("et-book")) },
+    //         Declaration { name: String::from("src"), value: Value::Url(String::from("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot")) },
+    //         Declaration { name: String::from("font-weight"), value: Keyword(String::from("normal")) },
+    //         Declaration { name: String::from("font-style"), value: Keyword(String::from("normal")) },
+    //         Declaration { name: String::from("font-display"), value: Keyword(String::from("swap")) },
+    //     ]
+    // },result.unwrap());
+}
+
+#[test]
+fn test_percentage() {
+    let input = br"width:100%;";
+}
+
+#[test]
+fn test_rem() {
+    let input = br"width:40rem;";
+}
+
+#[test]
+fn test_multiple_selectors() {
+    let input = br"a,b { foo: bar; }";
+}
+#[test]
+fn test_child_selector() {
+    let input = br"a > b { foo: bar; }";
+}
+#[test]
+fn test_simple_pseudo_selector() {
+    let input = br"a:hover { foo: bar; }";
+}
+
+#[test]
+fn test_not_pseudo_selector() {
+    let input = br"li:not(:first-child) { foo: bar; }";
+}
+
+#[test]
+fn test_four_part_margin() {
+    let input = br"margin: 1px 2px 3px 4px;";
+}
+#[test]
+fn test_two_part_margin() {
+    let input = br"margin: 1px 2px;";
+}
+#[test]
+fn test_one_part_margin() {
+    let input = br"margin: 1px;";
+}
+
+#[test]
+fn test_linear_gradient() {
+    let input = br"background: linear-gradient(#fffff8, #fffff8), linear-gradient(#fffff8, #fffff8), linear-gradient(currentColor, currentColor);";
+}
+#[test]
+fn test_keyword_list() {
+    let input = br"background-repeat: no-repeat, no-repeat, repeat-x;";
 }

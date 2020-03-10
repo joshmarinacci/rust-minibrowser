@@ -541,7 +541,7 @@ fn test_file_load() {
 
 #[test]
 fn test_tufte() {
-    let mut file = File::open("tests/tufte.html").unwrap();
+    let mut file = File::open("tests/tufte/tufte.html").unwrap();
     let mut input: Vec<u8> = Vec::new();
     file.read_to_end(&mut input);
     let mut result = document().parse(input.as_slice());
