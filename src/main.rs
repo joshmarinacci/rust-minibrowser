@@ -11,7 +11,7 @@ use rust_minibrowser::style::style_tree;
 use rust_minibrowser::css::{parse_stylesheet, Stylesheet};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::draw_render_box;
-use rust_minibrowser::net::{load_doc_from_net, load_stylesheet_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
+use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use rust_minibrowser::globals::make_globals;
 use std::env::current_dir;
 use std::path::{PathBuf, Path};
@@ -25,7 +25,7 @@ const HEIGHT: usize = 1100;
 
 fn navigate_to_doc(url:Url, font:&Font, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let doc = load_doc_from_net(&url)?;
-    let stylesheet = load_stylesheet_with_fallback(&doc)?;
+    let stylesheet = load_stylesheets_with_fallback(&doc)?;
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
     let render_root = bbox.layout(containing_block, &font, &doc);
@@ -68,10 +68,9 @@ fn main() -> Result<(),BrowserError>{
     };
     // println!("render root is {:#?}",render_root);
 
-    let start_page = relative_filepath_to_url("tests/page1.html")?;
+    // let start_page = relative_filepath_to_url("tests/page1.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    // let start_page = Url::parse("https://edwardtufte.github.io/tufte-css/").unwrap();
-    // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
+    let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &font, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
@@ -96,7 +95,7 @@ fn main() -> Result<(),BrowserError>{
                 QueryResult::Text(bx) => {
                     match &bx.link {
                         Some(href) => {
-                            let res = navigate_to_doc(calculate_url_from_doc(doc,href).unwrap(), &font, containing_block).unwrap();
+                            let res = navigate_to_doc(calculate_url_from_doc(&doc,href).unwrap(), &font, containing_block).unwrap();
                             doc = res.0;
                             render_root = res.1;
                         }

@@ -429,7 +429,7 @@ impl<'a> LayoutBox<'a> {
                                     "".to_string()
                                 } else {
                                     if styled.children.len() < 1 {
-                                        println!("WARNING: inline element without a text child {:#?}",child);
+                                        // println!("WARNING: inline element without a text child {:#?}",child);
                                         "".to_string()
                                     } else {
                                         match &styled.children[0].node.node_type {

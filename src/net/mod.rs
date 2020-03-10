@@ -8,6 +8,7 @@ use std::env::current_dir;
 use std::io::{Error, Read};
 use url::{Url, ParseError};
 use std::fs::File;
+use crate::dom::NodeType::Element;
 
 #[derive(Debug)]
 pub enum BrowserError {
@@ -41,7 +42,7 @@ impl From<pom::Error> for BrowserError {
     }
 }
 
-pub fn calculate_url_from_doc(doc:Document, href:&str) -> Result<Url,BrowserError>{
+pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserError>{
     println!("going to load {} {}", href, doc.base_url);
     let url = doc.base_url.join(href)?;
     println!("going to the new url {}",url);
@@ -51,9 +52,26 @@ pub fn file_url_to_path(url:&Url) -> &str {
     url.path()
 }
 
-pub fn load_stylesheet_with_fallback(doc:&Document) -> Result<Stylesheet,BrowserError> {
+pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,BrowserError> {
     let style_node = getElementsByTagName(&doc.root_node, "style");
     let default_stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css")?).unwrap();
+    println!("loading {:#?}", getElementsByTagName(&doc.root_node,"link"));
+    let linked = getElementsByTagName(&doc.root_node, "link");
+
+    if linked.is_some() {
+        match &linked.unwrap().node_type {
+            Element(ed) => {
+                let rel = ed.attributes.get("rel");
+                let href = ed.attributes.get("href");
+                if rel.is_some() && rel.unwrap() == "stylesheet" && href.is_some() {
+                    let href = href.unwrap();
+                    let more_ss = load_stylesheet_from_net(&calculate_url_from_doc(doc,href)?);
+                    println!("more ss is {:#?}",more_ss);
+                }
+            }
+            _ => {}
+        }
+    }
 
     match style_node {
         Some(node) => {
