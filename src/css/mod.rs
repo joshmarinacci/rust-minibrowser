@@ -9,7 +9,7 @@ use crate::net::BrowserError;
 use crate::css::Value::{Length, Keyword};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
-use self::pom::parser::list;
+use self::pom::parser::{list, call};
 
 
 #[derive(Debug, PartialEq)]
@@ -43,6 +43,7 @@ pub enum Value {
     Length(f32, Unit),
     ColorValue(Color),
     HexColor(String),
+    ArrayValue(Vec<Value>)
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -275,7 +276,7 @@ fn keyword<'a>() -> Parser<'a, u8, Value> {
         = space()
         + (is_a(|term:u8| {
             (term >= 0x41 && term < 0x5A) || (term >= 0x61 && term <= 0x7A) || (term == '-' as u8)
-            })).repeat(0..)
+            })).repeat(1..)
         ;
     r.map(|(_,c)| {
         Value::Keyword(String::from_utf8(c).unwrap())
@@ -295,9 +296,28 @@ fn test_keyword_dash() {
     assert_eq!( Value::Keyword("inline-block".to_lowercase()), result.unwrap());
 }
 
-fn value<'a>() -> Parser<'a, u8, Value> {
+fn one_value<'a>() -> Parser<'a, u8, Value> {
     hexcolor() | length_unit() | keyword()
 }
+
+fn array_value_2<'a>() -> Parser<'a, u8, Value> {
+    let t = one_value() - space() + one_value();
+    t.map(|(v1,v2)|{
+        Value::ArrayValue(vec![v1,v2])
+    })
+}
+
+fn array_value_4<'a>() -> Parser<'a, u8, Value> {
+    let t = one_value() - space() + one_value() - space() + one_value() - space() + one_value();
+    t.map(|(((v1,v2),v3),v4)|{
+        Value::ArrayValue(vec![v1,v2,v3,v4])
+    })
+}
+
+fn value<'a>() -> Parser<'a, u8, Value> {
+    call(array_value_4) | call(array_value_2) | one_value()
+}
+
 
 fn declaration<'a>() -> Parser<'a, u8, Declaration> {
     let r = space()
@@ -554,14 +574,41 @@ fn test_not_pseudo_selector() {
 #[test]
 fn test_four_part_margin() {
     let input = br"margin: 1px 2px 3px 4px;";
+    println!("parsed {:#?}", value().parse(b"1px 2px 3px 4px"));
+    println!("parsed {:#?}", declaration().parse(b"margin: 1px 2px 3px 4px;"));
+    let answer = Declaration {
+        name: String::from("margin"),
+        value: Value::ArrayValue(vec![
+            Length(1.0,Unit::Px),
+            Length(2.0,Unit::Px),
+            Length(3.0,Unit::Px),
+            Length(4.0,Unit::Px),
+        ])
+    };
+    assert_eq!(answer, declaration().parse(b"margin: 1px 2px 3px 4px;").unwrap());
 }
+
 #[test]
 fn test_two_part_margin() {
-    let input = br"margin: 1px 2px;";
+    println!("parsed {:#?}", array_value_2().parse(b"1px 2px"));
+    println!("parsed {:#?}",value().parse(b"1px 2px"));
+    println!("parsed {:#?}",value().parse(b"1px 2px"));
+    let answer = Declaration {
+        name: String::from("margin"),
+        value: Value::ArrayValue(vec![
+            Length(1.0,Unit::Px),
+            Length(2.0,Unit::Px),
+        ])
+    };
+    assert_eq!(answer, declaration().parse(b"margin: 1px 2px;").unwrap());
 }
 #[test]
 fn test_one_part_margin() {
-    let input = br"margin: 1px;";
+    let answer = Declaration {
+        name: String::from("margin"),
+        value: Length(1.0,Unit::Px)
+    };
+    assert_eq!(answer, declaration().parse(b"margin: 1px;").unwrap());
 }
 
 #[test]

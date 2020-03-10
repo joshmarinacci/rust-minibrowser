@@ -122,6 +122,7 @@ impl StyledNode<'_> {
             Some(Keyword(name)) => find_color_lazy_static(&name),
             Some(Length(_,_)) => None,
             None => None,
+            _ => None,
         }
     }
     pub fn insets(&self, name: &str) -> f32 {
