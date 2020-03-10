@@ -9,6 +9,7 @@ use crate::net::BrowserError;
 use crate::css::Value::{Length, Keyword};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
+use self::pom::parser::list;
 
 
 #[derive(Debug, PartialEq)]
@@ -131,6 +132,7 @@ fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
         = space()
         + (class_string() | star_string() | alphanum_string())
+        - space()
     ;
     r.map(|(_,name)| {
         if name.starts_with(".") {
@@ -340,13 +342,13 @@ fn ws_sym<'a>(ch:u8) -> Parser<'a, u8,u8> {
 
 fn rule<'a>() -> Parser<'a, u8, Rule> {
     let r
-        = selector()
+        = list(selector(),sym(b','))
         - ws_sym(b'{')
         + declaration().repeat(0..)
         - ws_sym(b'}')
         ;
     r.map(|(sel, declarations)| Rule {
-        selectors: vec![sel],
+        selectors: sel,
         declarations,
     })
 }
@@ -515,7 +517,25 @@ fn test_rem() {
 
 #[test]
 fn test_multiple_selectors() {
-    let input = br"a,b { foo: bar; }";
+    let answer = Rule {
+        selectors: vec![
+            Selector::Simple(SimpleSelector{
+                tag_name: Some(String::from("a")),
+                id: None,
+                class: vec![]
+            }),
+            Selector::Simple(SimpleSelector{
+                tag_name: Some(String::from("b")),
+                id: None,
+                class: vec![]
+            })
+        ],
+        declarations: vec![
+            Declaration{ name: String::from("foo"), value: Keyword(String::from("bar")) }
+        ]
+    };
+    assert_eq!(answer, rule().parse(br"a,b { foo: bar; }").unwrap());
+    assert_eq!(answer, rule().parse(br" a , b{ foo: bar; }").unwrap());
 }
 #[test]
 fn test_child_selector() {
