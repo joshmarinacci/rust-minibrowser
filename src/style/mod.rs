@@ -1,5 +1,5 @@
 use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
@@ -282,6 +282,32 @@ fn test_inherited_match() {
     //            &Keyword(String::from("black")));
     // println!("done")
 
+}
+
+#[test]
+fn test_em_to_px() {
+    let doc_text = br#" <html> <p>cool</p> </html> "#;
+    let css_text = br#"
+        * {
+            color: inherit;
+        }
+        html {
+            color: black;
+            margin: 1em;
+        }
+        p {
+            color: black;
+            margin: 1em;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+    // dump_stylednode(&snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
 }
 
 fn dump_stylednode(node:&StyledNode) {

@@ -549,7 +549,7 @@ impl<'a> LayoutBox<'a> {
 
         // If width is not auto and the total is wider than the container, treat auto margins as 0.
         let total = sum([&margin_left, &margin_right, &border_left, &border_right,
-            &padding_left, &padding_right, &width].iter().map(|v| v.to_px()));
+            &padding_left, &padding_right, &width].iter().map(|v| self.length_to_px(v)));
         if width != auto && total > containing_block.content.width {
             if margin_left == auto {
                 margin_left = Length(0.0, Px);
@@ -566,7 +566,7 @@ impl<'a> LayoutBox<'a> {
 
         match (width == auto, margin_left == auto, margin_right == auto) {
             (false,false,false) => {
-                margin_right = Length(margin_right.to_px() + underflow, Px);
+                margin_right = Length(self.length_to_px(&margin_right) + underflow, Px);
             }
             (false,false,true) => { margin_right = Length(underflow, Px); }
             (false,true,false) => { margin_left = Length(underflow, Px); }
@@ -577,7 +577,7 @@ impl<'a> LayoutBox<'a> {
                     width = Length(underflow, Px);
                 } else {
                     width = Length(0.0, Px);
-                    margin_right = Length(margin_right.to_px() + underflow, Px);
+                    margin_right = Length(self.length_to_px(&margin_right) + underflow, Px);
                 }
             }
             (false, true, true) => {
@@ -586,33 +586,48 @@ impl<'a> LayoutBox<'a> {
             }
         }
 
-        let d = &mut self.dimensions;
-        d.content.width = width.to_px();
-        d.padding.left = padding_left.to_px();
-        d.padding.right = padding_right.to_px();
-        d.border.left = border_left.to_px();
-        d.border.right = border_right.to_px();
-        d.margin.left = margin_left.to_px();
-        d.margin.right = margin_right.to_px();
+        self.dimensions.content.width = self.length_to_px(&width);
+        self.dimensions.padding.left = self.length_to_px(&padding_left);
+        self.dimensions.padding.right = self.length_to_px(&padding_right);
+        self.dimensions.border.left = self.length_to_px(&border_left);
+        self.dimensions.border.right = self.length_to_px(&border_right);
+        self.dimensions.margin.left = self.length_to_px(&margin_left);
+        self.dimensions.margin.right = self.length_to_px(&margin_right);
         //println!("final width is {} padding = {} margin: {}", d.content.width, d.padding.left, d.margin.left);
     }
 
-    fn calculate_block_position(&mut self, containing_block: Dimensions) {
-        let style = self.get_style_node();
-        let d = &mut self.dimensions;
-
+    fn length_to_px(&self, value:&Value) -> f32{
+        match value {
+            Length(v, Unit::Px) => *v,
+            Length(v, Unit::Em) => (*v)*30.0,
+            _ => {0.0}
+        }
+    }
+    fn calculate_block_position(&mut self, containing: Dimensions) {
         let zero = Length(0.0, Px);
+        let style = self.get_style_node();
+        let margin = EdgeSizes {
+            top: self.length_to_px(&style.lookup("margin-top", "margin", &zero)),
+            bottom: self.length_to_px(&style.lookup("margin-bottom","margin",&zero)),
+            ..(self.dimensions.margin)
+        };
+        let border = EdgeSizes {
+            top: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
+            bottom: self.length_to_px(&style.lookup("border-bottom","border-width",&zero)),
+            ..(self.dimensions.border)
+        };
+        let padding = EdgeSizes {
+            top: self.length_to_px(&style.lookup("padding-top", "padding-width", &zero)),
+            bottom: self.length_to_px(&style.lookup("padding-bottom","padding-width",&zero)),
+            ..(self.dimensions.padding)
+        };
 
-        d.margin.top = style.lookup("margin-top", "margin", &zero).to_px();
-        d.margin.bottom = style.lookup("margin-bottom","margin",&zero).to_px();
-        d.border.top = style.lookup("border-top", "border-width", &zero).to_px();
-        d.border.bottom = style.lookup("border-bottom","border-width",&zero).to_px();
-        d.padding.top = style.lookup("padding-top", "padding", &zero).to_px();
-        d.padding.bottom = style.lookup("padding-bottom","padding",&zero).to_px();
-        d.content.x = containing_block.content.x +
-            d.margin.left + d.border.left + d.padding.left;
-        d.content.y = containing_block.content.height + containing_block.content.y +
-            d.margin.top + d.border.top + d.padding.top;
+        self.dimensions.margin = margin;
+        self.dimensions.border = border;
+        self.dimensions.padding = padding;
+        let d = &mut self.dimensions;
+        d.content.x = containing.content.x + d.margin.left + d.border.left + d.padding.left;
+        d.content.y = containing.content.height + containing.content.y + d.margin.top + d.border.top + d.padding.top;
     }
 
     fn layout_block_children(&mut self, font:&Font, doc:&Document) -> Vec<RenderBox>{

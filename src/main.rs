@@ -118,7 +118,7 @@ fn main() -> Result<(),BrowserError>{
 
 fn scroll_viewport(window:&Window, viewport:&mut Rect) {
     let mut keys = window.get_keys_pressed(KeyRepeat::No);
-    println!("keys pressed {:#?}",keys);
+    // println!("keys pressed {:#?}",keys);
     if keys.is_some() {
         match keys {
             Some(keys) => {
