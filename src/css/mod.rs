@@ -6,7 +6,7 @@ use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::{Length, Keyword, HexColor, ArrayValue};
+use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
 use self::pom::parser::{list, call};
@@ -45,6 +45,7 @@ pub enum Value {
     HexColor(String),
     ArrayValue(Vec<Value>),
     FunCall(FunCallValue),
+    StringLiteral(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -135,6 +136,18 @@ fn class_string<'a>() -> Parser<'a,u8,String> {
         s
     })
 }
+
+
+fn string_literal<'a>() -> Parser<'a, u8, Value> {
+    string().map(|s|StringLiteral(s))
+}
+
+#[test]
+fn test_string_literal() {
+    assert_eq!(string_literal().parse(br#""foo""#),
+               Ok(Value::StringLiteral(String::from("foo"))));
+}
+
 
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
@@ -260,7 +273,7 @@ fn test_length_units() {
 }
 
 fn funarg<'a>() -> Parser<'a, u8, Value> {
-    hexcolor() | length_unit() | keyword()
+    string_literal() | hexcolor() | length_unit() | keyword()
 }
 
 fn funcall<'a>() -> Parser<'a, u8, Value> {
@@ -372,9 +385,8 @@ fn test_keyword_dash() {
     println!("{:?}", result);
     assert_eq!( Value::Keyword("inline-block".to_lowercase()), result.unwrap());
 }
-
 fn one_value<'a>() -> Parser<'a, u8, Value> {
-    funcall() | hexcolor() | length_unit() | keyword()
+    funcall() | hexcolor() | length_unit() | keyword() | string_literal()
 }
 
 fn list_array_value<'a>() -> Parser<'a, u8, Value> {
@@ -574,6 +586,25 @@ fn test_atrule() {
 
 #[test]
 fn test_fontface() {
+    assert_eq!(Ok(Value::FunCall(FunCallValue{
+        name: "url".to_string(),
+        arguments: vec![
+            StringLiteral(String::from("foo"))
+        ]
+    })),
+           funcall().parse(br#"url("foo")"#));
+
+    assert_eq!(Ok(Declaration{
+        name: String::from("src"),
+        value: Value::FunCall(FunCallValue{
+            name: String::from("url"),
+            arguments: vec![
+                Value::StringLiteral(String::from("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot"))
+            ]
+        })
+    }),
+               declaration().parse(br#"src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");"#));
+    /*
     let mut input = br#"@font-face {
     font-family: "et-book";
     src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");
@@ -599,6 +630,7 @@ fn test_fontface() {
     //         Declaration { name: String::from("font-display"), value: Keyword(String::from("swap")) },
     //     ]
     // },result.unwrap());
+    */
 }
 
 #[test]
