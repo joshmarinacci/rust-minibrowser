@@ -6,7 +6,7 @@ use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::{Length, Keyword, HexColor};
+use crate::css::Value::{Length, Keyword, HexColor, ArrayValue};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
 use self::pom::parser::{list, call};
@@ -716,7 +716,34 @@ fn test_funcall_dec() {
 }
 #[test]
 fn test_linear_gradient() {
-    let input = br"background: linear-gradient(#fffff8, #fffff8), linear-gradient(#fffff8, #fffff8), linear-gradient(currentColor, currentColor);";
+    assert_eq!(Ok(Declaration{
+        name: String::from("background"),
+        value: Value::ArrayValue(vec![
+            Value::FunCall(FunCallValue{
+                name: String::from("linear-gradient"),
+                arguments: vec![
+                    Value::HexColor(String::from("#fffff8")),
+                    Value::HexColor(String::from("#fffff8")),
+                ]
+            }),
+            Value::FunCall(FunCallValue{
+                name: String::from("linear-gradient"),
+                arguments: vec![
+                    Value::HexColor(String::from("#fffff8")),
+                    Value::HexColor(String::from("#fffff8")),
+                ]
+            }),
+            Value::FunCall(FunCallValue{
+                name: String::from("linear-gradient"),
+                arguments: vec![
+                    Value::Keyword(String::from("currentColor")),
+                    Value::Keyword(String::from("currentColor")),
+                ]
+            }),
+        ])
+    }),
+       declaration().parse(br"background: linear-gradient(#fffff8, #fffff8), linear-gradient(#fffff8, #fffff8), linear-gradient(currentColor, currentColor);")
+    );
 }
 
 #[test]
