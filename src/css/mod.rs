@@ -49,6 +49,7 @@ pub enum Unit {
     Px,
     Em,
     Per,
+    Rem,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -220,11 +221,14 @@ fn unit_px<'a>() -> Parser<'a, u8, Unit> {
 fn unit_per<'a>() -> Parser<'a, u8, Unit> {
     seq(b"%").map(|_| Unit::Per)
 }
+fn unit_rem<'a>() -> Parser<'a, u8, Unit> {
+    seq(b"rem").map(|_| Unit::Rem)
+}
 fn unit_em<'a>() -> Parser<'a, u8, Unit> {
     seq(b"em").map(|_| Unit::Em)
 }
 fn unit<'a>() -> Parser<'a, u8, Unit> {
-    unit_per() | unit_px() | unit_em()
+    unit_per() | unit_px() | unit_rem() | unit_em()
 }
 #[test]
 fn test_unit() {
@@ -498,7 +502,15 @@ fn test_percentage() {
 
 #[test]
 fn test_rem() {
-    let input = br"width:40rem;";
+    assert_eq!(Length(40.0,Unit::Rem),
+               length_unit().parse(br"40rem").unwrap());
+    assert_eq!(Length(40.0,Unit::Rem),
+               length_unit().parse(br"40.0rem").unwrap());
+    assert_eq!(Declaration{
+        name: String::from("width"),
+        value: (Value::Length(99.90, Unit::Rem))
+    },
+               declaration().parse(br"width:99.9rem;").unwrap());
 }
 
 #[test]
