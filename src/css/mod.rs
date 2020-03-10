@@ -300,6 +300,17 @@ fn one_value<'a>() -> Parser<'a, u8, Value> {
     hexcolor() | length_unit() | keyword()
 }
 
+fn list_array_value<'a>() -> Parser<'a, u8, Value> {
+    let p = list(one_value(), sym(b','));
+    // let p = (one_value() + (space() - sym(b',') + one_value()).repeat(0..));
+        p.map(|a| {
+            if a.len() == 1 {
+                a[0].clone()
+            } else {
+                Value::ArrayValue(a)
+            }
+        })
+}
 fn array_value_2<'a>() -> Parser<'a, u8, Value> {
     let t = one_value() - space() + one_value();
     t.map(|(v1,v2)|{
@@ -315,7 +326,9 @@ fn array_value_4<'a>() -> Parser<'a, u8, Value> {
 }
 
 fn value<'a>() -> Parser<'a, u8, Value> {
-    call(array_value_4) | call(array_value_2) | one_value()
+    call(array_value_4) | call(array_value_2) |
+        call(list_array_value) |
+        one_value()
 }
 
 
@@ -573,7 +586,6 @@ fn test_not_pseudo_selector() {
 
 #[test]
 fn test_four_part_margin() {
-    let input = br"margin: 1px 2px 3px 4px;";
     println!("parsed {:#?}", value().parse(b"1px 2px 3px 4px"));
     println!("parsed {:#?}", declaration().parse(b"margin: 1px 2px 3px 4px;"));
     let answer = Declaration {
@@ -587,7 +599,6 @@ fn test_four_part_margin() {
     };
     assert_eq!(answer, declaration().parse(b"margin: 1px 2px 3px 4px;").unwrap());
 }
-
 #[test]
 fn test_two_part_margin() {
     println!("parsed {:#?}", array_value_2().parse(b"1px 2px"));
@@ -615,7 +626,21 @@ fn test_one_part_margin() {
 fn test_linear_gradient() {
     let input = br"background: linear-gradient(#fffff8, #fffff8), linear-gradient(#fffff8, #fffff8), linear-gradient(currentColor, currentColor);";
 }
+
 #[test]
 fn test_keyword_list() {
-    let input = br"background-repeat: no-repeat, no-repeat, repeat-x;";
+    println!("keyword {:#?}", keyword().parse(b"foo"));
+    println!("keyword {:#?}", keyword().parse(b"foo-bar"));
+    println!("list value {:#?}", value().parse(b"foo-bar,baz-zoo"));
+    println!("decl {:#?}", declaration().parse(b"blah:foo-bar,baz-zoo;"));
+    let answer = Declaration {
+        name: String::from("background-repeat"),
+        value: Value::ArrayValue(vec![
+            Keyword(String::from("no-repeat")),
+            Keyword(String::from("no-repeat")),
+            Keyword(String::from("repeat-x")),
+        ])
+    };
+    assert_eq!(answer, declaration().parse(b"background-repeat:no-repeat,no-repeat,repeat-x;").unwrap());
+    assert_eq!(answer, declaration().parse(b"background-repeat: no-repeat, no-repeat, repeat-x;").unwrap());
 }
