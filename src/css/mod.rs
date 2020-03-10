@@ -48,6 +48,7 @@ pub enum Value {
 pub enum Unit {
     Px,
     Em,
+    Per,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -213,15 +214,17 @@ fn test_identifier() {
     println!("{:?}",identifier().parse(input));
 }
 
-//if px, then turn Unit::px
 fn unit_px<'a>() -> Parser<'a, u8, Unit> {
     seq(b"px").map(|_| Unit::Px)
+}
+fn unit_per<'a>() -> Parser<'a, u8, Unit> {
+    seq(b"%").map(|_| Unit::Per)
 }
 fn unit_em<'a>() -> Parser<'a, u8, Unit> {
     seq(b"em").map(|_| Unit::Em)
 }
 fn unit<'a>() -> Parser<'a, u8, Unit> {
-    unit_px() | unit_em()
+    unit_per() | unit_px() | unit_em()
 }
 #[test]
 fn test_unit() {
@@ -484,7 +487,13 @@ fn test_fontface() {
 
 #[test]
 fn test_percentage() {
-    let input = br"width:100%;";
+    assert_eq!(Length(100.0,Unit::Per),
+               length_unit().parse(br"100%").unwrap());
+    assert_eq!(Declaration{
+        name: String::from("width"),
+        value: (Value::Length(100.0, Unit::Per))
+    },
+               declaration().parse(br"width:100%;").unwrap());
 }
 
 #[test]
