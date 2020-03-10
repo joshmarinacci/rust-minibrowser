@@ -6,7 +6,7 @@ use self::pom::char_class::alphanum;
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::{Length, Keyword};
+use crate::css::Value::{Length, Keyword, HexColor};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
 use self::pom::parser::{list, call};
@@ -43,7 +43,8 @@ pub enum Value {
     Length(f32, Unit),
     ColorValue(Color),
     HexColor(String),
-    ArrayValue(Vec<Value>)
+    ArrayValue(Vec<Value>),
+    FunCall(FunCallValue),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -60,6 +61,12 @@ pub struct Color {
     pub(crate) g:u8,
     pub(crate) b:u8,
     pub(crate) a:u8,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunCallValue {
+    pub (crate) name:String,
+    pub (crate) arguments: Vec<Value>,
 }
 
 pub type Specificity = (usize, usize, usize);
@@ -252,6 +259,76 @@ fn test_length_units() {
     assert_eq!(length_unit().parse(br"3em"), Ok(Length(3.0,Unit::Em)));
 }
 
+fn funarg<'a>() -> Parser<'a, u8, Value> {
+    hexcolor() | length_unit() | keyword()
+}
+
+fn funcall<'a>() -> Parser<'a, u8, Value> {
+    let p
+        = space()
+        + identifier()
+        - space()
+        - sym(b'(')
+        - space()
+        + list(funarg(),space() - sym(b',') - space())
+        -space()
+        - sym(b')');
+    p.map(|((_,name), arguments)| Value::FunCall(FunCallValue{
+        name,
+        arguments
+    }))
+}
+
+#[test]
+fn test_funcall_value() {
+    assert_eq!(funcall().parse(br"foo()"),
+               Ok(Value::FunCall(FunCallValue{ name: "foo".parse().unwrap(), arguments: vec![] })));
+    assert_eq!(funcall().parse(br"foo(keyword, keyword)"),
+               Ok(Value::FunCall(FunCallValue{
+                   name: String::from("foo"),
+                   arguments: vec![
+                       Keyword(String::from("keyword")),
+                       Keyword(String::from("keyword")),
+                   ] })
+               ));
+    assert_eq!(funcall().parse(br"foo(#fffff8,#fffff8)"),
+               Ok(Value::FunCall(FunCallValue{
+                   name: String::from("foo"),
+                   arguments: vec![
+                       Value::HexColor(String::from("#fffff8")),
+                       Value::HexColor(String::from("#fffff8")),
+                   ] })
+               ));
+    assert_eq!(funcall().parse(br" foo ( #fffff8 , #fffff8 ) "),
+               Ok(Value::FunCall(FunCallValue{
+                   name: String::from("foo"),
+                   arguments: vec![
+                       Value::HexColor(String::from("#fffff8")),
+                       Value::HexColor(String::from("#fffff8")),
+                   ] })
+               ));
+    assert_eq!(funcall().parse(br" linear-gradient ( #fffff8 , #fffff8 ) "),
+               Ok(Value::FunCall(FunCallValue{
+                   name: String::from("linear-gradient"),
+                   arguments: vec![
+                       Value::HexColor(String::from("#fffff8")),
+                       Value::HexColor(String::from("#fffff8")),
+                   ] })
+               ));
+    assert_eq!(declaration().parse(br"foo:linear-gradient(#fffff8,#fffff8);"),
+               Ok(Declaration {
+                   name: String::from("foo"),
+                   value:Value::FunCall(FunCallValue{
+                       name: String::from("linear-gradient"),
+                       arguments: vec![
+                           Value::HexColor(String::from("#fffff8")),
+                           Value::HexColor(String::from("#fffff8")),
+                       ],
+                   })
+               }
+               ));
+}
+
 fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
     * one_of(b"0123456789ABCDEFabcdef").repeat(6..7);
@@ -297,7 +374,7 @@ fn test_keyword_dash() {
 }
 
 fn one_value<'a>() -> Parser<'a, u8, Value> {
-    hexcolor() | length_unit() | keyword()
+    funcall() | hexcolor() | length_unit() | keyword()
 }
 
 fn list_array_value<'a>() -> Parser<'a, u8, Value> {
@@ -622,6 +699,21 @@ fn test_one_part_margin() {
     assert_eq!(answer, declaration().parse(b"margin: 1px;").unwrap());
 }
 
+#[test]
+fn test_funcall_dec() {
+    assert_eq!(Declaration{
+        name: String::from("background"),
+        value: Value::FunCall(FunCallValue{
+            name: String::from("linear-gradient"),
+            arguments: vec![
+                Value::HexColor(String::from("#fffff8")),
+                Value::HexColor(String::from("#fffff8")),
+            ]
+        })
+    },
+        declaration().parse(b"background: linear-gradient(#fffff8, #fffff8);").unwrap()
+    )
+}
 #[test]
 fn test_linear_gradient() {
     let input = br"background: linear-gradient(#fffff8, #fffff8), linear-gradient(#fffff8, #fffff8), linear-gradient(currentColor, currentColor);";
