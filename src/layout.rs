@@ -294,10 +294,10 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing_block: Dimensions, font:&Font, doc:&Document) -> RenderBox {
+    pub fn layout(&mut self, containing: Dimensions, font:&Font, doc:&Document) -> RenderBox {
         match self.box_type {
             BlockNode(_node) => {
-                RenderBox::Block(self.layout_block(containing_block, font, doc))
+                RenderBox::Block(self.layout_block(containing, font, doc))
             },
             InlineNode(_node) => {
                 RenderBox::Inline()
@@ -306,7 +306,7 @@ impl<'a> LayoutBox<'a> {
                 RenderBox::InlineBlock()
             }
             AnonymousBlock(_node) => {
-                RenderBox::Anonymous(self.layout_anonymous(containing_block, font, doc))
+                RenderBox::Anonymous(self.layout_anonymous(containing, font, doc))
             },
         }
     }
@@ -368,15 +368,15 @@ impl<'a> LayoutBox<'a> {
         return v;
     }
 
-    fn layout_anonymous(&mut self, containing_block:Dimensions, font:&Font, doc:&Document) -> RenderAnonymousBox {
+    fn layout_anonymous(&mut self, containing:Dimensions, font:&Font, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
         let line_height = font_size*1.1;
-        d.content.x = containing_block.content.x;
-        d.content.width = containing_block.content.width;
-        d.content.y = containing_block.content.height + containing_block.content.y;
+        d.content.x = containing.content.x;
+        d.content.width = containing.content.width;
+        d.content.y = containing.content.height + containing.content.y;
         let mut lines:Vec<RenderLineBox> = vec![];
         // println!("doing anonymous block layout");
         let mut y = d.content.y;
@@ -454,7 +454,7 @@ impl<'a> LayoutBox<'a> {
                 for word in text.split_whitespace() {
                     // println!("len is {}", len);
                     let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
-                    if len + wlen > containing_block.content.width {
+                    if len + wlen > containing.content.width {
                         // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
                         line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
                             rect: Rect {
@@ -531,7 +531,7 @@ impl<'a> LayoutBox<'a> {
     /// http://www.w3.org/TR/CSS2/visudet.html#blockwidth
     ///
     /// Sets the horizontal margin/padding/border dimensions, and the `width`.
-    fn calculate_block_width(&mut self, containing_block:Dimensions) {
+    fn calculate_block_width(&mut self, containing:Dimensions) {
         let style = self.get_style_node();
 
         // 'width' has initial value 'auto'
@@ -550,7 +550,7 @@ impl<'a> LayoutBox<'a> {
         // If width is not auto and the total is wider than the container, treat auto margins as 0.
         let total = sum([&margin_left, &margin_right, &border_left, &border_right,
             &padding_left, &padding_right, &width].iter().map(|v| self.length_to_px(v)));
-        if width != auto && total > containing_block.content.width {
+        if width != auto && total > containing.content.width {
             if margin_left == auto {
                 margin_left = Length(0.0, Px);
             }
@@ -562,7 +562,7 @@ impl<'a> LayoutBox<'a> {
         // Adjust used values so that the above sum equals `containing_block.width`.
         // Each arm of the `match` should increase the total width by exactly `underflow`,
         // and afterward all values should be absolute lengths in px.
-        let underflow = containing_block.content.width - total;
+        let underflow = containing.content.width - total;
 
         match (width == auto, margin_left == auto, margin_right == auto) {
             (false,false,false) => {
@@ -617,8 +617,8 @@ impl<'a> LayoutBox<'a> {
             ..(self.dimensions.border)
         };
         let padding = EdgeSizes {
-            top: self.length_to_px(&style.lookup("padding-top", "padding-width", &zero)),
-            bottom: self.length_to_px(&style.lookup("padding-bottom","padding-width",&zero)),
+            top: self.length_to_px(&style.lookup("padding-top", "padding", &zero)),
+            bottom: self.length_to_px(&style.lookup("padding-bottom","padding",&zero)),
             ..(self.dimensions.padding)
         };
 
