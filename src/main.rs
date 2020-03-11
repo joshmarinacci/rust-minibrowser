@@ -36,6 +36,7 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
 
 fn init_fonts() -> FontCache {
     let mut font_cache = FontCache{
+        families: HashMap::new(),
         names: HashMap::new(),
         fonts: HashMap::new()
     };

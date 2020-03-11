@@ -54,7 +54,7 @@ body {
 h1 {
     font-size: 36px;
     display: block;
-    font-family: "et-book";
+    font-family: "et-book", serif;
     font-weight: 400;
 }
 h2 {

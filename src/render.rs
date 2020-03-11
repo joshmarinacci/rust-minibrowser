@@ -164,9 +164,11 @@ or using name, weight, and pre-loaded font
 
 #[derive(Debug, Default)]
 pub struct FontCache {
+    pub families:HashMap<String,Url>,
     pub names:HashMap<String,Url>,
     pub fonts:HashMap<String,Font>,
 }
+
 fn extract_url(value:&Value, url:&Url) -> Option<Url> {
     match value {
         Value::FunCall(fcv) => {
@@ -201,6 +203,9 @@ fn extract_font_weight(value:&Value) -> Option<f32> {
 }
 
 impl FontCache {
+    pub fn has_font_family(&self, name:&String) -> bool {
+        return self.families.contains_key(name);
+    }
     pub fn install_font(&mut self, name:&String, weight:f32, url:&Url) {
         let key = format!("{}-{:#?}",name,weight);
         println!("installing the font {} {} at url {} {}",name,weight, url, key);
@@ -208,6 +213,7 @@ impl FontCache {
         let pth = url.to_file_path().unwrap();
         let mut file = File::open(pth).unwrap();
         let font = Font::from_file(&mut file, 0).unwrap();
+        self.families.insert(name.clone(),url.clone());
         self.names.insert(key.clone(),url.clone());
         self.fonts.insert(key.clone(), font);
     }

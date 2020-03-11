@@ -372,10 +372,39 @@ impl<'a> LayoutBox<'a> {
         return v;
     }
 
+    fn find_font_family(&mut self, font_cache:&mut FontCache) -> String {
+        let font_family_values = self.get_style_node().lookup("font-family",
+                                                              "font-family",
+                                                              &Value::Keyword(String::from("sans-serif")));
+        match font_family_values {
+            Value::ArrayValue(vals ) => {
+                for val in vals.iter() {
+                    match val {
+                        Value::StringLiteral(str) => {
+                            if font_cache.has_font_family(str) {
+                                return String::from(str);
+                            }
+                        }
+                        Value::Keyword(str) => {
+                            if font_cache.has_font_family(str) {
+                                return String::from(str);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                println!("no valid font found in stack: {:#?}",vals);
+                return String::from("sans-serif");
+            }
+            Value::Keyword(str) => str,
+            _ => return String::from("sans-serif"),
+        }
+    }
+
     fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
-        let font_family = self.get_style_node().lookup_string("font-family", &String::from("sans-serif"));
+        let mut font_family = self.find_font_family(font_cache);
         let mut font_weight = self.get_style_node().lookup_font_weight(400.0);
         //println!("using the font: {}  size: {}  weight: {}",font_family, font_size, font_weight);
         let d = &mut self.dimensions;
