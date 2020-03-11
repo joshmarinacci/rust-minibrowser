@@ -15,6 +15,7 @@ use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
 use url::Url;
 use crate::dom::NodeType::{Text, Element};
+use std::fs::File;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
