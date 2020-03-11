@@ -572,16 +572,55 @@ fn test_tufte_rules() {
     println!("parsed {:#?}",parsed);
 
 }
+
+
+#[derive(Debug, PartialEq)]
+struct AtRule {
+    name:String,
+    value:Option<Value>,
+    rules: Vec<Rule>,
+}
+
+//https://developer.mozilla.org/en-US/docs/Web/CSS/At-rule
+fn at_rule<'a>() -> Parser<'a, u8, AtRule> {
+    let p
+        = space()
+        - sym(b'@')
+        + identifier()
+        - space()
+        // + keyword().opt()
+        + string_literal().opt()
+        /*
+        + funcall().opt()
+        + (
+             sym(b'{')
+             - space()
+             + rule().repeat(0..)
+             - space()
+             - sym(b'}')
+             ).opt()
+        - sym(b';')
+        */
+        ;
+    p.map(|((_, name), value)|{
+        AtRule {
+            name,
+            value,
+            rules: vec![]
+        }
+    })
+}
+
 #[test]
 fn test_atrule() {
-    let mut input = b"@charset \"UTF-8\";";
-    // let result = at_rule_def().parse(input.as_ref());
-    // println!("{:?}", result);
-    // assert_eq!(Declaration {
-    //     name: "border-color".to_string(),
-    //     value: Value::HexColor("#ff00aa".to_lowercase())
-    // },result.unwrap());
-    // println!("{:?}", declaration().parse(input))
+    assert_eq!(
+        at_rule().parse(br#"@charset "UTF-8";"#),
+        Ok(AtRule{
+            name: String::from("charset"),
+            value: Some(StringLiteral(String::from("UTF-8"))),
+            rules: vec![]
+        }),
+    );
 }
 
 #[test]
