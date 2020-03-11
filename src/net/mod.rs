@@ -91,10 +91,8 @@ pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
     let p = PathBuf::from(path);
     let final_path = cwd.join(p);;
     println!("final path is {}", final_path.display());
-    let file_url_str = format!("file://{}",final_path.to_str().unwrap());
-    println!("final path 2 is {}",file_url_str);
-    let base_url = Url::parse(&*file_url_str)?;
-    println!("final url {}",base_url);
+    let base_url = Url::from_file_path(final_path).unwrap();
+    println!("final base url is {}",base_url);
     return Ok(base_url);
 }
 
@@ -107,8 +105,8 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
     println!("loading url {}",url);
     match url.scheme() {
         "file" => {
-            println!("this is a file url {}", url.path());
-            return load_doc(PathBuf::from(url.path()).as_path());
+            let path = url.to_file_path().unwrap();
+            return load_doc(path.as_path());
         }
         _ => {
             let mut resp = reqwest::blocking::get(url.as_str()).unwrap();
@@ -137,7 +135,8 @@ pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
 pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
     match url.scheme() {
         "file" => {
-            let mut file = File::open(url.path()).unwrap();
+            let path = url.to_file_path().unwrap();
+            let mut file = File::open(path).unwrap();
             let mut content:Vec<u8>= Vec::new();
             file.read_to_end(&mut content);
             return Ok(parse_stylesheet_from_buffer(content)?);

@@ -78,6 +78,14 @@ impl StyledNode<'_> {
             _ => default.clone(),
         }
     }
+    pub fn lookup_string(&self, name:&str, default: &String) -> String {
+        match self.value(name) {
+            Some(Value::StringLiteral(txt)) => txt,
+            _ => {
+                panic!("value of property {} is not a string value", name)
+            }
+        }
+    }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
             Some(Length(v,_unit)) => {

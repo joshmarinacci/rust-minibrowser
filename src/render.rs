@@ -6,6 +6,11 @@ use raqote::{DrawTarget,
 use font_kit::font::Font;
 use crate::css::Color;
 use crate::layout::{Rect, RenderBox, RenderInlineBoxType};
+use std::collections::HashMap;
+use std::path::Path;
+use std::fs::File;
+use url::Url;
+use crate::net::relative_filepath_to_url;
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
@@ -52,7 +57,7 @@ fn render_color_to_source(c:&Color) -> Source {
     return Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b));
 }
 
-pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport:&Rect) -> bool {
+pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&mut FontCache, viewport:&Rect) -> bool {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
@@ -123,6 +128,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport
                             // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                             let trimmed = text.text.trim();
                             if trimmed.len() > 0 {
+                                let font = font.get_font(&String::from("cool-font"));
                                 match &text.color {
                                     Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
                                     _ => {}
@@ -142,5 +148,53 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&Font, viewport
         }
     }
 }
+/*
 
+store the font family on the layout box
+at render time, grab the actual font from the font cache
+if not in the font cache, then load into the cache, then return
+
+*/
+
+#[derive(Debug, Default)]
+pub struct FontCache {
+    pub names:HashMap<String,Url>,
+    pub fonts:HashMap<String,Font>,
+}
+impl FontCache {
+    pub fn install_font(&mut self, name:&String, url:&Url) {
+        println!("installing the font {} at url {}",name,url);
+        self.names.insert(name.clone(),url.clone());
+    }
+    pub fn get_font(&mut self, name:&String) -> &Font {
+        if !self.fonts.contains_key(name) {
+            self.load_font(name)
+        }
+        return self.fonts.get(name).unwrap();
+    }
+    fn load_font(&mut self, name:&String) {
+        let pth = self.names.get(name).unwrap().to_file_path().unwrap();
+        let mut file = File::open(pth).unwrap();
+        let font = Font::from_file(&mut file, 0).unwrap();
+        self.fonts.insert(String::from(name), font);
+    }
+}
+
+static TEST_FONT_FILE_PATH: &'static str =
+    "tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf";
+#[test]
+fn test_font_loading() {
+    let pth = Path::new(TEST_FONT_FILE_PATH);
+    let mut file = File::open(pth).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    let mut fc = FontCache{
+        names: HashMap::new(),
+        fonts: HashMap::new()
+    };
+    let name = String::from("cool-font");
+    fc.install_font(&name, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
+    println!("{:#?}",fc.get_font(&String::from("cool-font")));
+    // println!("{:#?}",fc);
+    //assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
+}
 

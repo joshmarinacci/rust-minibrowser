@@ -9,13 +9,14 @@ use crate::css::{Color, Unit, Value, parse_stylesheet_from_buffer};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
-use crate::render::{BLACK};
+use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
 use url::Url;
 use crate::dom::NodeType::{Text, Element};
 use std::fs::File;
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -201,6 +202,7 @@ pub struct RenderTextBox {
     pub(crate) text:String,
     pub color:Option<Color>,
     pub font_size:f32,
+    pub font_family:String,
     pub link:Option<String>,
 }
 impl RenderTextBox {
@@ -295,7 +297,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing: Dimensions, font:&Font, doc:&Document) -> RenderBox {
+    pub fn layout(&mut self, containing: Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
         match self.box_type {
             BlockNode(_node) => {
                 RenderBox::Block(self.layout_block(containing, font, doc))
@@ -320,10 +322,10 @@ impl<'a> LayoutBox<'a> {
             _ => "non-element".to_string(),
         }
     }
-    fn layout_block(&mut self, containing_block: Dimensions, font:&Font, doc:&Document) -> RenderBlockBox {
+    fn layout_block(&mut self, containing_block: Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
-        let children:Vec<RenderBox> = self.layout_block_children(font, doc);
+        let children:Vec<RenderBox> = self.layout_block_children(font_cache, doc);
         self.calculate_block_height();
         return RenderBlockBox{
             rect:self.dimensions.content,
@@ -369,9 +371,10 @@ impl<'a> LayoutBox<'a> {
         return v;
     }
 
-    fn layout_anonymous(&mut self, containing:Dimensions, font:&Font, doc:&Document) -> RenderAnonymousBox {
+    fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
+        let font_family = self.get_style_node().lookup_string("font-family", &String::from("cool-font"));
         // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
         let line_height = font_size*1.1;
@@ -454,6 +457,7 @@ impl<'a> LayoutBox<'a> {
                 // println!("got the text {}", text);
                 for word in text.split_whitespace() {
                     // println!("len is {}", len);
+                    let font = font_cache.get_font(&font_family);
                     let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
                     if len + wlen > containing.content.width {
                         // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
@@ -467,6 +471,7 @@ impl<'a> LayoutBox<'a> {
                             text: current_line,
                             color: Some(color.clone()),
                             font_size,
+                            font_family:font_family.clone(),
                             link: link.map(|s| String::from(s)),
                         }));
 
@@ -503,6 +508,7 @@ impl<'a> LayoutBox<'a> {
                         height: line_height - 4.0,
                     },
                     text: current_line,
+                    font_family:font_family.clone(),
                     color: Some(color.clone()),
                     font_size,
                     link: link.map(|s| String::from(s)),
@@ -631,11 +637,11 @@ impl<'a> LayoutBox<'a> {
         d.content.y = containing.content.height + containing.content.y + d.margin.top + d.border.top + d.padding.top;
     }
 
-    fn layout_block_children(&mut self, font:&Font, doc:&Document) -> Vec<RenderBox>{
+    fn layout_block_children(&mut self, font_cache:&mut FontCache, doc:&Document) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
         for child in self.children.iter_mut() {
-            let bx = child.layout(*d,font, doc);
+            let bx = child.layout(*d, font_cache, doc);
             d.content.height = d.content.height + child.dimensions.margin_box().height;
             children.push(bx)
         };
@@ -730,8 +736,8 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
-    // let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
+    // let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
+    let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
     let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
     let stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
     // println!("stylesheet is {:#?}",stylesheet);
@@ -800,10 +806,3 @@ fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
     iter.fold(0., |a, b| a + b)
 }
 
-static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
-#[test]
-fn test_font_loading() {
-    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
-    let font = Font::from_file(&mut file, 0).unwrap();
-    assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
-}
