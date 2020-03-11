@@ -5,7 +5,7 @@ use font_kit::source::SystemSource;
 
 use crate::dom::{load_doc, NodeType, Document};
 use crate::style::{StyledNode, style_tree, Display};
-use crate::css::{Color, Unit, Value, parse_stylesheet_from_buffer};
+use crate::css::{Color, Unit, Value, parse_stylesheet_from_buffer, RuleType};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
@@ -13,7 +13,7 @@ use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use std::path::Path;
 use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
-use url::Url;
+use url::{Url, ParseError};
 use crate::dom::NodeType::{Text, Element};
 use std::fs::File;
 use std::collections::HashMap;
@@ -739,19 +739,9 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
     return sum;
 }
 
+
 #[test]
 fn test_layout<'a>() {
-    // let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
-    let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
-    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
-    let stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
-    // println!("stylesheet is {:#?}",stylesheet);
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    // let font = SystemSource::new()
-    //     .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-    //     .unwrap()
-    //     .load()
-    //     .unwrap();
     let mut font_cache = FontCache {
         names: Default::default(),
         fonts: Default::default()
@@ -759,6 +749,22 @@ fn test_layout<'a>() {
     font_cache.install_font(&String::from("sans-serif"),
                             400.0,
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font(&String::from("sans-serif"),
+                            700.0,
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
+
+    // let doc = load_doc_from_net(&Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap()).unwrap();
+    let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
+    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
+    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
+    font_cache.scan_for_fontface_rules(&stylesheet);
+    // println!("stylesheet is {:#?}",stylesheet);
+    let snode = style_tree(&doc.root_node,&stylesheet);
+    // let font = SystemSource::new()
+    //     .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+    //     .unwrap()
+    //     .load()
+    //     .unwrap();
     println!(" ======== build layout boxes ========");
     let mut root_box = build_layout_tree(&snode, &doc);
     let containing_block = Dimensions {

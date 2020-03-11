@@ -27,6 +27,7 @@ const HEIGHT: usize = 1100;
 fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let doc = load_doc_from_net(&url)?;
     let stylesheet = load_stylesheets_with_fallback(&doc)?;
+    font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
     let render_root = bbox.layout(containing_block, font_cache, &doc);

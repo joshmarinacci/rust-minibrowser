@@ -4,7 +4,7 @@ use raqote::{DrawTarget,
     LineCap, LineJoin
 };
 use font_kit::font::Font;
-use crate::css::{Color, Value};
+use crate::css::{Color, Value, Stylesheet, RuleType};
 use crate::layout::{Rect, RenderBox, RenderInlineBoxType};
 use std::collections::HashMap;
 use std::path::Path;
@@ -167,6 +167,39 @@ pub struct FontCache {
     pub names:HashMap<String,Url>,
     pub fonts:HashMap<String,Font>,
 }
+fn extract_url(value:&Value, url:&Url) -> Option<Url> {
+    match value {
+        Value::FunCall(fcv) => {
+            match &fcv.arguments[0] {
+                Value::StringLiteral(str) => {
+                    let url = url.join(str.as_str());
+                    if url.is_ok() {
+                        Some(url.unwrap())
+                    } else {
+                        println!("parsing error on url {:#?}", url);
+                        None
+                    }
+                },
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+fn extract_font_weight(value:&Value) -> Option<f32> {
+    match value {
+        Value::Keyword(str) => {
+            match str.as_str() {
+                "normal" => Some(400.0),
+                "bold" => Some(700.0),
+                _ => None,
+            }
+        },
+        Value::Number(val) => Some(*val),
+        _ => None,
+    }
+}
+
 impl FontCache {
     pub fn install_font(&mut self, name:&String, weight:f32, url:&Url) {
         let key = format!("{}-{:#?}",name,weight);
@@ -191,6 +224,52 @@ impl FontCache {
         let mut file = File::open(pth).unwrap();
         let font = Font::from_file(&mut file, 0).unwrap();
         self.fonts.insert(String::from(name), font);
+    }
+    pub fn scan_for_fontface_rules(&mut self, stylesheet:&Stylesheet) {
+        for rule in stylesheet.rules.iter() {
+            match rule {
+                RuleType::AtRule(at_rule) => {
+                    if at_rule.name == "font-face" {
+                        // println!("we have an at rule {:#?}",at_rule);
+                        for rule in at_rule.rules.iter() {
+                            match &rule {
+                                RuleType::Rule(rule) => {
+                                    // println!("Processing real rules {:#?}",rule);
+                                    let mut src:Option<Url> = Option::None;
+                                    let mut font_family:Option<String> = Option::None;
+                                    let mut font_weight:Option<f32> = Option::None;
+                                    for dec in rule.declarations.iter() {
+                                        println!("processing font-face dec {:#?}", dec);
+                                        if dec.name == "src" {
+                                            src = extract_url(&dec.value, &stylesheet.base_url);
+                                        }
+                                        if dec.name == "font-weight" {
+                                            font_weight = extract_font_weight(&dec.value);
+                                        }
+                                        if dec.name == "font-family" {
+                                            match &dec.value {
+                                                Value::StringLiteral(str) => font_family = Some(str.clone()),
+                                                _ => font_family = None,
+                                            }
+                                        }
+                                    }
+                                    println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
+                                    if font_family.is_some() && src.is_some() && font_weight.is_some() {
+                                        self.install_font(&font_family.unwrap(),
+                                                                font_weight.unwrap(),
+                                                                &src.unwrap()
+                                        )
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
     }
 }
 

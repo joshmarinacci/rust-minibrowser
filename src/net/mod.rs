@@ -139,13 +139,17 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
             let mut file = File::open(path).unwrap();
             let mut content:Vec<u8>= Vec::new();
             file.read_to_end(&mut content);
-            return Ok(parse_stylesheet_from_buffer(content)?);
+            let mut ss = parse_stylesheet_from_buffer(content)?;
+            ss.base_url = url.clone();
+            return Ok(ss);
         }
         _ => {
             let mut resp = reqwest::blocking::get(url.as_str())?;
             let mut buf: Vec<u8> = vec![];
             resp.copy_to(&mut buf)?;
-            return Ok(parse_stylesheet_from_buffer(buf)?);
+            let mut ss = parse_stylesheet_from_buffer(buf)?;
+            ss.base_url = url.clone();
+            return Ok(ss);
         }
     }
 }

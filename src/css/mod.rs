@@ -10,18 +10,34 @@ use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral};
 use crate::css::Unit::Px;
 use self::pom::set::Set;
 use self::pom::parser::{list, call};
+use url::Url;
 
 
 #[derive(Debug, PartialEq)]
 pub struct Stylesheet {
-    pub(crate) rules: Vec<Rule>,
+    pub(crate) rules: Vec<RuleType>,
     pub parent: Option<Box<Stylesheet>>,
+    pub base_url: Url,
+}
+#[derive(Debug, PartialEq)]
+pub enum RuleType {
+    Rule(Rule),
+    AtRule(AtRule)
 }
 #[derive(Debug, PartialEq)]
 pub struct Rule {
     pub selectors: Vec<Selector>,
     pub declarations: Vec<Declaration>,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct AtRule {
+    pub name:String,
+    pub value:Option<Value>,
+    pub rules: Vec<RuleType>,
+}
+
+
 #[derive(Debug, PartialEq)]
 pub enum Selector {
     Simple(SimpleSelector)
@@ -471,17 +487,17 @@ fn ws_sym<'a>(ch:u8) -> Parser<'a, u8,u8> {
     space() * sym(ch) - space()
 }
 
-fn rule<'a>() -> Parser<'a, u8, Rule> {
+fn rule<'a>() -> Parser<'a, u8, RuleType> {
     let r
         = list(selector(),sym(b','))
         - ws_sym(b'{')
         + declaration().repeat(0..)
         - ws_sym(b'}')
         ;
-    r.map(|(sel, declarations)| Rule {
+    r.map(|(sel, declarations)| RuleType::Rule(Rule {
         selectors: sel,
         declarations,
-    })
+    }))
 }
 
 #[test]
@@ -490,7 +506,11 @@ fn test_rule() {
     println!("{:#?}",rule().parse(input))
 }
 fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
-    rule().repeat(0..).map(|rules| Stylesheet { rules, parent: None, })
+    (rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
+        rules,
+        parent: None,
+        base_url: Url::parse("http://www.mozilla.com/").unwrap()
+    })
 }
 
 #[test]
@@ -525,6 +545,7 @@ fn test_file_load() {
     let ss = Stylesheet {
         parent: None,
         rules: vec![
+            RuleType::Rule(
             Rule {
                 selectors: vec![
                     Selector::Simple(SimpleSelector{
@@ -551,7 +572,8 @@ fn test_file_load() {
                         value: Value::Keyword("black".to_string()),
                     },
                 ],
-            },
+            }),
+            RuleType::Rule(
             Rule {
                 selectors: vec![
                     Selector::Simple(SimpleSelector{
@@ -567,7 +589,9 @@ fn test_file_load() {
                     },
                 ],
             }
-        ]
+            )
+        ],
+        base_url: Url::parse("https://www.mozilla.com/").unwrap()
     };
     assert_eq!(ss,parsed)
 }
@@ -583,15 +607,8 @@ fn test_tufte_rules() {
 }
 
 
-#[derive(Debug, PartialEq)]
-struct AtRule {
-    name:String,
-    value:Option<Value>,
-    rules: Vec<Rule>,
-}
-
 //https://developer.mozilla.org/en-US/docs/Web/CSS/At-rule
-fn at_rule<'a>() -> Parser<'a, u8, AtRule> {
+fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
     let p
         = space()
         - sym(b'@')
@@ -599,24 +616,28 @@ fn at_rule<'a>() -> Parser<'a, u8, AtRule> {
         - space()
         // + keyword().opt()
         + string_literal().opt()
-        /*
-        + funcall().opt()
-        + (
-             sym(b'{')
-             - space()
-             + rule().repeat(0..)
-             - space()
-             - sym(b'}')
-             ).opt()
-        - sym(b';')
-        */
+        //+ funcall().opt()
+        // + (
+        //      sym(b'{')
+        - space()
+        + rule().opt()
+        - space()
+             // - sym(b'}')
+             // ).opt()
+        // - sym(b';')
+
         ;
-    p.map(|((_, name), value)|{
-        AtRule {
+    p.map(|(((_,name),value), rule)|{
+        let mut rules:Vec<RuleType> = vec![];
+        match rule {
+            Some(rt) => rules.push(rt),
+            _ => {},
+        }
+        RuleType::AtRule(AtRule {
             name,
             value,
-            rules: vec![]
-        }
+            rules: rules
+        })
     })
 }
 
@@ -624,11 +645,11 @@ fn at_rule<'a>() -> Parser<'a, u8, AtRule> {
 fn test_atrule() {
     assert_eq!(
         at_rule().parse(br#"@charset "UTF-8";"#),
-        Ok(AtRule{
+        Ok(RuleType::AtRule(AtRule{
             name: String::from("charset"),
             value: Some(StringLiteral(String::from("UTF-8"))),
             rules: vec![]
-        }),
+        })),
     );
 }
 
@@ -652,33 +673,45 @@ fn test_fontface() {
         })
     }),
                declaration().parse(br#"src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");"#));
-    /*
+
     let mut input = br#"@font-face {
     font-family: "et-book";
     src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");
-    src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot?#iefix") format("embedded-opentype"),
-         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.woff") format("woff"),
-         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf") format("truetype"),
-         url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.svg#etbookromanosf") format("svg");
     font-weight: normal;
     font-style: normal;
     font-display: swap;
 }
 "#;
-    // let result = fontface().parse(input.as_ref());
-    // println!("{:?}", result);
-    // assert_eq!(AtRule {
-    //     name:"font-face".to_string(),
-    //     declarations: vec![
-    //         //src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot")
-    //         Declaration { name: String::from("font-family"), value: StringValue(String::from("et-book")) },
-    //         Declaration { name: String::from("src"), value: Value::Url(String::from("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot")) },
-    //         Declaration { name: String::from("font-weight"), value: Keyword(String::from("normal")) },
-    //         Declaration { name: String::from("font-style"), value: Keyword(String::from("normal")) },
-    //         Declaration { name: String::from("font-display"), value: Keyword(String::from("swap")) },
-    //     ]
-    // },result.unwrap());
-    */
+    let result = stylesheet().parse(input.as_ref());
+    println!("{:?}", result);
+    assert_eq!(Ok(Stylesheet {
+        rules: vec![
+            RuleType::AtRule(AtRule {
+            name: "font-face".to_string(),
+            value: None,
+            rules: vec![RuleType::Rule(Rule {
+                selectors: vec![],
+                declarations: vec![
+                    Declaration { name: String::from("font-family"), value: Value::StringLiteral(String::from("et-book")) },
+                    Declaration {
+                        name: String::from("src"),
+                        value: Value::FunCall(FunCallValue {
+                            name: "url".to_string(),
+                            arguments: vec![
+                                Value::StringLiteral(String::from("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot")),
+                            ]
+                        })
+                    },
+                    Declaration { name: String::from("font-weight"), value: Keyword(String::from("normal")) },
+                    Declaration { name: String::from("font-style"), value: Keyword(String::from("normal")) },
+                    Declaration { name: String::from("font-display"), value: Keyword(String::from("swap")) },
+                ]
+            })]
+        })],
+        parent: None,
+        base_url: Url::parse("https://www.mozilla.com/").unwrap(),
+    }
+    ),result);
 }
 
 #[test]
@@ -707,7 +740,7 @@ fn test_rem() {
 
 #[test]
 fn test_multiple_selectors() {
-    let answer = Rule {
+    let answer = RuleType::Rule(Rule {
         selectors: vec![
             Selector::Simple(SimpleSelector{
                 tag_name: Some(String::from("a")),
@@ -723,7 +756,7 @@ fn test_multiple_selectors() {
         declarations: vec![
             Declaration{ name: String::from("foo"), value: Keyword(String::from("bar")) }
         ]
-    };
+    });
     assert_eq!(answer, rule().parse(br"a,b { foo: bar; }").unwrap());
     assert_eq!(answer, rule().parse(br" a , b{ foo: bar; }").unwrap());
 }

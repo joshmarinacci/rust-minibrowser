@@ -1,3 +1,12 @@
+@font-face {
+    font-family: "et-book";
+    src: url("tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+
 * {
     display: block;
     color: inherit;
@@ -45,6 +54,8 @@ body {
 h1 {
     font-size: 36px;
     display: block;
+    font-family: "et-book";
+    font-weight: 400;
 }
 h2 {
     display: block;

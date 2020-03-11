@@ -1,5 +1,5 @@
 use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
@@ -199,10 +199,24 @@ fn match_rule<'a>(elem: &ElementData, rule: &'a Rule) -> Option<MatchedRule<'a>>
 //find all matching rules for an element
 fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<MatchedRule<'a>> {
     let mut rules:Vec<MatchedRule> = match &stylesheet.parent {
-        Some(parent) => parent.rules.iter().filter_map(|rule| match_rule(elem,rule)).collect(),
+        Some(parent) => parent.rules.iter()
+            .filter_map(|rtype| {
+                match rtype {
+                    RuleType::Rule(rule) => Some(rule),
+                    _ => None,
+                }
+            })
+            .filter_map(|rule| match_rule(elem,rule)).collect(),
         None => vec![],
     };
-    let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter().filter_map(|rule| match_rule(elem,rule)).collect();
+    let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter()
+        .filter_map(|rtype| {
+            match rtype {
+                RuleType::Rule(rule) => Some(rule),
+                _ => None,
+            }
+        })
+        .filter_map(|rule| match_rule(elem,rule)).collect();
     rules.append(&mut rules2);
     return rules;
 }
