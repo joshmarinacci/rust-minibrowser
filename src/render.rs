@@ -58,7 +58,7 @@ fn render_color_to_source(c:&Color) -> Source {
     return Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b));
 }
 
-pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&mut FontCache, viewport:&Rect) -> bool {
+pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut FontCache, viewport:&Rect) -> bool {
     // println!("====== rendering ======");
     match root {
         RenderBox::Block(block) => {
@@ -101,7 +101,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&mut FontCache,
                     _ => {}
                 }
 
-                let ret = draw_render_box(&ch,dt,font, viewport);
+                let ret = draw_render_box(&ch, dt, font_cache, viewport);
                 if ret == false {
                     return false;
                 }
@@ -129,7 +129,8 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&mut FontCache,
                             // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                             let trimmed = text.text.trim();
                             if trimmed.len() > 0 {
-                                let font = font.get_font(&String::from("sans-serif"));
+                                // println!("text boxes font family is {}", text.font_family);
+                                let font = font_cache.get_font(&text.font_family);
                                 match &text.color {
                                     Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
                                     _ => {}
@@ -166,6 +167,9 @@ impl FontCache {
     pub fn install_font(&mut self, name:&String, url:&Url) {
         println!("installing the font {} at url {}",name,url);
         self.names.insert(name.clone(),url.clone());
+    }
+    pub fn install_font_font(&mut self, name:&String, font:Font) {
+        self.fonts.insert(name.clone(),font);
     }
     pub fn get_font(&mut self, name:&String) -> &Font {
         if !self.fonts.contains_key(name) {
