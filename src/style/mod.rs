@@ -81,8 +81,9 @@ impl StyledNode<'_> {
     pub fn lookup_string(&self, name:&str, default: &String) -> String {
         match self.value(name) {
             Some(Value::StringLiteral(txt)) => txt,
+            Some(Keyword(str)) => str,
             _ => {
-                panic!("value of property {} is not a string value", name)
+                panic!("value of property {} is not a string value {:#?}", name, self.value(name))
             }
         }
     }

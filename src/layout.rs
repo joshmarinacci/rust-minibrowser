@@ -374,7 +374,7 @@ impl<'a> LayoutBox<'a> {
     fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
-        let font_family = self.get_style_node().lookup_string("font-family", &String::from("cool-font"));
+        let font_family = self.get_style_node().lookup_string("font-family", &String::from("sans-serif"));
         // println!("using the font size: {}",font_size);
         let d = &mut self.dimensions;
         let line_height = font_size*1.1;
@@ -760,7 +760,7 @@ fn test_layout<'a>() {
         border: Default::default(),
         margin: Default::default()
     };
-    //println!("roob box is {:#?}",root_box);
+    // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(containing_block, &font, &doc);
     // println!("final render box is {:#?}", render_box);

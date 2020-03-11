@@ -34,15 +34,12 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
 }
 
 fn init_fonts() -> FontCache {
-    let etbook =
-        relative_filepath_to_url("tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf")
-        .unwrap();
     let mut font_cache = FontCache{
         names: HashMap::new(),
         fonts: HashMap::new()
     };
-    let name = String::from("cool-font");
-    font_cache.install_font(&name, &etbook);
+    // font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf").unwrap());
+    font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     return font_cache;
 }
 fn main() -> Result<(),BrowserError>{
@@ -76,9 +73,9 @@ fn main() -> Result<(),BrowserError>{
     };
     // println!("render root is {:#?}",render_root);
 
-    // let start_page = relative_filepath_to_url("tests/page1.html")?;
+    let start_page = relative_filepath_to_url("tests/page1.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
+    // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &mut font_cache, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;

@@ -47,6 +47,7 @@ pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
 }
 
 fn draw_text(dt: &mut DrawTarget, font:&Font, rect:&Rect, text:&str, c:&Source, font_size:f32) {
+    // println!("drawing text '{}', size {}, with font {:#?}",text, font_size, font.postscript_name());
     dt.draw_text(font, font_size,
                  text,
                  raqote::Point::new(rect.x as f32, rect.y+rect.height as f32),
@@ -128,7 +129,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font:&mut FontCache,
                             // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                             let trimmed = text.text.trim();
                             if trimmed.len() > 0 {
-                                let font = font.get_font(&String::from("cool-font"));
+                                let font = font.get_font(&String::from("sans-serif"));
                                 match &text.color {
                                     Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
                                     _ => {}
@@ -173,6 +174,7 @@ impl FontCache {
         return self.fonts.get(name).unwrap();
     }
     fn load_font(&mut self, name:&String) {
+        println!("trying to load the font: '{}'",name);
         let pth = self.names.get(name).unwrap().to_file_path().unwrap();
         let mut file = File::open(pth).unwrap();
         let font = Font::from_file(&mut file, 0).unwrap();
@@ -191,9 +193,9 @@ fn test_font_loading() {
         names: HashMap::new(),
         fonts: HashMap::new()
     };
-    let name = String::from("cool-font");
+    let name = String::from("sans-serif");
     fc.install_font(&name, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
-    println!("{:#?}",fc.get_font(&String::from("cool-font")));
+    println!("{:#?}",fc.get_font(&String::from("sans-serif")));
     // println!("{:#?}",fc);
     //assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }
