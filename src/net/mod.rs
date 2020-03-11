@@ -90,9 +90,9 @@ pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
     let cwd = current_dir()?;
     let p = PathBuf::from(path);
     let final_path = cwd.join(p);;
-    println!("final path is {}", final_path.display());
+    // println!("final path is {}", final_path.display());
     let base_url = Url::from_file_path(final_path).unwrap();
-    println!("final base url is {}",base_url);
+    // println!("final base url is {}",base_url);
     return Ok(base_url);
 }
 
