@@ -509,7 +509,7 @@ fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
     (rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
         rules,
         parent: None,
-        base_url: Url::parse("http://www.mozilla.com/").unwrap()
+        base_url: Url::parse("https://www.mozilla.com/").unwrap()
     })
 }
 
