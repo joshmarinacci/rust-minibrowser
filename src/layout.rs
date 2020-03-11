@@ -772,6 +772,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 #[test]
 fn test_layout<'a>() {
     let mut font_cache = FontCache {
+        families: Default::default(),
         names: Default::default(),
         fonts: Default::default()
     };

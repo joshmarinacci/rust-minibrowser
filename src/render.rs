@@ -287,6 +287,7 @@ fn test_font_loading() {
     let mut file = File::open(pth).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
     let mut fc = FontCache{
+        families: Default::default(),
         names: HashMap::new(),
         fonts: HashMap::new()
     };
