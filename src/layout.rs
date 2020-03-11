@@ -742,11 +742,16 @@ fn test_layout<'a>() {
     let stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
     // println!("stylesheet is {:#?}",stylesheet);
     let snode = style_tree(&doc.root_node,&stylesheet);
-    let font = SystemSource::new()
-        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
-        .unwrap()
-        .load()
-        .unwrap();
+    // let font = SystemSource::new()
+    //     .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+    //     .unwrap()
+    //     .load()
+    //     .unwrap();
+    let mut font_cache = FontCache {
+        names: Default::default(),
+        fonts: Default::default()
+    };
+    font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     println!(" ======== build layout boxes ========");
     let mut root_box = build_layout_tree(&snode, &doc);
     let containing_block = Dimensions {
@@ -762,7 +767,7 @@ fn test_layout<'a>() {
     };
     // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(containing_block, &font, &doc);
+    let render_box = root_box.layout(containing_block, &mut font_cache, &doc);
     // println!("final render box is {:#?}", render_box);
     // dump_layout(&root_box,0);
 }

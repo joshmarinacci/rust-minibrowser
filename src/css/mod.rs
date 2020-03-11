@@ -565,7 +565,7 @@ fn test_file_load() {
 
 #[test]
 fn test_tufte_rules() {
-    let mut file = File::open("C:/Users/josh/WebstormProjects/rust-minibrowser2/tests/tufte/tufte.css").unwrap();
+    let mut file = File::open("tests/tufte/tufte.css").unwrap();
     let mut content:Vec<u8>= Vec::new();
     file.read_to_end(&mut content);
     let parsed = stylesheet().parse(content.as_slice()).unwrap();
