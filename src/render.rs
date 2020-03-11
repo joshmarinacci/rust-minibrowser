@@ -4,13 +4,15 @@ use raqote::{DrawTarget,
     LineCap, LineJoin
 };
 use font_kit::font::Font;
-use crate::css::Color;
+use crate::css::{Color, Value};
 use crate::layout::{Rect, RenderBox, RenderInlineBoxType};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
 use url::Url;
 use crate::net::relative_filepath_to_url;
+use crate::css::Value::Keyword;
+use font_kit::source::SystemSource;
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
@@ -130,7 +132,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                             let trimmed = text.text.trim();
                             if trimmed.len() > 0 {
                                 // println!("text boxes font family is {}", text.font_family);
-                                let font = font_cache.get_font(&text.font_family);
+                                let font = font_cache.get_font(&text.font_family, text.font_weight);
                                 match &text.color {
                                     Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
                                     _ => {}
@@ -152,9 +154,11 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
 }
 /*
 
-store the font family on the layout box
+store the font family on the layout box as a string
+store the font weight on the layout box as a float (100, 200, 400, 900, etc)
 at render time, grab the actual font from the font cache
-if not in the font cache, then load into the cache, then return
+at install time, install font using name, weight and url
+or using name, weight, and pre-loaded font
 
 */
 
@@ -164,18 +168,22 @@ pub struct FontCache {
     pub fonts:HashMap<String,Font>,
 }
 impl FontCache {
-    pub fn install_font(&mut self, name:&String, url:&Url) {
-        println!("installing the font {} at url {}",name,url);
-        self.names.insert(name.clone(),url.clone());
+    pub fn install_font(&mut self, name:&String, weight:f32, url:&Url) {
+        let key = format!("{}-{:#?}",name,weight);
+        println!("installing the font {} {} at url {} {}",name,weight, url, key);
+
+        let pth = url.to_file_path().unwrap();
+        let mut file = File::open(pth).unwrap();
+        let font = Font::from_file(&mut file, 0).unwrap();
+        self.names.insert(key.clone(),url.clone());
+        self.fonts.insert(key.clone(), font);
     }
     pub fn install_font_font(&mut self, name:&String, font:Font) {
         self.fonts.insert(name.clone(),font);
     }
-    pub fn get_font(&mut self, name:&String) -> &Font {
-        if !self.fonts.contains_key(name) {
-            self.load_font(name)
-        }
-        return self.fonts.get(name).unwrap();
+    pub fn get_font(&mut self, name:&String, weight:f32) -> &Font {
+        let key = format!("{}-{:#?}",name,weight);
+        return self.fonts.get(&key).unwrap();
     }
     fn load_font(&mut self, name:&String) {
         println!("trying to load the font: '{}'",name);
@@ -198,8 +206,8 @@ fn test_font_loading() {
         fonts: HashMap::new()
     };
     let name = String::from("sans-serif");
-    fc.install_font(&name, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
-    println!("{:#?}",fc.get_font(&String::from("sans-serif")));
+    fc.install_font(&name, 400.0, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
+    println!("{:#?}",fc.get_font(&String::from("sans-serif"), 400.0));
     // println!("{:#?}",fc);
     //assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }

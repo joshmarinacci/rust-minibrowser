@@ -23,6 +23,7 @@ html {
 b {
     display: inline;
     color: red;
+    font-weight: 700;
 }
 a {
     display: inline;

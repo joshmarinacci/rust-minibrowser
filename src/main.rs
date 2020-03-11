@@ -39,11 +39,12 @@ fn init_fonts() -> FontCache {
         fonts: HashMap::new()
     };
     // font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf").unwrap());
-    font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    let serif_font = SystemSource::new().select_best_match(&[FamilyName::Serif], &Properties::new()).unwrap().load().unwrap();
-    font_cache.install_font_font(&String::from("serif"), serif_font);
-    let monospace_font = SystemSource::new().select_best_match(&[FamilyName::Monospace], &Properties::new()).unwrap().load().unwrap();
-    font_cache.install_font_font(&String::from("monospace"), monospace_font);
+    font_cache.install_font(&String::from("sans-serif"),  400.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font(&String::from("sans-serif"),  700.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
+    // let serif_font = SystemSource::new().select_best_match(&[FamilyName::Serif], &Properties::new()).unwrap().load().unwrap();
+    // font_cache.install_font_font(&String::from("serif"), serif_font, serif_font.properties().weight.0, serif_font.);
+    // let monospace_font = SystemSource::new().select_best_match(&[FamilyName::Monospace], &Properties::new()).unwrap().load().unwrap();
+    // font_cache.install_font_font(&String::from("monospace"), monospace_font);
     return font_cache;
 }
 fn main() -> Result<(),BrowserError>{

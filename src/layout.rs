@@ -204,6 +204,7 @@ pub struct RenderTextBox {
     pub font_size:f32,
     pub font_family:String,
     pub link:Option<String>,
+    pub font_weight:f32,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -375,7 +376,8 @@ impl<'a> LayoutBox<'a> {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
         let font_family = self.get_style_node().lookup_string("font-family", &String::from("sans-serif"));
-        // println!("using the font size: {}",font_size);
+        let mut font_weight = self.get_style_node().lookup_font_weight(400.0);
+        //println!("using the font: {}  size: {}  weight: {}",font_family, font_size, font_weight);
         let d = &mut self.dimensions;
         let line_height = font_size*1.1;
         d.content.x = containing.content.x;
@@ -426,6 +428,7 @@ impl<'a> LayoutBox<'a> {
                             NodeType::Element(data) => {
                                 // println!("got the styled node {:#?}",styled);
                                 color = styled.lookup_color("color", &color);
+                                font_weight = styled.lookup_font_weight(font_weight);
                                 if data.tag_name == "a" {
                                     link = data.attributes.get("href");
                                 }
@@ -457,7 +460,7 @@ impl<'a> LayoutBox<'a> {
                 // println!("got the text {}", text);
                 for word in text.split_whitespace() {
                     // println!("len is {}", len);
-                    let font = font_cache.get_font(&font_family);
+                    let font = font_cache.get_font(&font_family, font_weight);
                     let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
                     if len + wlen > containing.content.width {
                         // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
@@ -472,6 +475,7 @@ impl<'a> LayoutBox<'a> {
                             color: Some(color.clone()),
                             font_size,
                             font_family:font_family.clone(),
+                            font_weight,
                             link: link.map(|s| String::from(s)),
                         }));
 
@@ -509,6 +513,7 @@ impl<'a> LayoutBox<'a> {
                     },
                     text: current_line,
                     font_family:font_family.clone(),
+                    font_weight,
                     color: Some(color.clone()),
                     font_size,
                     link: link.map(|s| String::from(s)),
@@ -751,7 +756,9 @@ fn test_layout<'a>() {
         names: Default::default(),
         fonts: Default::default()
     };
-    font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font(&String::from("sans-serif"),
+                            400.0,
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     println!(" ======== build layout boxes ========");
     let mut root_box = build_layout_tree(&snode, &doc);
     let containing_block = Dimensions {

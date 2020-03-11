@@ -87,6 +87,26 @@ impl StyledNode<'_> {
             }
         }
     }
+    pub fn lookup_keyword(&self, name:&str, default: &Value) -> Value {
+        match self.value(name) {
+            Some(Value::Keyword(txt)) => Keyword(txt),
+            _ => {
+                panic!("value of property {} is not a keyword value {:#?}", name, self.value(name))
+            }
+        }
+    }
+    pub fn lookup_font_weight(&self, default:f32) -> f32{
+        let font_weight = match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
+            Keyword(str) => match str.as_str() {
+                "normal" => 400.0,
+                "bold" => 700.0,
+                _ => default,
+            },
+            Value::Number(v) => v,
+            _ => default,
+        };
+        return font_weight;
+    }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
             Some(Length(v,_unit)) => {
