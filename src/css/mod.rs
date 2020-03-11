@@ -46,6 +46,7 @@ pub enum Value {
     ArrayValue(Vec<Value>),
     FunCall(FunCallValue),
     StringLiteral(String),
+    Number(f32),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -342,6 +343,14 @@ fn test_funcall_value() {
                ));
 }
 
+fn simple_number<'a>() -> Parser<'a, u8, Value> {
+    let p = one_of(b"0123456789").repeat(1..);
+    p.map(|v|{
+        let s = v2s(&v);
+        let vv = i32::from_str_radix(&s,10).unwrap() as f32;
+        Value::Number(vv)
+    })
+}
 fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
     * one_of(b"0123456789ABCDEFabcdef").repeat(6..7);
@@ -386,7 +395,7 @@ fn test_keyword_dash() {
     assert_eq!( Value::Keyword("inline-block".to_lowercase()), result.unwrap());
 }
 fn one_value<'a>() -> Parser<'a, u8, Value> {
-    funcall() | hexcolor() | length_unit() | keyword() | string_literal()
+    funcall() | hexcolor() | length_unit() | keyword() | string_literal() | simple_number()
 }
 
 fn list_array_value<'a>() -> Parser<'a, u8, Value> {
@@ -834,3 +843,22 @@ fn test_keyword_list() {
     assert_eq!(answer, declaration().parse(b"background-repeat:no-repeat,no-repeat,repeat-x;").unwrap());
     assert_eq!(answer, declaration().parse(b"background-repeat: no-repeat, no-repeat, repeat-x;").unwrap());
 }
+
+#[test]
+fn test_font_weight() {
+    assert_eq!(
+        declaration().parse(br#"font-weight: normal;"#),
+        Ok(Declaration{
+            name: String::from("font-weight"),
+            value: Value::Keyword(String::from("normal")),
+        }),
+    );
+    assert_eq!(
+        declaration().parse(br#"font-weight: 400;"#),
+        Ok(Declaration{
+            name: String::from("font-weight"),
+            value: Value::Number(400.0),
+        }),
+    );
+}
+
