@@ -798,3 +798,11 @@ fn dump_layout(root:&LayoutBox, tab:i32) {
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
     iter.fold(0., |a, b| a + b)
 }
+
+static TEST_FONT_FILE_PATH: &'static str = "resources/tests/eb-garamond/EBGaramond12-Regular.otf";
+#[test]
+fn test_font_loading() {
+    let mut file = File::open(TEST_FONT_FILE_PATH).unwrap();
+    let font = Font::from_file(&mut file, 0).unwrap();
+    assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
+}
