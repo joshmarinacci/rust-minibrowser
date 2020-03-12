@@ -492,7 +492,7 @@ fn test_simple_doc() {
 fn test_file_load() {
     let mut file = File::open("tests/foo.html").unwrap();
     let mut content: Vec<u8> = Vec::new();
-    file.read_to_end(&mut content);
+    file.read_to_end(&mut content).ok();
     let parsed = document().parse(content.as_slice()).unwrap();
     println!("{:#?}", parsed);
     let dom = Document {
@@ -550,7 +550,7 @@ pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
     println!("Loading doc from file {}", filename.display());
     let mut file = File::open(filename).unwrap();
     let mut content: Vec<u8> = Vec::new();
-    file.read_to_end(&mut content);
+    file.read_to_end(&mut content).ok();
     let mut parsed = document().parse(content.as_slice()).unwrap();
     let str = filename.to_str().unwrap();
     let base_url = format!("file://{}",str);

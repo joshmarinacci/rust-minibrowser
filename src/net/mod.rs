@@ -97,7 +97,7 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
             println!("{:#?}\n content length = {:#?}\n status = {:#?}", resp, len, status);
 
             let mut buf: Vec<u8> = vec![];
-            resp.copy_to(&mut buf);
+            resp.copy_to(&mut buf).ok();
 
             let mut doc = load_doc_from_buffer(buf);
             doc.base_url = url.clone();
@@ -109,7 +109,7 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
 pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
     let mut resp = reqwest::blocking::get(url.as_str())?;
     let mut buf: Vec<u8> = vec![];
-    resp.copy_to(&mut buf);
+    resp.copy_to(&mut buf).ok();
     Ok(load_image_from_buffer(buf)?)
 }
 
@@ -119,7 +119,7 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
             let path = url.to_file_path()?;
             let mut file = File::open(path)?;
             let mut content:Vec<u8>= Vec::new();
-            file.read_to_end(&mut content);
+            file.read_to_end(&mut content).ok();
             let mut ss = parse_stylesheet_from_buffer(content)?;
             ss.base_url = url.clone();
             Ok(ss)
