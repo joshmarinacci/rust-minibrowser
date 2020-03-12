@@ -120,6 +120,7 @@ fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
         = space()
         + is_a(alpha).repeat(1..)
         - sym(b'=')
+        - space()
         - sym(b'"')
         + char_string
         - sym(b'"');
@@ -132,10 +133,7 @@ fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
         = space()
         + is_a(alpha).repeat(1..)
         ;
-    p.map(|(_,key)| {
-        let key = v2s(&key);
-        return (key.clone(),key.clone())
-    })
+    p.map(|(_,key)| (v2s(&key).clone(),v2s(&key).clone()))
 }
 
 #[test]
