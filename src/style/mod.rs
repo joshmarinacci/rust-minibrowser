@@ -109,17 +109,13 @@ impl StyledNode<'_> {
     }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
-            Some(Length(v,_unit)) => {
-                return v;
-            },
+            Some(Length(v,_unit)) => v,
             _ => default,
         }
     }
     pub fn display(&self) -> Display {
         match self.node.node_type {
-            Text(_) => {
-                return Display::Inline;
-            }
+            Text(_) => return Display::Inline,
             _ => {}
         }
         match self.value("display") {
@@ -196,27 +192,23 @@ fn match_rule<'a>(elem: &ElementData, rule: &'a Rule) -> Option<MatchedRule<'a>>
         .map(|selector| (selector.specificity(), rule))
 }
 
+fn only_real_rules(rtype:&RuleType) -> Option<&Rule> {
+    match rtype {
+        RuleType::Rule(rule) => Some(&rule),
+        _ => None,
+    }
+}
 //find all matching rules for an element
 fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<MatchedRule<'a>> {
     let mut rules:Vec<MatchedRule> = match &stylesheet.parent {
         Some(parent) => parent.rules.iter()
-            .filter_map(|rtype| {
-                match rtype {
-                    RuleType::Rule(rule) => Some(rule),
-                    _ => None,
-                }
-            })
-            .filter_map(|rule| match_rule(elem,rule)).collect(),
+            .filter_map(only_real_rules)
+            .filter_map(|rule| match_rule(elem, &rule)).collect(),
         None => vec![],
     };
     let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter()
-        .filter_map(|rtype| {
-            match rtype {
-                RuleType::Rule(rule) => Some(rule),
-                _ => None,
-            }
-        })
-        .filter_map(|rule| match_rule(elem,rule)).collect();
+        .filter_map(only_real_rules)
+        .filter_map(|rule| match_rule(elem,&rule)).collect();
     rules.append(&mut rules2);
     return rules;
 }
