@@ -35,11 +35,7 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
 }
 
 fn init_fonts() -> FontCache {
-    let mut font_cache = FontCache{
-        families: HashMap::new(),
-        names: HashMap::new(),
-        fonts: HashMap::new()
-    };
+    let mut font_cache = FontCache::new();
     // font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf").unwrap());
     font_cache.install_font(&String::from("sans-serif"),  400.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     font_cache.install_font(&String::from("sans-serif"),  700.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());

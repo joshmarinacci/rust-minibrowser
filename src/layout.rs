@@ -771,11 +771,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
 
 #[test]
 fn test_layout<'a>() {
-    let mut font_cache = FontCache {
-        families: Default::default(),
-        names: Default::default(),
-        fonts: Default::default()
-    };
+    let mut font_cache = FontCache::new();
     font_cache.install_font(&String::from("sans-serif"),
                             400.0,
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());

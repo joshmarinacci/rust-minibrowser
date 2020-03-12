@@ -164,9 +164,9 @@ or using name, weight, and pre-loaded font
 
 #[derive(Debug, Default)]
 pub struct FontCache {
-    pub families:HashMap<String,Url>,
-    pub names:HashMap<String,Url>,
-    pub fonts:HashMap<String,Font>,
+    families:HashMap<String,Url>,
+    names:HashMap<String,Url>,
+    fonts:HashMap<String,Font>,
 }
 
 fn extract_url(value:&Value, url:&Url) -> Option<Url> {
@@ -203,6 +203,13 @@ fn extract_font_weight(value:&Value) -> Option<f32> {
 }
 
 impl FontCache {
+    pub fn new() -> Self {
+        Self {
+            families: HashMap::new(),
+            names: HashMap::new(),
+            fonts: HashMap::new()
+        }
+    }
     pub fn has_font_family(&self, name:&String) -> bool {
         return self.families.contains_key(name);
     }
@@ -286,11 +293,7 @@ fn test_font_loading() {
     let pth = Path::new(TEST_FONT_FILE_PATH);
     let mut file = File::open(pth).unwrap();
     let font = Font::from_file(&mut file, 0).unwrap();
-    let mut fc = FontCache{
-        families: Default::default(),
-        names: HashMap::new(),
-        fonts: HashMap::new()
-    };
+    let mut fc = FontCache::new();
     let name = String::from("sans-serif");
     fc.install_font(&name, 400.0, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
     println!("{:#?}",fc.get_font(&String::from("sans-serif"), 400.0));
