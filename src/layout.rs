@@ -136,7 +136,7 @@ impl RenderBlockBox {
                 return res
             }
         }
-        return QueryResult::None();
+        QueryResult::None()
     }
     pub fn content_area_as_rect(&self) -> Rect {
         Rect {
@@ -161,7 +161,7 @@ impl RenderAnonymousBox {
                 return res
             }
         }
-        return QueryResult::None()
+        QueryResult::None()
     }
 }
 #[derive(Debug)]
@@ -180,7 +180,7 @@ impl RenderLineBox {
                 return res
             }
         }
-        return QueryResult::None()
+        QueryResult::None()
     }
 }
 
@@ -206,7 +206,7 @@ impl RenderTextBox {
         if self.rect.contains(x,y) {
             return QueryResult::Text(&self)
         }
-        return QueryResult::None()
+        QueryResult::None()
     }
 }
 
@@ -237,7 +237,7 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
             Display::None => {  },
         }
     }
-    return root;
+    root
 }
 
 impl<'a> LayoutBox<'a> {
@@ -294,7 +294,7 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font_cache, doc);
         self.calculate_block_height();
-        return RenderBlockBox{
+        RenderBlockBox{
             rect:self.dimensions.content,
             margin: self.dimensions.margin,
             padding: self.dimensions.padding,
@@ -359,10 +359,10 @@ impl<'a> LayoutBox<'a> {
                     }
                 }
                 println!("no valid font found in stack: {:#?}",vals);
-                return String::from("sans-serif");
+                String::from("sans-serif")
             }
             Value::Keyword(str) => str,
-            _ => return String::from("sans-serif"),
+            _ => String::from("sans-serif"),
         }
     }
 
@@ -447,7 +447,7 @@ impl<'a> LayoutBox<'a> {
                     _ => "".to_string()
                 };
                 let text = text.trim();
-                if text.len() <= 0 { continue; }
+                if text.len() == 0 { continue; }
 
                 let mut current_line = String::new();
                 // println!("got the text {}", text);
@@ -519,7 +519,7 @@ impl<'a> LayoutBox<'a> {
         lines.push(line_box);
         d.content.height += line_height;
 
-        return RenderAnonymousBox {
+        RenderAnonymousBox {
             rect: Rect {
                 x: d.content.x+2.0,
                 y: d.content.y+2.0,
@@ -643,7 +643,7 @@ impl<'a> LayoutBox<'a> {
             d.content.height = d.content.height + child.dimensions.margin_box().height;
             children.push(bx)
         };
-        return children;
+        children
     }
 
     fn calculate_block_height(&mut self) {
@@ -689,7 +689,7 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
                     width: image_size.width,
                     height: image_size.height,
                 },
-                image: image
+                image
             })
         },
         Err(err) => {
@@ -713,7 +713,7 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
         let len = font.advance(gid).unwrap().x;
         sum += len;
     }
-    return sum;
+    sum
 }
 
 
@@ -756,7 +756,7 @@ fn expand_tab(tab:i32) -> String {
     for _i in 0..tab {
         string.push(' ')
     }
-    return string;
+    string
 }
 fn dump_layout(root:&LayoutBox, tab:i32) {
     let bt = match root.box_type {

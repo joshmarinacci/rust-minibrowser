@@ -260,7 +260,7 @@ fn identifier<'a>() -> Parser<'a, u8, String> {
     r.map(|((_,uu),v)| {
         let mut vv = vec![uu];
         vv.extend(&v);
-        return v2s(&vv)
+        v2s(&vv)
     })
 }
 #[test]
@@ -646,11 +646,7 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
             Some(rt) => rules.push(rt),
             _ => {},
         }
-        RuleType::AtRule(AtRule {
-            name,
-            value,
-            rules: rules
-        })
+        RuleType::AtRule(AtRule {  name,  value,  rules })
     })
 }
 

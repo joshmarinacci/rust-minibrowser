@@ -56,8 +56,8 @@ fn draw_text(dt: &mut DrawTarget, font:&Font, rect:&Rect, text:&str, c:&Source, 
                  &c, &DrawOptions::new(),);
 }
 
-fn render_color_to_source(c:&Color) -> Source {
-    return Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b));
+fn color_to_source(c:&Color) -> Source {
+    Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b))
 }
 
 pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut FontCache, viewport:&Rect) -> bool {
@@ -65,12 +65,12 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
     match root {
         RenderBox::Block(block) => {
             match &block.background_color {
-                Some(color) => fill_rect(dt, &block.content_area_as_rect(), &render_color_to_source(color)),
+                Some(color) => fill_rect(dt, &block.content_area_as_rect(), &color_to_source(color)),
                 _ => {}
             }
 
             if block.border_width > 0.0 && block.border_color.is_some() {
-                let color = render_color_to_source(&block.border_color.as_ref().unwrap());
+                let color = color_to_source(&block.border_color.as_ref().unwrap());
                 stroke_rect(dt, &block.content_area_as_rect(), &color, block.border_width)
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&BLACK), 1 as f32);
@@ -92,15 +92,11 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
             }
             return true;
         },
-        RenderBox::Inline() => {
-            return true;
-        },
-        RenderBox::InlineBlock() => {
-            return true;
-        },
+        RenderBox::Inline() => {   true    },
+        RenderBox::InlineBlock() => {  true },
         RenderBox::Anonymous(block) => {
             //don't draw anonymous blocks that are empty
-            if block.children.len() <= 0 {
+            if block.children.len() == 0 {
                 return true;
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&RED), 1 as f32);
@@ -113,14 +109,14 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                             let trimmed = text.text.trim();
                             if text.color.is_some() && trimmed.len() > 0 {
                                 let font = font_cache.get_font(&text.font_family, text.font_weight);
-                                draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(&text.color.as_ref().unwrap()), text.font_size);
+                                draw_text(dt, font, &text.rect, &trimmed, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
                             dt.draw_image_at(img.rect.x,img.rect.y,&img.image.to_image(), &DrawOptions::default());
                         }
                         RenderInlineBoxType::Error(err) => {
-                            fill_rect(dt, &err.rect, &render_color_to_source(&MAGENTA))
+                            fill_rect(dt, &err.rect, &color_to_source(&MAGENTA))
                         }
                     }
                 }

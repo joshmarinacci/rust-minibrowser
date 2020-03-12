@@ -1,7 +1,7 @@
 extern crate image;
 use image::{GenericImageView};
 use raqote::{Image, DrawTarget,  DrawOptions};
-use std::fmt::{Debug, Formatter, Display};
+use std::fmt::{Debug, Formatter};
 use std::fmt;
 use self::image::ImageError;
 use self::image::io::Reader;
@@ -44,15 +44,15 @@ pub fn load_image_from_filepath(path:&str) -> Result<LoadedImage, ImageError> {
     };
     // let mut data2 = vec![255 as u32;(w*h) as usize];
     for (x,y,pixel) in img.pixels() {
-        let n = ((y*w+x)) as usize;
+        let n = (y*w+x) as usize;
         loaded.data[n]
-            = 0xFF000000
+            = 0xFF_00_00_00
             | ((pixel[0] as u32)<<16)
             | ((pixel[1] as u32)<< 8)
             | ((pixel[2] as u32)<< 0)
         ;
     }
-    return Result::Ok(loaded);
+    Result::Ok(loaded)
 }
 
 pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
@@ -68,7 +68,7 @@ pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
     };
     // let mut data2 = vec![255 as u32;(w*h) as usize];
     for (x,y,pixel) in img.pixels() {
-        let n = ((y*w+x)) as usize;
+        let n = (y*w+x) as usize;
         loaded.data[n]
             = 0xFF000000
             | ((pixel[0] as u32)<<16)
@@ -76,7 +76,7 @@ pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
             | ((pixel[2] as u32)<< 0)
         ;
     }
-    return Result::Ok(loaded);
+    Result::Ok(loaded)
 }
 
 #[test]

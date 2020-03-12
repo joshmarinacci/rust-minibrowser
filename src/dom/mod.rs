@@ -37,7 +37,7 @@ pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
         if res.is_some() { return res }
     }
 
-    return None
+    None
 }
 
 #[derive(Debug, PartialEq)]
@@ -96,7 +96,7 @@ fn alphanum_string<'a>() -> Parser<'a, u8, String> {
 }
 
 fn element_name<'a>() -> Parser<'a,u8,String> {
-    return alphanum_string()
+    alphanum_string()
 }
 #[test]
 fn test_element_name() {
@@ -124,9 +124,7 @@ fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
         - sym(b'"')
         + char_string
         - sym(b'"');
-    p.map(|((_,key),value)| {
-        return (v2s(&key), value)
-    })
+    p.map(|((_,key),value)| (v2s(&key), value))
 }
 fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
     let p
@@ -158,7 +156,7 @@ fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
         for (key,value) in a {
             map.insert(key,value);
         }
-        return map;
+        map
     })
 }
 
@@ -564,9 +562,9 @@ pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
     return Ok(parsed);
 }
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
-    return document().parse(buf.as_slice()).unwrap();
+    document().parse(buf.as_slice()).unwrap()
 }
 pub fn load_doc_from_bytestring(buf:&[u8]) -> Document {
-    return document().parse(buf).unwrap();
+    document().parse(buf).unwrap()
 }
 

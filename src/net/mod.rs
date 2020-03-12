@@ -18,7 +18,7 @@ pub enum BrowserError {
 }
 impl From<std::io::Error> for BrowserError {
     fn from(err: Error) -> Self {
-        return BrowserError::DiskError(err);
+        BrowserError::DiskError(err)
     }
 }
 impl From<ParseError> for BrowserError {
@@ -80,13 +80,13 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
         }
         _ => {}
     }
-    return Ok(default_stylesheet);
+    Ok(default_stylesheet)
 }
 
 pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
     let final_path = current_dir()?.join(PathBuf::from(path));
     let base_url = Url::from_file_path(final_path)?;
-    return Ok(base_url);
+    Ok(base_url)
 }
 
 pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
@@ -94,7 +94,7 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
     match url.scheme() {
         "file" => {
             let path = url.to_file_path().unwrap();
-            return load_doc(path.as_path());
+            load_doc(path.as_path())
         }
         _ => {
             let mut resp = reqwest::blocking::get(url.as_str()).unwrap();
@@ -107,8 +107,7 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
 
             let mut doc = load_doc_from_buffer(buf);
             doc.base_url = url.clone();
-            return Ok(doc);
-
+            Ok(doc)
         }
     }
 }
@@ -117,7 +116,7 @@ pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
     let mut resp = reqwest::blocking::get(url.as_str())?;
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf);
-    return Ok(load_image_from_buffer(buf)?);
+    Ok(load_image_from_buffer(buf)?)
 }
 
 pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
@@ -129,7 +128,7 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
             file.read_to_end(&mut content);
             let mut ss = parse_stylesheet_from_buffer(content)?;
             ss.base_url = url.clone();
-            return Ok(ss);
+            Ok(ss)
         }
         _ => {
             let mut resp = reqwest::blocking::get(url.as_str())?;
@@ -137,7 +136,7 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
             resp.copy_to(&mut buf)?;
             let mut ss = parse_stylesheet_from_buffer(buf)?;
             ss.base_url = url.clone();
-            return Ok(ss);
+            Ok(ss)
         }
     }
 }

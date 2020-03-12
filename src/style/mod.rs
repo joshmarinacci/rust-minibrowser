@@ -66,7 +66,7 @@ impl StyledNode<'_> {
             _ => default.clone(),
         }
     }
-    pub fn lookup_string(&self, name:&str, default: &String) -> String {
+    pub fn lookup_string(&self, name:&str, default: &str) -> String {
         match self.value(name) {
             Some(Value::StringLiteral(txt)) => txt,
             Some(Keyword(str)) => str,
@@ -93,7 +93,7 @@ impl StyledNode<'_> {
             Value::Number(v) => v,
             _ => default,
         };
-        return font_weight;
+        font_weight
     }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
@@ -187,7 +187,7 @@ fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<Mat
         .filter_map(only_real_rules)
         .filter_map(|rule| match_rule(elem,&rule)).collect();
     rules.append(&mut rules2);
-    return rules;
+    rules
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut 
             values.insert(declaration.name.clone(), vv.clone());
         }
     }
-    return values;
+    values
 }
 
 pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
