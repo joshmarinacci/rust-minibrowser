@@ -314,7 +314,7 @@ impl<'a> LayoutBox<'a> {
                         })
                     }
                     Element(_ed) => {
-                        // println!("found a nested child {:#?}",styled);
+                        println!("found a nested child {:#?}",styled);
                         let v2 = ch.make_flat_children();
                         println!("made children");
                         v.extend(v2);
@@ -383,15 +383,7 @@ impl<'a> LayoutBox<'a> {
         let mut x = d.content.x;
         let v2 = self.make_flat_children();
         for child in v2.iter() {
-        // for child in &mut self.children {
-        //  println!("child node {:#?}",child.box_type);
-            let mut color = color.clone();
-
-            let is_inline_block = match child.box_type {
-                InlineBlockNode(_styled) => true,
-                _ => false,
-            };
-            if is_inline_block {
+            if let InlineBlockNode(_styled) = child.box_type {
                 match layout_image(&child, x, y, line_height, doc) {
                     Ok(blk) => {
                         x += blk.rect.width;
@@ -402,106 +394,107 @@ impl<'a> LayoutBox<'a> {
                         line_box.children.push(RenderInlineBoxType::Error(blk))
                     }
                 }
-            } else {
-                let mut link:Option<&String> = Option::None;
-                let text = match child.box_type {
-                    InlineNode(styled) => {
-                        match &styled.node.node_type {
-                            NodeType::Text(string) => string.clone(),
-                            NodeType::Element(data) => {
-                                // println!("got the styled node {:#?}",styled);
-                                color = styled.lookup_color("color", &color);
-                                font_weight = styled.lookup_font_weight(font_weight);
-                                if data.tag_name == "a" {
-                                    link = data.attributes.get("href");
-                                }
-                                if data.tag_name == "img" {
-                                    "".to_string()
-                                } else if styled.children.is_empty() {
-                                    // println!("WARNING: inline element without a text child {:#?}",child);
-                                    "".to_string()
-                                } else {
-                                    match &styled.children[0].node.node_type {
-                                        NodeType::Text(string) => string.clone(),
-                                        _ => "".to_string()
-                                    }
-                                }
+                continue;
+            }
+            let mut color = color.clone();
+            let mut link:Option<&String> = Option::None;
+            let text = match child.box_type {
+                InlineNode(styled) => {
+                    match &styled.node.node_type {
+                        NodeType::Text(string) => string.clone(),
+                        NodeType::Element(data) => {
+                            // println!("got the styled node {:#?}",styled);
+                            color = styled.lookup_color("color", &color);
+                            font_weight = styled.lookup_font_weight(font_weight);
+                            if data.tag_name == "a" {
+                                link = data.attributes.get("href");
                             }
-                            _ => {
+                            if data.tag_name == "img" {
                                 "".to_string()
+                            } else if styled.children.is_empty() {
+                                // println!("WARNING: inline element without a text child {:#?}",child);
+                                "".to_string()
+                            } else {
+                                match &styled.children[0].node.node_type {
+                                    NodeType::Text(string) => string.clone(),
+                                    _ => "".to_string()
+                                }
                             }
                         }
+                        _ => {
+                            "".to_string()
+                        }
                     }
-                    _ => "".to_string()
-                };
-                let text = text.trim();
-                if text.is_empty() { continue; }
-
-                let mut current_line = String::new();
-                // println!("got the text {}", text);
-                for word in text.split_whitespace() {
-                    // println!("len is {}", len);
-                    let font = font_cache.get_font(&font_family, font_weight);
-                    let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
-                    if len + wlen > containing.content.width {
-                        // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
-                        line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
-                            rect: Rect {
-                                x,
-                                y: y + 2.0,
-                                width: len,
-                                height: line_height - 4.0,
-                            },
-                            text: current_line,
-                            color: Some(color.clone()),
-                            font_size,
-                            font_family:font_family.clone(),
-                            font_weight,
-                            link: link.map(String::from),
-                        }));
-
-                        // println!("adding line box");
-                        lines.push(line_box);
-                        line_box = RenderLineBox {
-                            rect: Rect {
-                                x: d.content.x + 2.0,
-                                y: 0.0,
-                                width: 0.0,
-                                height: 0.0
-                            },
-                            children: vec![]
-                        };
-                        len = 0.0;
-                        line = String::new();
-                        current_line = String::new();
-                        d.content.height += line_height;
-                        y += line_height;
-                        x = d.content.x;
-                    }
-                    len += wlen;
-                    line.push_str(word);
-                    line.push_str(" ");
-                    current_line.push_str(word);
-                    current_line.push_str(" ");
                 }
-                // println!("ending text box -{}- at {} : {}",current_line,x,len);
-                line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
-                    rect: Rect {
-                        x,
-                        y: y + 2.0,
-                        width: len,
-                        height: line_height - 4.0,
-                    },
-                    text: current_line,
-                    font_family:font_family.clone(),
-                    font_weight,
-                    color: Some(color.clone()),
-                    font_size,
-                    link: link.map(String::from),
-                }));
-                x += len;
-                len = 0.0;
+                _ => "".to_string()
+            };
+            let text = text.trim();
+            if text.is_empty() { continue; }
+
+            let mut current_line = String::new();
+            // println!("got the text {}", text);
+            for word in text.split_whitespace() {
+                // println!("len is {}", len);
+                let font = font_cache.get_font(&font_family, font_weight);
+                let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
+                if len + wlen > containing.content.width {
+                    // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
+                    line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
+                        rect: Rect {
+                            x,
+                            y: y + 2.0,
+                            width: len,
+                            height: line_height - 4.0,
+                        },
+                        text: current_line,
+                        color: Some(color.clone()),
+                        font_size,
+                        font_family:font_family.clone(),
+                        font_weight,
+                        link: link.map(String::from),
+                    }));
+
+                    // println!("adding line box");
+                    lines.push(line_box);
+                    line_box = RenderLineBox {
+                        rect: Rect {
+                            x: d.content.x + 2.0,
+                            y: 0.0,
+                            width: 0.0,
+                            height: 0.0
+                        },
+                        children: vec![]
+                    };
+                    len = 0.0;
+                    line = String::new();
+                    current_line = String::new();
+                    d.content.height += line_height;
+                    y += line_height;
+                    x = d.content.x;
+                }
+                len += wlen;
+                line.push_str(word);
+                line.push_str(" ");
+                current_line.push_str(word);
+                current_line.push_str(" ");
             }
+            // println!("ending text box -{}- at {} : {}",current_line,x,len);
+            line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
+                rect: Rect {
+                    x,
+                    y: y + 2.0,
+                    width: len,
+                    height: line_height - 4.0,
+                },
+                text: current_line,
+                font_family:font_family.clone(),
+                font_weight,
+                color: Some(color.clone()),
+                font_size,
+                link: link.map(String::from),
+            }));
+            x += len;
+            len = 0.0;
         }
 
         lines.push(line_box);
