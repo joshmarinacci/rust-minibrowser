@@ -40,7 +40,7 @@ pub fn stroke_rect(dt: &mut DrawTarget, pos:&Rect, color:&Source, width:f32) {
     let default_stroke_style = StrokeStyle {
         cap: LineCap::Square,
         join: LineJoin::Miter,
-        width: width,
+        width,
         miter_limit: 2.,
         dash_array: vec![],
         dash_offset: 16.,
@@ -65,37 +65,19 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
     match root {
         RenderBox::Block(block) => {
             match &block.background_color {
-                Some(color) => {
-                    let r = Rect {
-                        x: block.rect.x - block.padding.left - block.border_width,
-                        y: block.rect.y - block.padding.top - block.border_width,
-                        width: block.rect.width + block.padding.left + block.padding.right + block.border_width*2.0,
-                        height: block.rect.height + block.padding.top + block.padding.bottom + block.border_width*2.0
-                    };
-                    fill_rect(dt, &r, &render_color_to_source(color))
-                },
+                Some(color) => fill_rect(dt, &block.content_area_as_rect(), &render_color_to_source(color)),
                 _ => {}
             }
 
-            if block.border_width > 0.0 {
-                match &block.border_color {
-                    Some(color) => {
-                        let r = Rect {
-                            x: block.rect.x - block.padding.left - block.border_width,
-                            y: block.rect.y - block.padding.top - block.border_width,
-                            width: block.rect.width + block.padding.left + block.padding.right + block.border_width*2.0,
-                            height: block.rect.height + block.padding.top + block.padding.bottom + block.border_width*2.0
-                        };
-                        stroke_rect(dt, &r, &render_color_to_source(color), block.border_width)
-                    },
-                    _ => {}
-                }
+            if block.border_width > 0.0 && block.border_color.is_some() {
+                let color = render_color_to_source(&block.border_color.as_ref().unwrap());
+                stroke_rect(dt, &block.content_area_as_rect(), &color, block.border_width)
             }
             // stroke_rect(dt, &block.rect, &render_color_to_source(&BLACK), 1 as f32);
             for ch in block.children.iter() {
                 match ch {
                     RenderBox::Block(blk) => {
-                        if (blk.rect.y > viewport.y + viewport.height) {
+                        if blk.rect.y > viewport.y + viewport.height {
                             println!("outside! {}", blk.rect.y);
                             return false;
                         }
@@ -128,15 +110,10 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                     match inline {
                         RenderInlineBoxType::Text(text) => {
                             // stroke_rect(dt, &text.rect, &render_color_to_source(&MAGENTA), 1 as f32);
-                            // println!("text is {} {} {}", inline.rect.y, inline.rect.height, inline.text.trim());
                             let trimmed = text.text.trim();
-                            if trimmed.len() > 0 {
-                                // println!("text boxes font family is {}", text.font_family);
+                            if text.color.is_some() && trimmed.len() > 0 {
                                 let font = font_cache.get_font(&text.font_family, text.font_weight);
-                                match &text.color {
-                                    Some(color) => draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(color), text.font_size),
-                                    _ => {}
-                                }
+                                draw_text(dt, font, &text.rect, &trimmed, &render_color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
@@ -243,7 +220,6 @@ impl FontCache {
                                     let mut font_family:Option<String> = Option::None;
                                     let mut font_weight:Option<f32> = Option::None;
                                     for dec in rule.declarations.iter() {
-                                        println!("processing font-face dec {:#?}", dec);
                                         if dec.name == "src" {
                                             src = extract_url(&dec.value, &stylesheet.base_url);
                                         }
