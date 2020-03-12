@@ -164,7 +164,7 @@ fn class_string<'a>() -> Parser<'a,u8,String> {
 
 
 fn string_literal<'a>() -> Parser<'a, u8, Value> {
-    string().map(|s|StringLiteral(s))
+    string().map(StringLiteral)
 }
 
 #[test]

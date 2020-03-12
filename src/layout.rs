@@ -303,27 +303,24 @@ impl<'a> LayoutBox<'a> {
         let mut v:Vec<LayoutBox> = vec![];
 
         for ch in &self.children {
-            match ch.box_type {
-                InlineNode(styled) => {
-                    match &styled.node.node_type {
-                        Text(_text) => {
-                            println!("found a text inline {:#?}", styled);
-                            v.push(LayoutBox {
-                                dimensions: Default::default(),
-                                box_type: BoxType::InlineNode(styled),
-                                children: vec![]
-                            })
-                        }
-                        Element(_ed) => {
-                            // println!("found a nested child {:#?}",styled);
-                            let v2 = ch.make_flat_children();
-                            println!("made children");
-                            v.extend(v2);
-                        }
-                        _ => {}
+            if let InlineNode(styled) = ch.box_type {
+                match &styled.node.node_type {
+                    Text(_text) => {
+                        println!("found a text inline {:#?}", styled);
+                        v.push(LayoutBox {
+                            dimensions: Default::default(),
+                            box_type: BoxType::InlineNode(styled),
+                            children: vec![]
+                        })
                     }
+                    Element(_ed) => {
+                        // println!("found a nested child {:#?}",styled);
+                        let v2 = ch.make_flat_children();
+                        println!("made children");
+                        v.extend(v2);
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
             //println!("looking at child {:#?}",ch.box_type)
         }
@@ -460,7 +457,7 @@ impl<'a> LayoutBox<'a> {
                             font_size,
                             font_family:font_family.clone(),
                             font_weight,
-                            link: link.map(|s| String::from(s)),
+                            link: link.map(String::from),
                         }));
 
                         // println!("adding line box");
@@ -500,7 +497,7 @@ impl<'a> LayoutBox<'a> {
                     font_weight,
                     color: Some(color.clone()),
                     font_size,
-                    link: link.map(|s| String::from(s)),
+                    link: link.map(String::from),
                 }));
                 x += len;
                 len = 0.0;
@@ -649,23 +646,20 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
     let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
     let mut src = String::from("");
     if let InlineBlockNode(styled) = child.box_type {
-        match &styled.node.node_type {
-            NodeType::Element(data) => {
-                let width = if data.attributes.contains_key("width") {
-                    data.attributes.get("width").unwrap().parse::<u32>().unwrap()
-                } else {
-                    100
-                };
-                image_size.width = width as f32;
-                let height = if data.attributes.contains_key("height") {
-                    data.attributes.get("height").unwrap().parse::<u32>().unwrap()
-                } else {
-                    100
-                };
-                image_size.height = height as f32;
-                src = data.attributes.get("src").unwrap().clone();
-            }
-            _ => {}
+        if let Element(data) = &styled.node.node_type {
+            let width = if data.attributes.contains_key("width") {
+                data.attributes.get("width").unwrap().parse::<u32>().unwrap()
+            } else {
+                100
+            };
+            image_size.width = width as f32;
+            let height = if data.attributes.contains_key("height") {
+                data.attributes.get("height").unwrap().parse::<u32>().unwrap()
+            } else {
+                100
+            };
+            image_size.height = height as f32;
+            src = data.attributes.get("src").unwrap().clone();
         }
     }
     match load_image(&doc, &src) {
