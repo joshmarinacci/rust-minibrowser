@@ -1,23 +1,13 @@
-use rust_minibrowser::dom::{load_doc, getElementsByTagName, NodeType, Document};
-use rust_minibrowser::style;
+use rust_minibrowser::dom::{Document};
 use rust_minibrowser::layout;
 
 use minifb::{Window, WindowOptions, MouseButton, MouseMode, KeyRepeat, Key};
-use raqote::{DrawTarget, SolidSource, Source, Point, Transform};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+use raqote::{DrawTarget, SolidSource, Transform};
 use rust_minibrowser::style::style_tree;
-use rust_minibrowser::css::{parse_stylesheet, Stylesheet};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::{draw_render_box, FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
-use rust_minibrowser::globals::make_globals;
-use std::env::current_dir;
-use std::path::{PathBuf, Path};
 use url::Url;
-use font_kit::font::Font;
-use std::collections::HashMap;
 
 
 const WIDTH: usize = 600;
@@ -31,22 +21,16 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
     let render_root = bbox.layout(containing_block, font_cache, &doc);
-    return Ok((doc,render_root))
+    Ok((doc,render_root))
 }
 
 fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();
-    // font_cache.install_font(&String::from("sans-serif"), &relative_filepath_to_url("tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf").unwrap());
     font_cache.install_font(&String::from("sans-serif"),  400.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     font_cache.install_font(&String::from("sans-serif"),  700.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
-    // let serif_font = SystemSource::new().select_best_match(&[FamilyName::Serif], &Properties::new()).unwrap().load().unwrap();
-    // font_cache.install_font_font(&String::from("serif"), serif_font, serif_font.properties().weight.0, serif_font.);
-    // let monospace_font = SystemSource::new().select_best_match(&[FamilyName::Monospace], &Properties::new()).unwrap().load().unwrap();
-    // font_cache.install_font_font(&String::from("monospace"), monospace_font);
-    return font_cache;
+    font_cache
 }
 fn main() -> Result<(),BrowserError>{
-    let globals = make_globals();
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         ..WindowOptions::default()
     }).unwrap();
@@ -124,24 +108,15 @@ fn main() -> Result<(),BrowserError>{
 }
 
 fn scroll_viewport(window:&Window, viewport:&mut Rect) {
-    let mut keys = window.get_keys_pressed(KeyRepeat::No);
-    // println!("keys pressed {:#?}",keys);
-    if keys.is_some() {
-        match keys {
-            Some(keys) => {
-                for key in keys {
-                    match key {
-                        Key::Up => viewport.y -= 100.0,
-                        Key::Down => viewport.y += 100.0,
-                        Key::Left => viewport.x += 100.0,
-                        Key::Right => viewport.x -= 100.0,
-                        _ => {}
-                    }
-                }
-            },
-            None => {
-
-            },
-        };
+    if let Some(keys) = window.get_keys_pressed(KeyRepeat::No) {
+        for key in keys {
+            match key {
+                Key::Up    => viewport.y -= 100.0,
+                Key::Down  => viewport.y += 100.0,
+                Key::Left  => viewport.x += 100.0,
+                Key::Right => viewport.x -= 100.0,
+                _ => {}
+            }
+        }
     }
 }
