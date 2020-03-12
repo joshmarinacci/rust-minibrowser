@@ -362,7 +362,7 @@ impl<'a> LayoutBox<'a> {
         let font_family = self.find_font_family(font_cache);
         let mut font_weight = self.get_style_node().lookup_font_weight(400.0);
         //println!("using the font: {}  size: {}  weight: {}",font_family, font_size, font_weight);
-        let d = &mut self.dimensions;
+        let mut d = self.dimensions.clone();
         let line_height = font_size*1.1;
         d.content.x = containing.content.x;
         d.content.width = containing.content.width;
@@ -381,9 +381,9 @@ impl<'a> LayoutBox<'a> {
             children: vec![]
         };
         let mut x = d.content.x;
-        // let v2 = self.make_flat_children();
-        // for child in v2.iter() {
-        for child in &mut self.children {
+        let v2 = self.make_flat_children();
+        for child in v2.iter() {
+        // for child in &mut self.children {
         //  println!("child node {:#?}",child.box_type);
             let mut color = color.clone();
 
@@ -447,7 +447,7 @@ impl<'a> LayoutBox<'a> {
                         // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
                         line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
                             rect: Rect {
-                                x: x,
+                                x,
                                 y: y + 2.0,
                                 width: len,
                                 height: line_height - 4.0,
@@ -487,7 +487,7 @@ impl<'a> LayoutBox<'a> {
                 // println!("ending text box -{}- at {} : {}",current_line,x,len);
                 line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
                     rect: Rect {
-                        x: x,
+                        x,
                         y: y + 2.0,
                         width: len,
                         height: line_height - 4.0,
@@ -506,6 +506,7 @@ impl<'a> LayoutBox<'a> {
 
         lines.push(line_box);
         d.content.height += line_height;
+        self.dimensions = d;
 
         RenderAnonymousBox {
             rect: Rect {
@@ -666,7 +667,7 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
         Ok(image) => {
             Ok(RenderImageBox {
                 rect: Rect {
-                    x: x,
+                    x,
                     y: y - image_size.height + line_height,
                     width: image_size.width,
                     height: image_size.height,
@@ -678,7 +679,7 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
             println!("error loading the image for {} : {:#?}", src, err);
             Err(RenderErrorBox {
                 rect: Rect {
-                    x: x,
+                    x,
                     y: y - image_size.height + line_height,
                     width: image_size.width,
                     height: image_size.height,
