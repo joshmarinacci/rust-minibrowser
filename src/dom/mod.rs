@@ -8,10 +8,10 @@ use std::fs::File;
 use std::io::Read;
 use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
-use crate::css::parse_stylesheet;
 use std::path::Path;
 use url::Url;
 use crate::net::{BrowserError, load_doc_from_net};
+use crate::css::parse_stylesheet;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -23,13 +23,10 @@ pub struct Document {
 
 #[allow(non_snake_case)]
 pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
-    match &node.node_type {
-        NodeType::Element(data) => {
-            if data.tag_name == name {
-                return Some(node);
-            }
-        },
-        _  => {},
+    if let NodeType::Element(data) = &node.node_type {
+        if data.tag_name == name {
+            return Some(node);
+        }
     }
 
     for child in node.children.iter() {
@@ -131,7 +128,7 @@ fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
         = space()
         + is_a(alpha).repeat(1..)
         ;
-    p.map(|(_,key)| (v2s(&key).clone(),v2s(&key).clone()))
+    p.map(|(_,key)| (v2s(&key),v2s(&key)))
 }
 
 #[test]
@@ -559,7 +556,7 @@ pub fn load_doc(filename:&Path) -> Result<Document,BrowserError> {
     let base_url = format!("file://{}",str);
     println!("using base url {}", base_url);
     parsed.base_url = Url::parse(base_url.as_str()).unwrap();
-    return Ok(parsed);
+    Ok(parsed)
 }
 pub fn load_doc_from_buffer(buf:Vec<u8>) -> Document {
     document().parse(buf.as_slice()).unwrap()

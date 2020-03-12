@@ -51,34 +51,28 @@ pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserErr
 
 pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,BrowserError> {
     let style_node = getElementsByTagName(&doc.root_node, "style");
-    let default_stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css")?).unwrap();
+    let default_stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css")?)?;
     println!("loading {:#?}", getElementsByTagName(&doc.root_node,"link"));
     let linked = getElementsByTagName(&doc.root_node, "link");
 
-    if linked.is_some() {
-        match &linked.unwrap().node_type {
-            Element(ed) => {
-                let rel = ed.attributes.get("rel");
-                let href = ed.attributes.get("href");
-                if rel.is_some() && rel.unwrap() == "stylesheet" && href.is_some() {
-                    let href = href.unwrap();
-                    let more_ss = load_stylesheet_from_net(&calculate_url_from_doc(doc,href)?);
-                    println!("more ss is {:#?}",more_ss);
-                }
+    if let Some(node) = linked {
+        if let Element(ed) = &node.node_type {
+            let rel = ed.attributes.get("rel");
+            let href = ed.attributes.get("href");
+            if rel.is_some() && rel.unwrap() == "stylesheet" && href.is_some() {
+                let href = href.unwrap();
+                let more_ss = load_stylesheet_from_net(&calculate_url_from_doc(doc,href)?);
+                println!("more ss is {:#?}",more_ss);
             }
-            _ => {}
         }
     }
 
-    match style_node {
-        Some(node) => {
-            if let NodeType::Text(text) = &node.children[0].node_type {
-                let mut ss = parse_stylesheet(text)?;
-                ss.parent = Some(Box::new(default_stylesheet));
-                return Ok(ss);
-            }
+    if let Some(node) = style_node {
+        if let NodeType::Text(text) = &node.children[0].node_type {
+            let mut ss = parse_stylesheet(text)?;
+            ss.parent = Some(Box::new(default_stylesheet));
+            return Ok(ss);
         }
-        _ => {}
     }
     Ok(default_stylesheet)
 }
@@ -93,11 +87,11 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
     println!("loading url {}",url);
     match url.scheme() {
         "file" => {
-            let path = url.to_file_path().unwrap();
+            let path = url.to_file_path()?;
             load_doc(path.as_path())
         }
         _ => {
-            let mut resp = reqwest::blocking::get(url.as_str()).unwrap();
+            let mut resp = reqwest::blocking::get(url.as_str())?;
             let status = resp.status();
             let len = resp.content_length();
             println!("{:#?}\n content length = {:#?}\n status = {:#?}", resp, len, status);
@@ -122,8 +116,8 @@ pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
 pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
     match url.scheme() {
         "file" => {
-            let path = url.to_file_path().unwrap();
-            let mut file = File::open(path).unwrap();
+            let path = url.to_file_path()?;
+            let mut file = File::open(path)?;
             let mut content:Vec<u8>= Vec::new();
             file.read_to_end(&mut content);
             let mut ss = parse_stylesheet_from_buffer(content)?;

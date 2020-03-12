@@ -1,22 +1,15 @@
 use font_kit::font::Font;
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
 
-use crate::dom::{load_doc, NodeType, Document};
-use crate::style::{StyledNode, style_tree, Display};
-use crate::css::{Color, Unit, Value, parse_stylesheet_from_buffer, RuleType};
+use crate::dom::{NodeType, Document};
+use crate::style::{StyledNode, Display, style_tree};
+use crate::css::{Color, Unit, Value};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
-use std::path::Path;
-use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, load_stylesheet_from_net, load_image, relative_filepath_to_url};
-use url::{Url, ParseError};
 use crate::dom::NodeType::{Text, Element};
-use std::fs::File;
-use std::collections::HashMap;
+use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -334,7 +327,7 @@ impl<'a> LayoutBox<'a> {
             }
             //println!("looking at child {:#?}",ch.box_type)
         }
-        return v;
+        v
     }
 
     fn find_font_family(&mut self, font_cache:&mut FontCache) -> String {
@@ -369,7 +362,7 @@ impl<'a> LayoutBox<'a> {
     fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
-        let mut font_family = self.find_font_family(font_cache);
+        let font_family = self.find_font_family(font_cache);
         let mut font_weight = self.get_style_node().lookup_font_weight(400.0);
         //println!("using the font: {}  size: {}  weight: {}",font_family, font_size, font_weight);
         let d = &mut self.dimensions;
@@ -427,15 +420,13 @@ impl<'a> LayoutBox<'a> {
                                 }
                                 if data.tag_name == "img" {
                                     "".to_string()
+                                } else if styled.children.is_empty() {
+                                    // println!("WARNING: inline element without a text child {:#?}",child);
+                                    "".to_string()
                                 } else {
-                                    if styled.children.len() < 1 {
-                                        // println!("WARNING: inline element without a text child {:#?}",child);
-                                        "".to_string()
-                                    } else {
-                                        match &styled.children[0].node.node_type {
-                                            NodeType::Text(string) => string.clone(),
-                                            _ => "".to_string()
-                                        }
+                                    match &styled.children[0].node.node_type {
+                                        NodeType::Text(string) => string.clone(),
+                                        _ => "".to_string()
                                     }
                                 }
                             }
@@ -447,7 +438,7 @@ impl<'a> LayoutBox<'a> {
                     _ => "".to_string()
                 };
                 let text = text.trim();
-                if text.len() == 0 { continue; }
+                if text.is_empty() { continue; }
 
                 let mut current_line = String::new();
                 // println!("got the text {}", text);
@@ -541,7 +532,7 @@ impl<'a> LayoutBox<'a> {
 
         // 'width' has initial value 'auto'
         let auto = Keyword("auto".to_string());
-        let mut width = style.value("width").unwrap_or(auto.clone());
+        let mut width = style.value("width").unwrap_or_else(||auto.clone());
 
         // margin, border, and padding have initial value of 0
         let zero = Length(0.0, Px);
@@ -640,7 +631,7 @@ impl<'a> LayoutBox<'a> {
         let mut children:Vec<RenderBox> = vec![];
         for child in self.children.iter_mut() {
             let bx = child.layout(*d, font_cache, doc);
-            d.content.height = d.content.height + child.dimensions.margin_box().height;
+            d.content.height += child.dimensions.margin_box().height;
             children.push(bx)
         };
         children
@@ -657,28 +648,25 @@ impl<'a> LayoutBox<'a> {
 fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) -> Result<RenderImageBox, RenderErrorBox> {
     let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
     let mut src = String::from("");
-    match child.box_type {
-        InlineBlockNode(styled) => {
-            match &styled.node.node_type {
-                NodeType::Element(data) => {
-                    let width = if data.attributes.contains_key("width") {
-                        data.attributes.get("width").unwrap().parse::<u32>().unwrap()
-                    } else {
-                        100
-                    };
-                    image_size.width = width as f32;
-                    let height = if data.attributes.contains_key("height") {
-                        data.attributes.get("height").unwrap().parse::<u32>().unwrap()
-                    } else {
-                        100
-                    };
-                    image_size.height = height as f32;
-                    src = data.attributes.get("src").unwrap().clone();
-                }
-                _ => {}
+    if let InlineBlockNode(styled) = child.box_type {
+        match &styled.node.node_type {
+            NodeType::Element(data) => {
+                let width = if data.attributes.contains_key("width") {
+                    data.attributes.get("width").unwrap().parse::<u32>().unwrap()
+                } else {
+                    100
+                };
+                image_size.width = width as f32;
+                let height = if data.attributes.contains_key("height") {
+                    data.attributes.get("height").unwrap().parse::<u32>().unwrap()
+                } else {
+                    100
+                };
+                image_size.height = height as f32;
+                src = data.attributes.get("src").unwrap().clone();
             }
+            _ => {}
         }
-        _ => {}
     }
     match load_image(&doc, &src) {
         Ok(image) => {
@@ -749,42 +737,6 @@ fn test_layout<'a>() {
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(containing_block, &mut font_cache, &doc);
     // println!("final render box is {:#?}", render_box);
-    // dump_layout(&root_box,0);
-}
-fn expand_tab(tab:i32) -> String {
-    let mut string = String::new();
-    for _i in 0..tab {
-        string.push(' ')
-    }
-    string
-}
-fn dump_layout(root:&LayoutBox, tab:i32) {
-    let bt = match root.box_type {
-        BlockNode(snode) => {
-            let st = match &snode.node.node_type {
-                NodeType::Text(_) => "text".to_string(),
-                NodeType::Element(data) => format!("element \"{}\"",data.tag_name),
-                NodeType::Meta(_data) => format!("meta tag"),
-            };
-            format!("block {}",st)
-        }
-        InlineNode(snode) => {
-            let st = match &snode.node.node_type {
-                NodeType::Text(data) => format!("text \"{}\"",data),
-                NodeType::Element(data) => format!("element {}",data.tag_name),
-                NodeType::Meta(_data) => format!("meta tag"),
-            };
-            format!("inline {}",st)
-        },
-        InlineBlockNode(_snode) => {
-            format!("inline-block")
-        }
-        AnonymousBlock(_snode) => "anonymous".to_string(),
-    };
-    println!("{}layout {}", expand_tab(tab), bt);
-    for child in root.children.iter() {
-        dump_layout(child,tab+4);
-    }
 }
 
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {

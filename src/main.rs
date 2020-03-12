@@ -83,19 +83,12 @@ fn main() -> Result<(),BrowserError>{
             println!("Left mouse is down at {} , {}",x,y);
             let res = render_root.find_box_containing(x,y);
             println!("got a result under the click: {:#?}", res);
-            match res {
-                QueryResult::Text(bx) => {
-                    match &bx.link {
-                        Some(href) => {
-                            let res = navigate_to_doc(calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
-                            doc = res.0;
-                            render_root = res.1;
-                        }
-                        _ => {}
-                    }
+            if let QueryResult::Text(bx) = res {
+                if let Some(href) = &bx.link {
+                    let res = navigate_to_doc(calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
+                    doc = res.0;
+                    render_root = res.1;
                 }
-
-                _ => {}
             }
 
         }

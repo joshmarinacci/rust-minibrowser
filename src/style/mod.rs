@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
-use crate::render::{BLACK, BLUE, RED, GREEN, WHITE, AQUA, YELLOW};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 use std::fs::File;
 use std::io::Read;
@@ -54,7 +53,7 @@ pub struct StyledNode<'a> {
 
 impl StyledNode<'_> {
     pub fn value(&self, name: &str) -> Option<Value> {
-        self.specified_values.get(name).map(|v| v.clone())
+        self.specified_values.get(name).cloned()
     }
     pub fn lookup(&self, name:&str, fallback_name: &str, default: &Value) -> Value {
         self.value(name).unwrap_or_else(||self.value(fallback_name)
@@ -70,21 +69,17 @@ impl StyledNode<'_> {
         match self.value(name) {
             Some(Value::StringLiteral(txt)) => txt,
             Some(Keyword(str)) => str,
-            _ => {
-                panic!("value of property {} is not a string value {:#?}", name, self.value(name))
-            }
+            _ => default.to_string(),
         }
     }
     pub fn lookup_keyword(&self, name:&str, default: &Value) -> Value {
         match self.value(name) {
             Some(Value::Keyword(txt)) => Keyword(txt),
-            _ => {
-                panic!("value of property {} is not a keyword value {:#?}", name, self.value(name))
-            }
+            _ => default.clone(),
         }
     }
     pub fn lookup_font_weight(&self, default:f32) -> f32{
-        let font_weight = match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
+        match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
             Keyword(str) => match str.as_str() {
                 "normal" => 400.0,
                 "bold" => 700.0,
@@ -92,8 +87,7 @@ impl StyledNode<'_> {
             },
             Value::Number(v) => v,
             _ => default,
-        };
-        font_weight
+        }
     }
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
@@ -102,9 +96,8 @@ impl StyledNode<'_> {
         }
     }
     pub fn display(&self) -> Display {
-        match self.node.node_type {
-            Text(_) => return Display::Inline,
-            _ => {}
+        if let Text(_) = self.node.node_type {
+            return Display::Inline
         }
         match self.value("display") {
             Some(Keyword(s)) => match &*s {
@@ -144,10 +137,9 @@ fn matches(elem: &ElementData, selector: &Selector) -> bool {
 
 fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> bool {
     //return false for mis-matches
-    if selector.tag_name.iter().any(|name|  "*" != *name) {
-        if selector.tag_name.iter().any(|name| elem.tag_name != *name) {
+    if selector.tag_name.iter().any(|name|  "*" != *name)
+        && selector.tag_name.iter().any(|name| elem.tag_name != *name) {
             return false;
-        }
     }
     if selector.id.iter().any(|id| elem.id() != Some(id)) {
         return false;
@@ -157,7 +149,7 @@ fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> boo
         return false
     }
     //no non-matching selectors found, so it must be true
-    return true;
+    true
 }
 
 type MatchedRule<'a> = (Specificity, &'a Rule);
@@ -222,7 +214,7 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut 
             let mut vv = &declaration.value;
             if declaration.name == "color" && declaration.value == Keyword(String::from("inherit")) {
                 // println!("other inherit");
-                for (node,props) in ancestors.iter() {
+                for (_node,props) in ancestors.iter() {
                     if props.contains_key("color") {
                         // println!("found an ancestor match {:#?}", props.get("color"));
                         vv = props.get("color").unwrap();
@@ -237,7 +229,7 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut 
 
 pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
     let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
-    return real_style_tree(root, stylesheet, &mut ansc);
+    real_style_tree(root, stylesheet, &mut ansc)
 }
 pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> StyledNode<'a> {
     let specified = match root.node_type {
@@ -280,7 +272,6 @@ fn test_inherited_match() {
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     let snode = style_tree(&doc.root_node, &stylesheet);
     //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
-    dump_stylednode(&snode);
 
     //check html element
     assert_eq!(snode.specified_values.get("color").unwrap(),
@@ -317,25 +308,9 @@ fn test_em_to_px() {
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     let snode = style_tree(&doc.root_node, &stylesheet);
     // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
-    // dump_stylednode(&snode);
 
     //check html element
     assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
-}
-
-fn dump_stylednode(node:&StyledNode) {
-    println!("node {}", dump_nodetype(&node.node.node_type));
-    println!(" styles {:#?}", node.specified_values);
-    for ch in node.children.iter() {
-        dump_stylednode(&ch);
-    }
-}
-fn dump_nodetype(typ:&NodeType) -> String {
-    match typ {
-        Text(txt) => format!("TEXT -{}-",txt),
-        Element(ed) => format!("{}",&ed.tag_name),
-        _ => {"other".to_string()}
-    }
 }
 
 #[test]

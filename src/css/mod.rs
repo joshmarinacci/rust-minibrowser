@@ -7,8 +7,6 @@ use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
 use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral};
-use crate::css::Unit::Px;
-use self::pom::set::Set;
 use self::pom::parser::{list, call};
 use url::Url;
 
@@ -85,7 +83,7 @@ impl Color {
         let n = i32::from_str_radix(&str[1..], 16).unwrap();
         let r = (n >> 16) & 0xFF;
         let g = (n >> 8) & 0xFF;
-        let b = (n >> 0) & 0xFF;
+        let b = (n/*>>0*/) & 0xFF;
         Self {
             r: r as u8,
             g: g as u8,
@@ -143,10 +141,6 @@ pub fn star(term:u8) -> bool {
     term == b'*'
 }
 
-fn alpha_string<'a>() -> Parser<'a, u8, String> {
-    let r = is_a(alpha).repeat(1..);
-    r.map(|str| String::from_utf8(str).unwrap())
-}
 fn alphanum_string<'a>() -> Parser<'a, u8, String> {
     let r = is_a(alphanum).repeat(1..);
     r.map(|str| String::from_utf8(str).unwrap())
@@ -187,7 +181,7 @@ fn selector<'a>() -> Parser<'a, u8, Selector>{
         - space()
     ;
     r.map(|(_,name)| {
-        if name.starts_with(".") {
+        if name.starts_with('.') {
             Selector::Simple(SimpleSelector {
                 tag_name: None,
                 id: None,
@@ -641,12 +635,11 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
 
         ;
     p.map(|(((_,name),value), rule)|{
-        let mut rules:Vec<RuleType> = vec![];
-        match rule {
-            Some(rt) => rules.push(rt),
-            _ => {},
+        if let Some(rt) = rule {
+            RuleType::AtRule(AtRule { name, value, rules:vec![rt]})
+        } else {
+            RuleType::AtRule(AtRule {  name,  value,  rules:vec![] })
         }
-        RuleType::AtRule(AtRule {  name,  value,  rules })
     })
 }
 

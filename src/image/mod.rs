@@ -49,7 +49,7 @@ pub fn load_image_from_filepath(path:&str) -> Result<LoadedImage, ImageError> {
             = 0xFF_00_00_00
             | ((pixel[0] as u32)<<16)
             | ((pixel[1] as u32)<< 8)
-            | ((pixel[2] as u32)<< 0)
+            |  (pixel[2] as u32)
         ;
     }
     Result::Ok(loaded)
@@ -70,10 +70,10 @@ pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
     for (x,y,pixel) in img.pixels() {
         let n = (y*w+x) as usize;
         loaded.data[n]
-            = 0xFF000000
+            = 0xFF_00_00_00
             | ((pixel[0] as u32)<<16)
             | ((pixel[1] as u32)<< 8)
-            | ((pixel[2] as u32)<< 0)
+            |  (pixel[2] as u32)
         ;
     }
     Result::Ok(loaded)
