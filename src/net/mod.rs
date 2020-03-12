@@ -41,15 +41,12 @@ impl From<pom::Error> for BrowserError {
         unimplemented!()
     }
 }
+impl From<()> for BrowserError {
+    fn from(_: ()) -> Self { unimplemented!()  }
+}
 
 pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserError>{
-    println!("going to load {} {}", href, doc.base_url);
-    let url = doc.base_url.join(href)?;
-    println!("going to the new url {}",url);
-    return Ok(url);
-}
-pub fn file_url_to_path(url:&Url) -> &str {
-    url.path()
+    Ok(doc.base_url.join(href)?)
 }
 
 pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,BrowserError> {
@@ -87,18 +84,9 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
 }
 
 pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
-    let cwd = current_dir()?;
-    let p = PathBuf::from(path);
-    let final_path = cwd.join(p);;
-    // println!("final path is {}", final_path.display());
-    let base_url = Url::from_file_path(final_path).unwrap();
-    // println!("final base url is {}",base_url);
+    let final_path = current_dir()?.join(PathBuf::from(path));
+    let base_url = Url::from_file_path(final_path)?;
     return Ok(base_url);
-}
-
-pub fn url_from_relative_filepath(filepath:&str) -> Result<Url,BrowserError> {
-    let foo = Url::parse(&*format!("file://{}", filepath))?;
-    return Ok(foo);
 }
 
 pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
@@ -186,7 +174,7 @@ pub fn load_image(doc:&Document, href:&str) -> Result<LoadedImage, BrowserError>
     let url = doc.base_url.join(href)?;
     match url.scheme() {
         "file" => {
-            Ok(load_image_from_filepath(file_url_to_path(&url))?)
+            Ok(load_image_from_filepath(url.path())?)
         },
         _ => {
             Ok(load_image_from_net(&url)?)

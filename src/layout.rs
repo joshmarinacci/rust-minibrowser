@@ -12,7 +12,7 @@ use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use std::path::Path;
-use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, url_from_relative_filepath, load_stylesheet_from_net, load_image, relative_filepath_to_url};
+use crate::net::{load_doc_from_net, load_image_from_net, BrowserError, load_stylesheet_from_net, load_image, relative_filepath_to_url};
 use url::{Url, ParseError};
 use crate::dom::NodeType::{Text, Element};
 use std::fs::File;
