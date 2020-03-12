@@ -13,18 +13,6 @@ use std::io::BufReader;
 type PropertyMap = HashMap<String, Value>;
 
 
-fn hexstring_to_color(str:&str) -> Color {
-    let n = i32::from_str_radix(&str[1..], 16).unwrap();
-    let r = (n >> 16) & 0xFF;
-    let g = (n >> 8) & 0xFF;
-    let b = (n >> 0) & 0xFF;
-    Color {
-        r: r as u8,
-        g: g as u8,
-        b: b as u8,
-        a: 255
-    }
-}
 fn load_css_json() -> HashMap<String, Color>{
     println!("loading css-color-names.json");
     let file = File::open("res/css-color-names.json").unwrap();
@@ -35,7 +23,7 @@ fn load_css_json() -> HashMap<String, Color>{
     if let serde_json::Value::Object(obj) = json {
         for (key, value) in obj.iter() {
             if let serde_json::Value::String(val) = value {
-                map.insert(key.to_string(),hexstring_to_color(&*val));
+                map.insert(key.to_string(),Color::from_hex(&*val));
             }
         }
     }
@@ -132,18 +120,7 @@ impl StyledNode<'_> {
     pub fn color(&self, name: &str) -> Option<Color> {
         match self.value(name) {
             Some(ColorValue(c)) => Some(c),
-            Some(HexColor(str)) => {
-                let n = i32::from_str_radix(&str[1..],16).unwrap();
-                let r = (n >> 16) & 0xFF;
-                let g = (n >>  8) & 0xFF;
-                let b = (n >>  0) & 0xFF;
-                Some(Color{
-                    r: r as u8,
-                    g: g as u8,
-                    b: b as u8,
-                    a: 255
-                })
-            },
+            Some(HexColor(str)) => Some(Color::from_hex(&str)),
             Some(Keyword(name)) => find_color_lazy_static(&name),
             Some(Length(_,_)) => None,
             None => None,

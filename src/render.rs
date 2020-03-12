@@ -33,7 +33,7 @@ pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
     dt.fill(&path, color, &DrawOptions::new());
  }
 
- pub fn stroke_rect(dt: &mut DrawTarget, pos:&Rect, color:&Source, width:f32) {
+pub fn stroke_rect(dt: &mut DrawTarget, pos:&Rect, color:&Source, width:f32) {
     let mut pb = PathBuilder::new();
     pb.rect(pos.x as f32, pos.y as f32, pos.width as f32, pos.height as f32);
     let path = pb.finish();
@@ -152,15 +152,6 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
         }
     }
 }
-/*
-
-store the font family on the layout box as a string
-store the font weight on the layout box as a float (100, 200, 400, 900, etc)
-at render time, grab the actual font from the font cache
-at install time, install font using name, weight and url
-or using name, weight, and pre-loaded font
-
-*/
 
 #[derive(Debug, Default)]
 pub struct FontCache {

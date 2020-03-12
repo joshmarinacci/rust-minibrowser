@@ -80,6 +80,20 @@ pub struct Color {
     pub(crate) b:u8,
     pub(crate) a:u8,
 }
+impl Color {
+    pub fn from_hex(str:&str) -> Self {
+        let n = i32::from_str_radix(&str[1..], 16).unwrap();
+        let r = (n >> 16) & 0xFF;
+        let g = (n >> 8) & 0xFF;
+        let b = (n >> 0) & 0xFF;
+        Self {
+            r: r as u8,
+            g: g as u8,
+            b: b as u8,
+            a: 255
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunCallValue {
@@ -371,7 +385,6 @@ fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
     * one_of(b"0123456789ABCDEFabcdef").repeat(6..7);
     p.map(|mut c| {
-        // i32::from_str_radix(v2s(&c),16)
         c.insert(0,b'#');
         Value::HexColor(v2s(&c).to_lowercase())
     })
