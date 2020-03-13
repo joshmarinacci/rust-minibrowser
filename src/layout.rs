@@ -13,6 +13,7 @@ use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url,
 use crate::layout::RenderBox::Anonymous;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::mem;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -267,7 +268,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout(&mut self, containing: Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
+    pub fn layout(&mut self, containing: &mut Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
         match self.box_type {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             InlineNode(_node) =>        RenderBox::Inline(),
@@ -284,7 +285,7 @@ impl<'a> LayoutBox<'a> {
             _ => "non-element".to_string(),
         }
     }
-    fn layout_block(&mut self, containing_block: Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderBlockBox {
+    fn layout_block(&mut self, containing_block: &mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font_cache, doc);
@@ -388,40 +389,60 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+    fn get_type(&self) -> String {
+        match self.box_type {
+            BoxType::AnonymousBlock(styled)
+            | BoxType::BlockNode(styled)
+            | BoxType::InlineBlockNode(styled)
+            | BoxType::InlineNode(styled) => format!("{:#?}",styled.node.node_type)
+        }
+    }
+
     //     do_inline_block_parent extents
-    fn layout_anonymous_2(&mut self, dim:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
-        println!("parent is {:#?}",self);
+    fn layout_anonymous_2(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
+        println!("parent is {:#?}",self.get_type());
+        let line_height= 30.0;
         let mut looper = Looper {
             lines: vec![],
-            current: Rc::new(RefCell::new(RenderLineBox {
+            current: RenderLineBox {
                 rect: Rect{
                     x: dim.content.x,
                     y: dim.content.y + dim.content.height,
                     width: dim.content.width,
-                    height: 40.0,
+                    height: line_height,
                 },
                 children: vec![]
-            })),
+            },
             extents: Rect {
-                x: 0.0,
-                y: 0.0,
+                x: dim.content.x,
+                y: dim.content.height + dim.content.y,
                 width: dim.content.width,
-                height: 0.0
+                height: line_height,
             },
             font_cache,
             doc,
         };
         for child in self.children.iter_mut() {
-            println!("working on child {:#?}", child.box_type);
+            println!("working on child {:#?}", child.get_type());
             match child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
                 InlineNode(_styled) => child.do_inline(&mut looper),
                 _ => println!("cant do this child of an anonymous box"),
             }
-
         }
+        println!("done with kids. current is {:#?}", looper.current);
+        looper.lines.push(looper.current);
+        looper.extents.x = 0.0;
+        looper.extents.y += 20.0;
+        dim.content.height += 20.0;
+        println!("final lines is {:#?}", looper.lines);
         return RenderAnonymousBox {
-            rect: Default::default(),
+            rect: Rect{
+                x: dim.content.x,
+                y: looper.extents.y,
+                width: dim.content.width,
+                height: looper.extents.height,
+            },
             children: looper.lines,
         }
     }
@@ -429,15 +450,15 @@ impl<'a> LayoutBox<'a> {
     fn do_inline_block(&mut self, looper:&mut Looper) {
         let w = 100.0;
         if looper.extents.x + w > looper.extents.width {
-            looper.lines.push(looper.current1);
-            looper.current = Rc::new(RefCell::new(RenderLineBox {
+            let old = mem::replace(&mut looper.current,RenderLineBox {
                 rect: Default::default(),
                 children: vec![]
-            }));
+            });
+            looper.lines.push(old);
             looper.extents.x = 0.0;
             looper.extents.y += 20.0;
         }
-        looper.current.borrow_mut().children.push(RenderInlineBoxType::Error(RenderErrorBox {
+        looper.current.children.push(RenderInlineBoxType::Error(RenderErrorBox {
             rect: Rect {
                 x: looper.extents.x,
                 y: looper.extents.y,
@@ -451,43 +472,58 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                 NodeType::Text(txt) => {
+                    let line_height = 30.0;
+                    let font_weight = 400.0;
+                    let font_size = 18.0;
+                    let font_family = "sans-serif";
                     let mut curr_text = String::new();
-                    for word in txt.split_whitespace() {
-                        // let font = font_cache.get_font(&font_family, font_weight);
-                        // let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
-                        let w = 30.0;
+                    let start_x = looper.extents.x;
+                    for word in txt.trim().split_whitespace() {
+                        println!("inline: working on text '{}'",word);
+                        let font = looper.font_cache.get_font(&font_family, font_weight);
+                        let w: f32 = calculate_word_length(word, font, font_size);
+                        //let w = 30.0;
                         if looper.extents.x + w > looper.extents.width {
-                            looper.current.borrow_mut().children.push(RenderInlineBoxType::Text(RenderTextBox{
+                            println!("too big, wrapping");
+                            looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Default::default(),
                                 text: curr_text,
                                 color: Some(BLACK),
-                                font_size: 30.0,
+                                font_size: font_size,
                                 font_family: "sans-serif".to_string(),
                                 link: None,
-                                font_weight: 400.0
+                                font_weight: font_weight,
                             }));
                             curr_text = String::new();
-                            looper.lines.push(looper.current);
-                            looper.current = Rc::new(RefCell::new(RenderLineBox {
+                            let old = mem::replace(&mut looper.current, RenderLineBox {
                                 rect: Default::default(),
                                 children: vec![],
-                            }));
+                            });
+                            looper.lines.push(old);
                             looper.extents.x = 0.0;
                             looper.extents.y += 20.0;
                         } else {
+                            looper.extents.x += w;
                             curr_text.push_str(word);
                             curr_text.push_str(" ");
+                            println!("appending '{}'",curr_text);
                         }
                     }
+                    println!("adding what's left '{}'", curr_text);
                     //add in whatever is left
-                    looper.current.borrow_mut().children.push(RenderInlineBoxType::Text(RenderTextBox{
-                        rect: Default::default(),
+                    looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
+                        rect: Rect {
+                            x: start_x,
+                            y: looper.extents.y,
+                            width: looper.extents.x,
+                            height: line_height,
+                        },
                         text: curr_text,
                         color: Some(BLACK),
-                        font_size: 30.0,
+                        font_size: font_size,
                         font_family: "sans-serif".to_string(),
                         link: None,
-                        font_weight: 400.0
+                        font_weight: font_weight,
                     }));
 
                 }
@@ -653,7 +689,7 @@ impl<'a> LayoutBox<'a> {
             for word in text.split_whitespace() {
                 // println!("len is {}", len);
                 let font = font_cache.get_font(&font_family, font_weight);
-                let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
+                let wlen: f32 = calculate_word_length(word, font, 10.0) / 2048.0 * 18.0;
                 if len + wlen > containing.content.width {
                     // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
                     line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
@@ -735,7 +771,7 @@ impl<'a> LayoutBox<'a> {
     /// http://www.w3.org/TR/CSS2/visudet.html#blockwidth
     ///
     /// Sets the horizontal margin/padding/border dimensions, and the `width`.
-    fn calculate_block_width(&mut self, containing:Dimensions) {
+    fn calculate_block_width(&mut self, containing:&mut Dimensions) {
         let style = self.get_style_node();
 
         // 'width' has initial value 'auto'
@@ -807,7 +843,7 @@ impl<'a> LayoutBox<'a> {
             _ => {0.0}
         }
     }
-    fn calculate_block_position(&mut self, containing: Dimensions) {
+    fn calculate_block_position(&mut self, containing: &mut Dimensions) {
         let zero = Length(0.0, Px);
         let style = self.get_style_node();
         let margin = EdgeSizes {
@@ -838,7 +874,7 @@ impl<'a> LayoutBox<'a> {
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
         for child in self.children.iter_mut() {
-            let bx = child.layout(*d, font_cache, doc);
+            let bx = child.layout(d, font_cache, doc);
             d.content.height += child.dimensions.margin_box().height;
             children.push(bx)
         };
@@ -899,19 +935,20 @@ fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) 
     }
 }
 
-fn calculate_word_length(text:&str, font:&Font) -> f32 {
+fn calculate_word_length(text:&str, font:&Font, font_size:f32) -> f32 {
     let mut sum = 0.0;
     for ch in text.chars() {
         let gid = font.glyph_for_char(ch).unwrap();
-        let len = font.advance(gid).unwrap().x;
+        let len = font.advance(gid).unwrap().x / 2048.0 * font_size;
         sum += len;
     }
+    println!("word len {} = {}", text, sum);
     sum
 }
 
 struct Looper<'a> {
     lines:Vec<RenderLineBox>,
-    current: Rc<RefCell<RenderLineBox>>,
+    current: RenderLineBox,
     extents:Rect,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
