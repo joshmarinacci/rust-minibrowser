@@ -10,6 +10,9 @@ use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
+use crate::layout::RenderBox::Anonymous;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -241,7 +244,6 @@ impl<'a> LayoutBox<'a> {
             children: Vec::new(),
         }
     }
-
     fn get_style_node(&self) -> &'a StyledNode<'a> {
         match self.box_type {
             BlockNode(node)
@@ -270,7 +272,7 @@ impl<'a> LayoutBox<'a> {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
-            AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous(containing, font, doc)),
+            AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
         }
     }
     fn debug_calculate_element_name(&mut self) -> String{
@@ -299,24 +301,54 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+    /*
+
+    body
+        text
+        b
+            second
+            a
+                third
+            fourth
+        fifth
+
+    should become
+        text
+        b second
+        b/a third
+        b fourth
+        fifth
+    */
+    /*
     fn make_flat_children(&self) -> Vec<LayoutBox>{
+        // println!("making flat clhildren {:#?}", self);
         let mut v:Vec<LayoutBox> = vec![];
 
         for ch in &self.children {
-            if let InlineNode(styled) = ch.box_type {
+            if let InlineNode(mut styled) = ch.box_type {
                 match &styled.node.node_type {
-                    Text(_text) => {
-                        println!("found a text inline {:#?}", styled);
+                    Text(text) => {
+                        println!("found a text inline {:#?}", text);
                         v.push(LayoutBox {
                             dimensions: Default::default(),
                             box_type: BoxType::InlineNode(styled),
                             children: vec![]
                         })
                     }
-                    Element(_ed) => {
-                        println!("found a nested child {:#?}",styled);
-                        let v2 = ch.make_flat_children();
-                        println!("made children");
+                    Element(ed) => {
+                        // println!("found a nested child {:#?}",styled);
+                        let mut v2 = ch.make_flat_children();
+                        println!("element {}", ed.tag_name);
+                        println!("self styles {:#?}", styled.specified_values);
+
+                        for ch in v2.iter_mut() {
+                            // ch.get_style_node().specified_values.insert(String::from("foo"), Value::Keyword(String::from("bar")));
+                            // for (key,val) in &styled.specified_values {
+                            //     let sn = ch.get_style_node();
+                            //     sn.specified_values.insert(key.clone(),val.clone());
+                            // }
+                            println!("   {:#?} ",ch.get_style_node().node.node_type);
+                        }
                         v.extend(v2);
                     }
                     _ => {}
@@ -325,7 +357,7 @@ impl<'a> LayoutBox<'a> {
             //println!("looking at child {:#?}",ch.box_type)
         }
         v
-    }
+    }*/
 
     fn find_font_family(&mut self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.get_style_node().lookup("font-family",
@@ -356,6 +388,121 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+    //     do_inline_block_parent extents
+    fn layout_anonymous_2(&mut self, dim:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
+        println!("parent is {:#?}",self);
+        let mut looper = Looper {
+            lines: vec![],
+            current: Rc::new(RefCell::new(RenderLineBox {
+                rect: Rect{
+                    x: dim.content.x,
+                    y: dim.content.y + dim.content.height,
+                    width: dim.content.width,
+                    height: 40.0,
+                },
+                children: vec![]
+            })),
+            extents: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: dim.content.width,
+                height: 0.0
+            },
+            font_cache,
+            doc,
+        };
+        for child in self.children.iter_mut() {
+            println!("working on child {:#?}", child.box_type);
+            match child.box_type {
+                InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
+                InlineNode(_styled) => child.do_inline(&mut looper),
+                _ => println!("cant do this child of an anonymous box"),
+            }
+
+        }
+        return RenderAnonymousBox {
+            rect: Default::default(),
+            children: looper.lines,
+        }
+    }
+
+    fn do_inline_block(&mut self, looper:&mut Looper) {
+        let w = 100.0;
+        if looper.extents.x + w > looper.extents.width {
+            looper.lines.push(looper.current1);
+            looper.current = Rc::new(RefCell::new(RenderLineBox {
+                rect: Default::default(),
+                children: vec![]
+            }));
+            looper.extents.x = 0.0;
+            looper.extents.y += 20.0;
+        }
+        looper.current.borrow_mut().children.push(RenderInlineBoxType::Error(RenderErrorBox {
+            rect: Rect {
+                x: looper.extents.x,
+                y: looper.extents.y,
+                width: w,
+                height: 50.0,
+            },
+        }));
+    }
+
+    fn do_inline(&mut self, looper:&mut Looper) {
+        if let BoxType::InlineNode(snode) = self.box_type {
+            match &snode.node.node_type {
+                NodeType::Text(txt) => {
+                    let mut curr_text = String::new();
+                    for word in txt.split_whitespace() {
+                        // let font = font_cache.get_font(&font_family, font_weight);
+                        // let wlen: f32 = calculate_word_length(word, font) / 2048.0 * 18.0;
+                        let w = 30.0;
+                        if looper.extents.x + w > looper.extents.width {
+                            looper.current.borrow_mut().children.push(RenderInlineBoxType::Text(RenderTextBox{
+                                rect: Default::default(),
+                                text: curr_text,
+                                color: Some(BLACK),
+                                font_size: 30.0,
+                                font_family: "sans-serif".to_string(),
+                                link: None,
+                                font_weight: 400.0
+                            }));
+                            curr_text = String::new();
+                            looper.lines.push(looper.current);
+                            looper.current = Rc::new(RefCell::new(RenderLineBox {
+                                rect: Default::default(),
+                                children: vec![],
+                            }));
+                            looper.extents.x = 0.0;
+                            looper.extents.y += 20.0;
+                        } else {
+                            curr_text.push_str(word);
+                            curr_text.push_str(" ");
+                        }
+                    }
+                    //add in whatever is left
+                    looper.current.borrow_mut().children.push(RenderInlineBoxType::Text(RenderTextBox{
+                        rect: Default::default(),
+                        text: curr_text,
+                        color: Some(BLACK),
+                        font_size: 30.0,
+                        font_family: "sans-serif".to_string(),
+                        link: None,
+                        font_weight: 400.0
+                    }));
+
+                }
+                //     if child is element
+                NodeType::Element(_ed) => {
+                    for ch in self.children.iter_mut() {
+                        ch.do_inline(looper);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+
     fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
@@ -381,8 +528,78 @@ impl<'a> LayoutBox<'a> {
             children: vec![]
         };
         let mut x = d.content.x;
-        let v2 = self.make_flat_children();
+        //let v2 = self.make_flat_children();
+        let v2 = &self.children;
+        println!("children are {:#?}",v2);
         for child in v2.iter() {
+            /*
+            to lay out an inline block we need to know the
+                current line box
+                current x extent
+                max length of the line block
+                the child to be laid out
+                any inherited styles
+            then it will
+                make a render box or error box
+                return the box
+            after the block is laid out we need to
+                add the inline box to the line box
+                move the x extent and maybe y extent
+                if the inline box was too long, then we need to finish the current line, start a new line, and add it there.
+
+            to lay out a normal text block we need to know the
+                current line box
+                current x extent
+                max length of the line block
+                the child to be laid out
+                any inherited styles
+            then it will
+                make the longest possible text box without wrapping
+                make more line boxes with more text with recursing
+                return the text boxes and line boxes
+            after the inline is laid out we need to
+                add the text boxes to the line box
+                add any newly created line boxes
+                move the x extent and y extent
+
+
+            do_inline_block_parent extents
+                make lines
+                for child in children
+                    if child is inline-block
+                        do inline block(child, lines, current line box, extents, doc, fonts)
+                        continue
+                    if child is inline
+                        do inline(child, lines, current line box, extents, doc, fonts)
+                        continue
+                add lines to a parent render box
+                return
+
+            do_block(child, lines, current line box, extents, doc, fonts)
+                calculate internal block size
+                load image
+                create image-block-box or error-block-box
+                if too wide
+                    make new current line box
+                    update extents
+                add to current line box
+                return
+
+            do_inline(child, lines, current_line_box, extents, doc, fonts)
+                if child is text
+                    measure text to fit the max width
+                        create text box
+                        add to current line box
+                    if wrap
+                        add new line box to lines
+                        measure more text
+                        create text box
+                        add to current line box
+                if child is element
+                    for ch in child
+                        do_inline(ch, lines, current_line_box, extents)
+                return
+            */
             if let InlineBlockNode(_styled) = child.box_type {
                 match layout_image(&child, x, y, line_height, doc) {
                     Ok(blk) => {
@@ -690,6 +907,14 @@ fn calculate_word_length(text:&str, font:&Font) -> f32 {
         sum += len;
     }
     sum
+}
+
+struct Looper<'a> {
+    lines:Vec<RenderLineBox>,
+    current: Rc<RefCell<RenderLineBox>>,
+    extents:Rect,
+    font_cache:&'a mut FontCache,
+    doc: &'a Document,
 }
 
 
