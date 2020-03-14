@@ -360,7 +360,7 @@ impl<'a> LayoutBox<'a> {
         v
     }*/
 
-    fn find_font_family(&mut self, font_cache:&mut FontCache) -> String {
+    fn find_font_family(&self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.get_style_node().lookup("font-family",
                                                               "font-family",
                                                               &Value::Keyword(String::from("sans-serif")));
@@ -432,10 +432,8 @@ impl<'a> LayoutBox<'a> {
                 _ => println!("cant do this child of an anonymous box"),
             }
         }
-        println!("done with kids. current is {:#?}", looper.current);
         looper.lines.push(looper.current);
         dim.content.height = looper.extents.y;
-        println!("final lines is {:#?}", looper.lines);
         return RenderAnonymousBox {
             rect: Rect{
                 x: looper.extents.x,
@@ -472,20 +470,18 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                 NodeType::Text(txt) => {
-                    let line_height = 30.0;
-                    let font_family = "sans-serif".to_string();
+                    let font_family = parent.find_font_family(looper.font_cache);
                     let font_weight = parent.get_style_node().lookup_font_weight(400.0);
-                    let font_size = 18.0;
+                    let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
+                    let line_height = font_size*1.1;
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
-                    println!("text has color {:#?} {:#?}",color, self.get_style_node());
+                    //println!("text has fam={:#?} color={:#?} fs={} node={:#?}", font_family, color, font_size, self.get_style_node());
 
                     let mut curr_text = String::new();
                     for word in txt.trim().split_whitespace() {
-                        println!("inline: working on text '{}'",word);
                         let font = looper.font_cache.get_font(&font_family, font_weight);
                         let w: f32 = calculate_word_length(word, font, font_size);
                         if looper.current_end + w > looper.extents.width {
-                            println!("too big, wrapping");
                             looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Rect{
                                     x: looper.current_start,
@@ -495,10 +491,10 @@ impl<'a> LayoutBox<'a> {
                                 },
                                 text: curr_text,
                                 color: Some(color.clone()),
-                                font_size: font_size,
+                                font_size,
                                 font_family: font_family.clone(),
                                 link: None,
-                                font_weight: font_weight,
+                                font_weight,
                             }));
                             curr_text = String::new();
                             let old = mem::replace(&mut looper.current, RenderLineBox {
@@ -513,11 +509,8 @@ impl<'a> LayoutBox<'a> {
                             looper.current_end += w;
                             curr_text.push_str(word);
                             curr_text.push_str(" ");
-                            println!("appending '{}'",curr_text);
                         }
                     }
-                    println!("adding what's left '{}'", curr_text);
-                    //add in whatever is left
                     looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                         rect: Rect {
                             x: looper.current_start,
@@ -950,7 +943,6 @@ fn calculate_word_length(text:&str, font:&Font, font_size:f32) -> f32 {
         let len = font.advance(gid).unwrap().x / 2048.0 * font_size;
         sum += len;
     }
-    println!("word len {} = {}", text, sum);
     sum
 }
 

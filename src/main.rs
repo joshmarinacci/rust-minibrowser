@@ -11,7 +11,7 @@ use url::Url;
 
 
 const WIDTH: usize = 600;
-const HEIGHT: usize = 1100;
+const HEIGHT: usize = 600;
 
 
 fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {

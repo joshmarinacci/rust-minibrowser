@@ -93,13 +93,13 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
             if block.children.is_empty() {
                 return true;
             }
-            stroke_rect(dt, &block.rect, &color_to_source(&RED), 1 as f32);
+            // stroke_rect(dt, &block.rect, &color_to_source(&RED), 1 as f32);
             for line in block.children.iter() {
-                stroke_rect(dt, &line.rect, &color_to_source(&AQUA), 1 as f32);
+                // stroke_rect(dt, &line.rect, &color_to_source(&AQUA), 1 as f32);
                 for inline in line.children.iter() {
                     match inline {
                         RenderInlineBoxType::Text(text) => {
-                            stroke_rect(dt, &text.rect, &color_to_source(&MAGENTA), 1 as f32);
+                            // stroke_rect(dt, &text.rect, &color_to_source(&MAGENTA), 1 as f32);
                             let trimmed = text.text.trim();
                             if text.color.is_some() && !trimmed.is_empty() {
                                 let font = font_cache.get_font(&text.font_family, text.font_weight);
