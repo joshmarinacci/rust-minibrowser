@@ -61,7 +61,8 @@ fn main() -> Result<(),BrowserError>{
     // println!("render root is {:#?}",render_root);
 
     // let start_page = relative_filepath_to_url("tests/page1.html")?;
-    let start_page = relative_filepath_to_url("tests/nested.html")?;
+    // let start_page = relative_filepath_to_url("tests/nested.html")?;
+    let start_page = relative_filepath_to_url("tests/image.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
     // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &mut font_cache, containing_block).unwrap();

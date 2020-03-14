@@ -374,12 +374,14 @@ impl<'a> LayoutBox<'a> {
             doc,
         };
         for child in self.children.iter() {
-            println!("working on child {:#?}", child.get_type());
+            // println!("working on child {:#?}", child.get_type());
+            // println!("current start and end is {} {} ",looper.current_start, looper.current_end);
             match child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
                 InlineNode(_styled) => child.do_inline(&mut looper, &self),
                 _ => println!("cant do this child of an anonymous box"),
             }
+            // println!("and now after it is {} {}", looper.current_start, looper.current_end)
         }
         looper.lines.push(looper.current);
         self.dimensions.content.width = looper.extents.width;
@@ -461,7 +463,9 @@ impl<'a> LayoutBox<'a> {
                     let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
                     let line_height = font_size*1.1;
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
-                    // println!("text has fam={:#?} color={:#?} fs={} node={:#?} parent={:#?}", font_family, color, font_size, self.get_style_node(), parent.get_style_node());
+                    // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
+                    // println!("node={:#?}",self.get_style_node());
+                    // println!("parent={:#?}", parent.get_style_node());
 
                     let mut curr_text = String::new();
                     for word in txt.trim().split_whitespace() {
