@@ -1,5 +1,5 @@
 use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
@@ -83,6 +83,10 @@ impl StyledNode<'_> {
             Keyword(str) => match str.as_str() {
                 "normal" => 400.0,
                 "bold" => 700.0,
+                "inherit" => {
+                    println!("!!!inherited font weight. this should already be taken care of!!!");
+                    default
+                }
                 _ => default,
             },
             Value::Number(v) => v,
@@ -211,20 +215,23 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut 
     for (_,rule) in rules {
         for declaration in &rule.declarations {
             // println!("checking {} {:#?}", declaration.name, declaration.value);
-            let mut vv = &declaration.value;
-            if declaration.name == "color" && declaration.value == Keyword(String::from("inherit")) {
-                // println!("other inherit");
-                for (_node,props) in ancestors.iter() {
-                    if props.contains_key("color") {
-                        // println!("found an ancestor match {:#?}", props.get("color"));
-                        vv = props.get("color").unwrap();
-                    }
-                }
-            }
-            values.insert(declaration.name.clone(), vv.clone());
+            let vv = calculate_inherited_property_value(declaration, ancestors);
+            values.insert(declaration.name.clone(), vv);
         }
     }
     values
+}
+
+//returns inherited value if inherit is set and prop name is found, or just returns the original value
+fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&Node, &PropertyMap)>) -> Value {
+    if dec.value == Keyword(String::from("inherit")) {
+        for (_node, props) in ancestors.iter() {
+            if props.contains_key(&*dec.name) {
+                return props.get(&*dec.name).unwrap().clone();
+            }
+        }
+    }
+    return dec.value.clone();
 }
 
 pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
@@ -251,15 +258,17 @@ pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors
 fn test_inherited_match() {
     let doc_text = br#"
     <html>
-        <b>cool</b>
+        <b>cool<a>rad</a></b>
     </html>
     "#;
     let css_text = br#"
         * {
             color: inherit;
+            font-weight: inherit;
         }
         html {
             color: black;
+            font-weight: bold;
         }
         b {
             foo:bar;
@@ -280,6 +289,13 @@ fn test_inherited_match() {
     // check html b element
     assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
                &Keyword(String::from("black")));
+    assert_eq!(snode.children[0].specified_values.get("font-weight").unwrap(),
+               &Keyword(String::from("bold")));
+    // check html b a element
+    assert_eq!(snode.children[0].children[1].specified_values.get("color").unwrap(),
+               &Keyword(String::from("blue")));
+    assert_eq!(snode.children[0].children[1].specified_values.get("font-weight").unwrap(),
+               &Keyword(String::from("bold")));
 
     // check html b text element
     // assert_eq!(snode.children[0].children[0].specified_values.get("color").unwrap(),

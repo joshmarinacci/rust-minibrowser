@@ -420,7 +420,7 @@ impl<'a> LayoutBox<'a> {
                     let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
                     let line_height = font_size*1.1;
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
-                    //println!("text has fam={:#?} color={:#?} fs={} node={:#?}", font_family, color, font_size, self.get_style_node());
+                    // println!("text has fam={:#?} color={:#?} fs={} node={:#?} parent={:#?}", font_family, color, font_size, self.get_style_node(), parent.get_style_node());
 
                     let mut curr_text = String::new();
                     for word in txt.trim().split_whitespace() {
@@ -923,7 +923,7 @@ fn test_layout<'a>() {
     let snode = style_tree(&doc.root_node,&stylesheet);
     println!(" ======== build layout boxes ========");
     let mut root_box = build_layout_tree(&snode, &doc);
-    let containing_block = Dimensions {
+    let mut containing_block = Dimensions {
         content: Rect {
             x: 0.0,
             y: 0.0,
@@ -936,7 +936,7 @@ fn test_layout<'a>() {
     };
     // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(containing_block, &mut font_cache, &doc);
+    let render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
     // println!("final render box is {:#?}", render_box);
 }
 
