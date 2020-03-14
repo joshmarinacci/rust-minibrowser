@@ -44,6 +44,14 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn with_inset(self, val:f32) -> Rect {
+        Rect {
+            x: (self.x + val).floor() + 0.5,
+            y: (self.y + val).floor() + 0.5,
+            width: (self.width - val - val).floor(),
+            height: (self.height - val -val).floor(),
+        }
+    }
     fn expanded_by(self, edge: EdgeSizes) -> Rect {
         Rect {
             x: self.x - edge.left,
@@ -302,64 +310,6 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    /*
-
-    body
-        text
-        b
-            second
-            a
-                third
-            fourth
-        fifth
-
-    should become
-        text
-        b second
-        b/a third
-        b fourth
-        fifth
-    */
-    /*
-    fn make_flat_children(&self) -> Vec<LayoutBox>{
-        // println!("making flat clhildren {:#?}", self);
-        let mut v:Vec<LayoutBox> = vec![];
-
-        for ch in &self.children {
-            if let InlineNode(mut styled) = ch.box_type {
-                match &styled.node.node_type {
-                    Text(text) => {
-                        println!("found a text inline {:#?}", text);
-                        v.push(LayoutBox {
-                            dimensions: Default::default(),
-                            box_type: BoxType::InlineNode(styled),
-                            children: vec![]
-                        })
-                    }
-                    Element(ed) => {
-                        // println!("found a nested child {:#?}",styled);
-                        let mut v2 = ch.make_flat_children();
-                        println!("element {}", ed.tag_name);
-                        println!("self styles {:#?}", styled.specified_values);
-
-                        for ch in v2.iter_mut() {
-                            // ch.get_style_node().specified_values.insert(String::from("foo"), Value::Keyword(String::from("bar")));
-                            // for (key,val) in &styled.specified_values {
-                            //     let sn = ch.get_style_node();
-                            //     sn.specified_values.insert(key.clone(),val.clone());
-                            // }
-                            println!("   {:#?} ",ch.get_style_node().node.node_type);
-                        }
-                        v.extend(v2);
-                    }
-                    _ => {}
-                }
-            }
-            //println!("looking at child {:#?}",ch.box_type)
-        }
-        v
-    }*/
-
     fn find_font_family(&self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.get_style_node().lookup("font-family",
                                                               "font-family",
@@ -400,8 +350,7 @@ impl<'a> LayoutBox<'a> {
 
     //     do_inline_block_parent extents
     fn layout_anonymous_2(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
-        println!("parent is {:#?}",self.get_type());
-        let line_height= 30.0;
+        // println!("parent is {:#?}",self.get_type());
         let mut looper = Looper {
             lines: vec![],
             current: RenderLineBox {
@@ -409,7 +358,7 @@ impl<'a> LayoutBox<'a> {
                     x: dim.content.x,
                     y: dim.content.y + dim.content.height,
                     width: dim.content.width,
-                    height: line_height,
+                    height: 0.0,
                 },
                 children: vec![]
             },
@@ -417,7 +366,7 @@ impl<'a> LayoutBox<'a> {
                 x: dim.content.x,
                 y: dim.content.height + dim.content.y,
                 width: dim.content.width,
-                height: line_height,
+                height: 0.0,
             },
             current_start: dim.content.x,
             current_end: dim.content.x,
@@ -433,14 +382,10 @@ impl<'a> LayoutBox<'a> {
             }
         }
         looper.lines.push(looper.current);
-        dim.content.height = looper.extents.y;
+        self.dimensions.content.width = looper.extents.width;
+        self.dimensions.content.height = looper.extents.height;
         return RenderAnonymousBox {
-            rect: Rect{
-                x: looper.extents.x,
-                y: looper.extents.y,
-                width: dim.content.width,
-                height: looper.extents.height,
-            },
+            rect: looper.extents,
             children: looper.lines,
         }
     }
@@ -496,6 +441,8 @@ impl<'a> LayoutBox<'a> {
                                 link: None,
                                 font_weight,
                             }));
+                            looper.current.rect.height = line_height.max(looper.current.rect.height);
+                            looper.extents.height = looper.current.rect.height;
                             curr_text = String::new();
                             let old = mem::replace(&mut looper.current, RenderLineBox {
                                 rect: Default::default(),
@@ -526,6 +473,8 @@ impl<'a> LayoutBox<'a> {
                         font_weight,
                     }));
                     looper.current_start = looper.current_end;
+                    looper.current.rect.height = line_height.max(looper.current.rect.height);
+                    looper.extents.height = looper.current.rect.height;
 
                 }
                 //     if child is element
@@ -539,7 +488,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-
+/*
     fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         let color = self.get_style_node().lookup_color("color", &BLACK);
         let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
@@ -765,7 +714,7 @@ impl<'a> LayoutBox<'a> {
             children:lines,
         }
     }
-
+*/
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
     ///
