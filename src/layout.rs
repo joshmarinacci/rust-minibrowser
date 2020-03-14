@@ -422,11 +422,11 @@ impl<'a> LayoutBox<'a> {
             font_cache,
             doc,
         };
-        for child in self.children.iter_mut() {
+        for child in self.children.iter() {
             println!("working on child {:#?}", child.get_type());
             match child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
-                InlineNode(_styled) => child.do_inline(&mut looper),
+                InlineNode(_styled) => child.do_inline(&mut looper, &self),
                 _ => println!("cant do this child of an anonymous box"),
             }
         }
@@ -447,7 +447,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline_block(&mut self, looper:&mut Looper) {
+    fn do_inline_block(&self, looper:&mut Looper) {
         let w = 100.0;
         if looper.extents.x + w > looper.extents.width {
             let old = mem::replace(&mut looper.current,RenderLineBox {
@@ -468,27 +468,35 @@ impl<'a> LayoutBox<'a> {
         }));
     }
 
-    fn do_inline(&mut self, looper:&mut Looper) {
+    fn do_inline(&self, looper:&mut Looper, parent:&LayoutBox) {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                 NodeType::Text(txt) => {
                     let line_height = 30.0;
                     let font_weight = 400.0;
                     let font_size = 18.0;
+                    // let color = self.get_style_node().lookup_color("color", &BLACK);
+                    let color = parent.get_style_node().lookup_color("color", &BLACK);
+                    println!("text has color {:#?} {:#?}",color, self.get_style_node());
+
                     let font_family = "sans-serif";
                     let mut curr_text = String::new();
-                    let start_x = looper.extents.x;
+                    let mut start_x = looper.extents.x;
                     for word in txt.trim().split_whitespace() {
                         println!("inline: working on text '{}'",word);
                         let font = looper.font_cache.get_font(&font_family, font_weight);
                         let w: f32 = calculate_word_length(word, font, font_size);
-                        //let w = 30.0;
                         if looper.extents.x + w > looper.extents.width {
                             println!("too big, wrapping");
                             looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
-                                rect: Default::default(),
+                                rect: Rect{
+                                    x: start_x,
+                                    y: looper.extents.y,
+                                    width: looper.extents.x,
+                                    height: line_height
+                                },
                                 text: curr_text,
-                                color: Some(BLACK),
+                                color: Some(color.clone()),
                                 font_size: font_size,
                                 font_family: "sans-serif".to_string(),
                                 link: None,
@@ -501,6 +509,7 @@ impl<'a> LayoutBox<'a> {
                             });
                             looper.lines.push(old);
                             looper.extents.x = 0.0;
+                            start_x = 0.0;
                             looper.extents.y += 20.0;
                         } else {
                             looper.extents.x += w;
@@ -519,7 +528,7 @@ impl<'a> LayoutBox<'a> {
                             height: line_height,
                         },
                         text: curr_text,
-                        color: Some(BLACK),
+                        color: Some(color.clone()),
                         font_size: font_size,
                         font_family: "sans-serif".to_string(),
                         link: None,
@@ -529,8 +538,8 @@ impl<'a> LayoutBox<'a> {
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
-                    for ch in self.children.iter_mut() {
-                        ch.do_inline(looper);
+                    for ch in self.children.iter() {
+                        ch.do_inline(looper, &self);
                     }
                 }
                 _ => {}
