@@ -391,24 +391,65 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn do_inline_block(&self, looper:&mut Looper) {
-        let w = 100.0;
-        if looper.extents.x + w > looper.extents.width {
+        let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
+        let mut src = String::from("");
+        // let w = 100.0;
+        if let InlineBlockNode(styled) = self.box_type {
+            if let Element(data) = &styled.node.node_type {
+                let width = if data.attributes.contains_key("width") {
+                    data.attributes.get("width").unwrap().parse::<u32>().unwrap()
+                } else {
+                    100
+                };
+                image_size.width = width as f32;
+                let height = if data.attributes.contains_key("height") {
+                    data.attributes.get("height").unwrap().parse::<u32>().unwrap()
+                } else {
+                    100
+                };
+                image_size.height = height as f32;
+                src = data.attributes.get("src").unwrap().clone();
+            }
+        }
+        let bx = match load_image(looper.doc, &src) {
+            Ok(image) => {
+                RenderInlineBoxType::Image(RenderImageBox {
+                    rect: Rect {
+                        x:looper.current_start,
+                        y: looper.extents.y - image_size.height + looper.current.rect.height,
+                        width: image_size.width,
+                        height: image_size.height,
+                    },
+                    image
+                })
+            },
+            Err(err) => {
+                println!("error loading the image for {} : {:#?}", src, err);
+                RenderInlineBoxType::Error(RenderErrorBox {
+                    rect: Rect {
+                        x:looper.current_start,
+                        y: looper.extents.y - image_size.height,
+                        width: image_size.width,
+                        height: image_size.height,
+                    },
+                })
+            }
+        };
+        if looper.current_end + image_size.width > looper.extents.width {
             let old = mem::replace(&mut looper.current,RenderLineBox {
                 rect: Default::default(),
                 children: vec![]
             });
             looper.lines.push(old);
-            looper.extents.x = 0.0;
-            looper.extents.y += 20.0;
+            looper.current_start = looper.extents.x;
+            looper.current_end = looper.extents.x;
+            looper.extents.y += image_size.height;
+            looper.current.children.push(bx);
+        } else {
+            looper.current_end += image_size.width;
+            looper.current_start = looper.current_end;
+            looper.current.children.push(bx);
         }
-        looper.current.children.push(RenderInlineBoxType::Error(RenderErrorBox {
-            rect: Rect {
-                x: looper.extents.x,
-                y: looper.extents.y,
-                width: w,
-                height: 50.0,
-            },
-        }));
     }
 
     fn do_inline(&self, looper:&mut Looper, parent:&LayoutBox) {
