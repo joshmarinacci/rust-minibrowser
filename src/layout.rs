@@ -419,6 +419,8 @@ impl<'a> LayoutBox<'a> {
                 width: dim.content.width,
                 height: line_height,
             },
+            current_start: dim.content.x,
+            current_end: dim.content.x,
             font_cache,
             doc,
         };
@@ -432,13 +434,11 @@ impl<'a> LayoutBox<'a> {
         }
         println!("done with kids. current is {:#?}", looper.current);
         looper.lines.push(looper.current);
-        looper.extents.x = 0.0;
-        looper.extents.y += 20.0;
-        dim.content.height += 20.0;
+        dim.content.height = looper.extents.y;
         println!("final lines is {:#?}", looper.lines);
         return RenderAnonymousBox {
             rect: Rect{
-                x: dim.content.x,
+                x: looper.extents.x,
                 y: looper.extents.y,
                 width: dim.content.width,
                 height: looper.extents.height,
@@ -473,32 +473,30 @@ impl<'a> LayoutBox<'a> {
             match &snode.node.node_type {
                 NodeType::Text(txt) => {
                     let line_height = 30.0;
-                    let font_weight = 400.0;
+                    let font_family = "sans-serif".to_string();
+                    let font_weight = parent.get_style_node().lookup_font_weight(400.0);
                     let font_size = 18.0;
-                    // let color = self.get_style_node().lookup_color("color", &BLACK);
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
                     println!("text has color {:#?} {:#?}",color, self.get_style_node());
 
-                    let font_family = "sans-serif";
                     let mut curr_text = String::new();
-                    let mut start_x = looper.extents.x;
                     for word in txt.trim().split_whitespace() {
                         println!("inline: working on text '{}'",word);
                         let font = looper.font_cache.get_font(&font_family, font_weight);
                         let w: f32 = calculate_word_length(word, font, font_size);
-                        if looper.extents.x + w > looper.extents.width {
+                        if looper.current_end + w > looper.extents.width {
                             println!("too big, wrapping");
                             looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Rect{
-                                    x: start_x,
+                                    x: looper.current_start,
                                     y: looper.extents.y,
-                                    width: looper.extents.x,
+                                    width: looper.current_end - looper.current_start,
                                     height: line_height
                                 },
                                 text: curr_text,
                                 color: Some(color.clone()),
                                 font_size: font_size,
-                                font_family: "sans-serif".to_string(),
+                                font_family: font_family.clone(),
                                 link: None,
                                 font_weight: font_weight,
                             }));
@@ -508,11 +506,11 @@ impl<'a> LayoutBox<'a> {
                                 children: vec![],
                             });
                             looper.lines.push(old);
-                            looper.extents.x = 0.0;
-                            start_x = 0.0;
-                            looper.extents.y += 20.0;
+                            looper.current_start = looper.extents.x;
+                            looper.current_end = looper.extents.x;
+                            looper.extents.y += line_height;
                         } else {
-                            looper.extents.x += w;
+                            looper.current_end += w;
                             curr_text.push_str(word);
                             curr_text.push_str(" ");
                             println!("appending '{}'",curr_text);
@@ -522,18 +520,19 @@ impl<'a> LayoutBox<'a> {
                     //add in whatever is left
                     looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                         rect: Rect {
-                            x: start_x,
+                            x: looper.current_start,
                             y: looper.extents.y,
-                            width: looper.extents.x,
+                            width: looper.current_end - looper.current_start,
                             height: line_height,
                         },
                         text: curr_text,
                         color: Some(color.clone()),
-                        font_size: font_size,
-                        font_family: "sans-serif".to_string(),
+                        font_size,
+                        font_family,
                         link: None,
-                        font_weight: font_weight,
+                        font_weight,
                     }));
+                    looper.current_start = looper.current_end;
 
                 }
                 //     if child is element
@@ -959,6 +958,8 @@ struct Looper<'a> {
     lines:Vec<RenderLineBox>,
     current: RenderLineBox,
     extents:Rect,
+    current_start:f32,
+    current_end:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
 }
