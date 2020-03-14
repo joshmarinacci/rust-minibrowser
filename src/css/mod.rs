@@ -116,6 +116,26 @@ fn space<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
 }
 
+fn integer_string<'a>() -> Parser<'a, u8, String> {
+    let rule = one_of(b"01234567").repeat(0..);
+    rule.convert(|s|String::from_utf8(s))
+}
+fn integer<'a>() -> Parser<'a, u8, i32> {
+    let rule = integer_string();
+    rule.convert(|s|i32::from_str(&s))
+}
+#[test]
+fn test_integer() {
+    assert_eq!(integer().parse(b"42"), Ok(42));
+}
+fn float<'a>() -> Parser<'a, u8, f32> {
+    let rule = integer_string() - sym(b'.') + integer_string();
+    rule.convert(|(i1,i2)| f32::from_str(&format!("{}.{}",i1,i2)))
+}
+#[test]
+fn test_float() {
+    assert_eq!(float().parse(b"42.42"), Ok(42.42));
+}
 fn number<'a>() -> Parser<'a, u8, f64> {
     let integer = one_of(b"123456789") - one_of(b"0123456789").repeat(0..) | sym(b'0');
     let frac = sym(b'.') + one_of(b"0123456789").repeat(1..);
