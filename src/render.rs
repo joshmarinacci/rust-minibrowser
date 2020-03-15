@@ -74,7 +74,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
             for ch in block.children.iter() {
                 if let RenderBox::Block(blk) = ch {
                     if blk.rect.y > viewport.y + viewport.height {
-                        println!("outside! {}", blk.rect.y);
+                        // println!("outside! {}", blk.rect.y);
                         return false;
                     }
                 }
@@ -181,8 +181,10 @@ impl FontCache {
         self.names.insert(key.clone(),url.clone());
         self.fonts.insert(key, font);
     }
-    pub fn install_font_font(&mut self, name:&str, font:Font) {
-        self.fonts.insert(name.to_string(),font);
+    pub fn install_font_font(&mut self, name:&str, weight:f32, font:Font) {
+        let key = format!("{}-{:#?}",name,weight);
+        println!("installing the font {}, {} from {:#?}",name,key,font);
+        self.fonts.insert(key,font);
     }
     pub fn get_font(&mut self, name:&str, weight:f32) -> &Font {
         let key = format!("{}-{:#?}",name,weight);
@@ -220,7 +222,7 @@ impl FontCache {
                                         }
                                     }
                                 }
-                                println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
+                                // println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
                                 if font_family.is_some() && src.is_some() && font_weight.is_some() {
                                     self.install_font(&font_family.unwrap(),
                                                             font_weight.unwrap(),

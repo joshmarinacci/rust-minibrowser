@@ -8,6 +8,8 @@ use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::{draw_render_box, FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
+use font_kit::source::SystemSource;
+use font_kit::properties::Properties;
 
 
 const WIDTH: usize = 600;
@@ -28,6 +30,12 @@ fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();
     font_cache.install_font(&String::from("sans-serif"),  400.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     font_cache.install_font(&String::from("sans-serif"),  700.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
+    font_cache.install_font_font(&String::from("monospace"),  400.0,SystemSource::new()
+        .select_best_match(&[font_kit::family_name::FamilyName::Monospace], &Properties::new())
+        .expect("monospace should be found")
+        .load()
+        .unwrap()
+    );
     font_cache
 }
 fn main() -> Result<(),BrowserError>{
