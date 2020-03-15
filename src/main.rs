@@ -10,6 +10,7 @@ use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, r
 use url::Url;
 use font_kit::source::SystemSource;
 use font_kit::properties::Properties;
+use std::env;
 
 
 const WIDTH: usize = 600;
@@ -39,6 +40,8 @@ fn init_fonts() -> FontCache {
     font_cache
 }
 fn main() -> Result<(),BrowserError>{
+    let args: Vec<String> = env::args().collect();
+    println!("args = {:?}", args);
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         ..WindowOptions::default()
     }).unwrap();
@@ -68,8 +71,12 @@ fn main() -> Result<(),BrowserError>{
     };
     // println!("render root is {:#?}",render_root);
 
-    // let start_page = relative_filepath_to_url("tests/page1.html")?;
-    let start_page = relative_filepath_to_url("tests/nested.html")?;
+    let mut start_page = relative_filepath_to_url("tests/page1.html")?;
+    if args.len() > 1 {
+        start_page = Url::parse(args[1].as_str())?;
+    }
+
+    // let start_page = relative_filepath_to_url("tests/nested.html")?;
     // let start_page = relative_filepath_to_url("tests/image.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
     // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
