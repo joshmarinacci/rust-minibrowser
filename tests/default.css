@@ -24,99 +24,58 @@
     font-family: sans-serif;
     font-size: 18px;
 }
-html {
-    color: black;
-    background-color: white;
+body {
     font-family: sans-serif;
-    font-size: 18px;
     font-weight: normal;
+    background-color: white;
+    font-size: 18px;
+    margin: 10px;
+    border-width: 0;
+    padding: 10px;
 }
-b {
-    display: inline;
-    color: red;
-    font-weight: 700;
-}
-a {
-    display: inline;
-    color: blue;
-}
+
 img {
     display: inline-block;
 }
-head {
+head, style {
     display: none;
 }
-body {
-    font-size: 18px;
-    border-color: black;
-    margin: 10px;
-    border-width: 10px;
-    padding: 10px;
-}
-h1 {
-    font-size: 36px;
+h1, h2, h3, h4, h5 {
     display: block;
     font-family: "et-book", serif;
     font-weight: 400;
 }
-h2 {
+h1 { font-size: 36px; }
+h2 { font-size: 24px; }
+h3 { font-size: 18px; }
+h4 { font-size: 14px; }
+h5 { font-size: 11px; }
+
+div, section, pre, article, p, blockquote, footer, figure, iframe {
     display: block;
-    font-size: 28px;
+    margin: 0;
+    padding: 1.0em;
 }
-h3 {
-    display: block;
-    font-size: 24px;
+p {
+    padding: 10px;
 }
-div {
-    display: block;
-    border-width: 10px;
-    margin: 10px;
-    padding: 11px;
-    border-color: blue;
-    color: #ffff00;
+blockquote {
+    padding: 10px;
 }
 pre {
     white-space: pre;
 }
+span, a, b, i, em, strong, code, cite, label {
+    display: inline;
+}
 code {
     font-family: monospace;
 }
-article {
-    display: block;
+b {
+    font-weight: 700;
 }
-p {
-    display: block;
-    padding: 10px;
-}
-section {
-    display: block;
-}
-span {
-    display: inline;
-}
-code {
-    display: inline;
-}
-blockquote {
-    display: block;
-}
-em {
-    display: inline;
-}
-cite {
-     display: inline;
+a {
+    color: blue;
 }
 
-footer {
-    display: block;
-}
-label {
-    display: inline;
-}
 
-figure {
-    display: block;
-}
-iframe {
-    display: block;
-}

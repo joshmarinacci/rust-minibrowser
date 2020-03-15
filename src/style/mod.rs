@@ -337,3 +337,36 @@ fn test_style_tree() {
     println!("final snode is {:#?}",snode)
 }
 
+
+#[test]
+fn test_multi_selector_match() {
+    let doc_text = br#"
+    <html>
+        <b>cool</b><a>rad</a>
+    </html>
+    "#;
+    let css_text = br#"
+        * {
+            color: black;
+        }
+        a,b {
+            color:red;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check html b element
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+    // check html a element
+    assert_eq!(snode.children[1].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+
+}

@@ -556,6 +556,11 @@ fn test_file_load() {
             Rule {
                 selectors: vec![
                     Selector::Simple(SimpleSelector{
+                        tag_name: Some(String::from("body")),
+                        id: None,
+                        class: vec![],
+                    }),
+                    Selector::Simple(SimpleSelector{
                         tag_name: Some(String::from("div")),
                         id: None,
                         class: vec![],
