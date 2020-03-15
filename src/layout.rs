@@ -471,7 +471,9 @@ impl<'a> LayoutBox<'a> {
                     for word in txt.trim().split_whitespace() {
                         let font = looper.font_cache.get_font(&font_family, font_weight);
                         let w: f32 = calculate_word_length(word, font, font_size);
+                        //if it's too long then we need to wrap
                         if looper.current_end + w > looper.extents.width {
+                            //add current text to the current line
                             looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Rect{
                                     x: looper.current_start,
@@ -486,9 +488,13 @@ impl<'a> LayoutBox<'a> {
                                 link: None,
                                 font_weight,
                             }));
+                            //calculate a new line height
                             looper.current.rect.height = line_height.max(looper.current.rect.height);
                             looper.extents.height = looper.current.rect.height;
+                            //make new current text with the current word
                             curr_text = String::new();
+                            curr_text.push_str(word);
+                            curr_text.push_str(" ");
                             let old = mem::replace(&mut looper.current, RenderLineBox {
                                 rect: Default::default(),
                                 children: vec![],
