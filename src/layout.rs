@@ -502,6 +502,7 @@ impl<'a> LayoutBox<'a> {
                             looper.lines.push(old);
                             looper.current_start = looper.extents.x;
                             looper.current_end = looper.extents.x;
+                            looper.current_end += w;
                             looper.extents.y += line_height;
                         } else {
                             looper.current_end += w;
