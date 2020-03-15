@@ -114,7 +114,7 @@ fn test_element_name_with_number() {
 }
 
 fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
-    let char_string = none_of(b"\\\"").repeat(1..).convert(String::from_utf8);
+    let char_string = none_of(b"\"").repeat(0..).convert(String::from_utf8);
     let p
         = space()
         + is_a(alpha).repeat(1..)
@@ -163,6 +163,26 @@ fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
 fn test_several_attributes() {
     let input = b"foo=\"bar\" baz=\"quxx\" ";
     println!("{:#?}", attributes().parse(input));
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from("bar"));
+    hm.insert(String::from("baz"), String::from("quxx"));
+    assert_eq!(Ok(hm),attributes().parse(b"foo=\"bar\" baz=\"quxx\" "))
+}
+#[test]
+fn test_empty_attribute_value() {
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from("bar"));
+    assert_eq!(Ok(Node {
+        node_type: NodeType::Element(ElementData{ tag_name: "b".to_string(), attributes: hm }),
+        children: vec![]
+    }), element().parse(br#"<b foo="bar"></b>"#));
+
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from(""));
+    assert_eq!(Ok(Node {
+        node_type: NodeType::Element(ElementData{ tag_name: "b".to_string(), attributes: hm }),
+        children: vec![]
+    }),element().parse(br#"<b foo=""></b>"#));
 }
 
 
