@@ -30,6 +30,7 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
 
 fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();
+    font_cache.install_default_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     font_cache.install_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
     font_cache.install_font("sans-serif",  700.0,"normal",&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
 

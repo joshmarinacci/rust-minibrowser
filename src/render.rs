@@ -125,6 +125,7 @@ pub struct FontCache {
     families:HashMap<String,Url>,
     names:HashMap<String,Url>,
     fonts:HashMap<String,Font>,
+    default_font: Option<Font>,
 }
 
 fn extract_url(value:&Value, url:&Url) -> Option<Url> {
@@ -164,7 +165,8 @@ impl FontCache {
         Self {
             families: HashMap::new(),
             names: HashMap::new(),
-            fonts: HashMap::new()
+            fonts: HashMap::new(),
+            default_font: None,
         }
     }
     fn make_key(&self, name:&str, weight:f32, style:&str) -> String {
@@ -172,6 +174,15 @@ impl FontCache {
     }
     pub fn has_font_family(&self, name:&str) -> bool {
         self.families.contains_key(name)
+    }
+    pub fn install_default_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
+        let key = self.make_key(name,weight,style);
+        println!("installing the default font {} at url {}",key,url);
+
+        let pth = url.to_file_path().unwrap();
+        let mut file = File::open(pth).unwrap();
+        let font = Font::from_file(&mut file, 0).unwrap();
+        self.default_font = Some(font);
     }
     pub fn install_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
         let key = self.make_key(name,weight,style);
@@ -192,7 +203,13 @@ impl FontCache {
     pub fn get_font(&mut self, name:&str, weight:f32, style:&str) -> &Font {
         let key = self.make_key(name,weight,style);
         // println!("fetching the font {}",key);
-        self.fonts.get(&key).unwrap()
+        if let Some(font) = self.fonts.get(&key) {
+            return font;
+        } else if let Some(font) = (&self.default_font) {
+            return font
+        } else {
+            panic!("no default font set!");
+        }
     }
     // fn load_font(&mut self, name:&str) {
     //     println!("trying to load the font: '{}'",name);
