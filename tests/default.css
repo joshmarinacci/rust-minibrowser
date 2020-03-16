@@ -23,15 +23,13 @@
     white-space: normal;
     font-family: sans-serif;
     font-size: 18px;
+    border-width: 0;
 }
 body {
     font-family: sans-serif;
     font-weight: normal;
     background-color: white;
-    font-size: 18px;
-    margin: 10px;
-    border-width: 0;
-    padding: 10px;
+    margin: 8px;
 }
 
 img {
@@ -42,30 +40,28 @@ head, style {
 }
 h1, h2, h3, h4, h5 {
     display: block;
-    font-family: "et-book", serif;
-    font-weight: 400;
+    font-weight: 700;
 }
 h1 { font-size: 36px; }
 h2 { font-size: 24px; }
 h3 { font-size: 18px; }
 h4 { font-size: 14px; }
 h5 { font-size: 11px; }
+h6 { font-size: 10px; }
 
-div, section, pre, article, p, blockquote, footer, figure, iframe {
+div, section, pre, article, p, blockquote, footer, figure, iframe, cite {
     display: block;
-    margin: 0;
-    padding: 1.0em;
 }
 p {
-    padding: 10px;
+    padding: 7px;
 }
 blockquote {
-    padding: 10px;
+    margin: 40px;
 }
 pre {
     white-space: pre;
 }
-span, a, b, i, em, strong, code, cite, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time {
+span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time {
     display: inline;
 }
 code {
