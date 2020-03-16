@@ -13,7 +13,7 @@ use font_kit::properties::Properties;
 use std::env;
 
 
-const WIDTH: usize = 600;
+const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
 
 
