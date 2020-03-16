@@ -425,6 +425,9 @@ impl<'a> LayoutBox<'a> {
                 src = data.attributes.get("src").unwrap().clone();
             }
         }
+        looper.current.rect.height = looper.current.rect.height.max(image_size.height);
+        println!("setting current height to {}", looper.current.rect.height);
+
         let bx = match load_image(looper.doc, &src) {
             Ok(image) => {
                 RenderInlineBoxType::Image(RenderImageBox {
