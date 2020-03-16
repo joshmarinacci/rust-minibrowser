@@ -48,6 +48,7 @@ pub struct Node {
 #[derive(Debug, PartialEq)]
 pub enum NodeType {
     Text(String),
+    Comment(String),
     Element(ElementData),
     Meta(MetaData),
 }
@@ -214,7 +215,7 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
+    comment() | meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
 }
 fn standalone_tag<'a>() -> Parser<'a, u8, String> {
     (seq(b"img")|seq(b"link") | seq(b"input") | seq(b"hr") | seq(b"input"))
@@ -276,7 +277,6 @@ fn element<'a>() -> Parser<'a, u8, Node> {
     let p
         = open_element()
         - space()
-//        - comment()
         + call(element_child).repeat(0..)
         - space()
         + close_element();
@@ -454,29 +454,62 @@ fn test_input_element() {
     assert!(element_child().parse(br#"<input ></input>"#).is_ok());
 }
 
-fn comment<'a>() -> Parser<'a, u8, ()> {
-    let p = seq(b"<!--") + (!seq(b"-->") + take(1)).repeat(0..) + seq(b"-->");
-    p.map(|((_,_),b)| {
-        println!("comment {}",v2s(&b.to_vec()));
+fn comment<'a>() -> Parser<'a, u8, Node> {
+    let p
+        = seq(b"<!--")
+        + (!seq(b"-->") * take(1)).repeat(0..)
+        + seq(b"-->");
+    p.map(|((a,c),b)| {
+        let mut s:Vec<u8> = Vec::new();
+        for cc in c {
+            s.push(cc[0]);
+        }
+        Node{ node_type: NodeType::Comment(v2s(&s)), children: vec![] }
     })
 }
-/*
+
 #[test]
 fn test_comment() {
-    let input = br"<!-- a cool - comment-->";
-    let result = comment().parse(input);
-    println!("{:?}", result);
-    assert_eq!((),result.unwrap())
+    assert_eq!(Ok(Node{ node_type: NodeType::Comment(" a cool - comment".to_string()), children: vec![] }),
+               comment().parse(br"<!-- a cool - comment-->"))
 }
 
 #[test]
 fn test_comment_2() {
-    let input = br"<foo> and a better <!-- a cool - comment--></foo>";
-    let result = document().parse(input);
-    println!("{:?}", result);
-    // assert_eq!((),result.unwrap())
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{ node_type: NodeType::Comment(" a cool - comment".to_string()), children: vec![] }
+        ]
+    }), element().parse(br"<foo><!-- a cool - comment--></foo>"));
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{
+                node_type: NodeType::Comment(String::from(" a cool - comment")),
+                children: vec![]
+            },
+            Node{
+                node_type: NodeType::Text(String::from("after")),
+                children: vec![]
+            }
+        ]
+    }), element().parse(br"<foo><!-- a cool - comment-->after</foo>"));
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{
+                node_type: NodeType::Text(String::from("before")),
+                children: vec![]
+            },
+            Node{
+                node_type: NodeType::Comment(String::from(" a cool - comment")),
+                children: vec![]
+            },
+        ]
+    }), element().parse(br"<foo>before<!-- a cool - comment--></foo>"));
 }
-*/
+
 
 #[test]
 fn test_style_parse() {

@@ -243,6 +243,7 @@ pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors
         Element(ref elem) => specified_values(elem, stylesheet, ancestors),
         Text(_) => HashMap::new(),
         Meta(_) => HashMap::new(),
+        _ => HashMap::new(),
     };
     let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
     a2.push((root, &specified));
