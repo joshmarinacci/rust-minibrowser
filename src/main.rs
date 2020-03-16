@@ -11,10 +11,11 @@ use url::Url;
 use font_kit::source::SystemSource;
 use font_kit::properties::Properties;
 use std::env;
+use rust_minibrowser::css::Value::StringLiteral;
 
 
 const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
+const HEIGHT: usize = 1100;
 
 
 fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
@@ -29,9 +30,12 @@ fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensio
 
 fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();
-    font_cache.install_font(&String::from("sans-serif"),  400.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font(&String::from("sans-serif"),  700.0,&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
-    font_cache.install_font_font(&String::from("monospace"),  400.0,SystemSource::new()
+    font_cache.install_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font("sans-serif",  700.0,"normal",&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
+
+    font_cache.install_font("sans-serif",  400.0,"italic", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Italic.ttf").unwrap());
+    font_cache.install_font("sans-serif",  700.0,"italic",&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf").unwrap());
+    font_cache.install_font_font("monospace",  400.0,"normal", SystemSource::new()
         .select_best_match(&[font_kit::family_name::FamilyName::Monospace], &Properties::new())
         .expect("monospace should be found")
         .load()

@@ -205,6 +205,7 @@ pub struct RenderTextBox {
     pub font_family:String,
     pub link:Option<String>,
     pub font_weight:f32,
+    pub font_style:String,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -472,6 +473,7 @@ impl<'a> LayoutBox<'a> {
                     let font_family = parent.find_font_family(looper.font_cache);
                     let font_weight = parent.get_style_node().lookup_font_weight(400.0);
                     let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
+                    let font_style = parent.get_style_node().lookup_string("font-style", "normal");
                     let line_height = font_size*1.1;
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
                     // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
@@ -480,7 +482,7 @@ impl<'a> LayoutBox<'a> {
 
                     let mut curr_text = String::new();
                     for word in txt.trim().split_whitespace() {
-                        let font = looper.font_cache.get_font(&font_family, font_weight);
+                        let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
                         let w: f32 = calculate_word_length(word, font, font_size);
                         //if it's too long then we need to wrap
                         if looper.current_end + w > looper.extents.width {
@@ -497,6 +499,7 @@ impl<'a> LayoutBox<'a> {
                                 color: Some(color.clone()),
                                 font_size,
                                 font_family: font_family.clone(),
+                                font_style: font_style.clone(),
                                 link: None,
                                 font_weight,
                             }));
@@ -541,6 +544,7 @@ impl<'a> LayoutBox<'a> {
                         font_family,
                         link: None,
                         font_weight,
+                        font_style
                     }));
                     // println!("adding text box at {}", looper.extents.height);
                     looper.current_start = looper.current_end;
@@ -979,11 +983,9 @@ struct Looper<'a> {
 #[test]
 fn test_layout<'a>() {
     let mut font_cache = FontCache::new();
-    font_cache.install_font(&String::from("sans-serif"),
-                            400.0,
+    font_cache.install_font("sans-serif",400.0, "normal",
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font(&String::from("sans-serif"),
-                            700.0,
+    font_cache.install_font("sans-serif", 700.0, "normal",
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
 
     let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
