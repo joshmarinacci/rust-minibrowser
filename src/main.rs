@@ -123,11 +123,11 @@ fn main() -> Result<(),BrowserError>{
 }
 
 fn scroll_viewport(window:&Window, viewport:&mut Rect) {
-    if let Some(keys) = window.get_keys_pressed(KeyRepeat::No) {
+    if let Some(keys) = window.get_keys_pressed(KeyRepeat::Yes) {
         for key in keys {
             match key {
-                Key::Up    => viewport.y -= 100.0,
-                Key::Down  => viewport.y += 100.0,
+                Key::Up    => viewport.y -= 200.0,
+                Key::Down  => viewport.y += 200.0,
                 Key::Left  => viewport.x += 100.0,
                 Key::Right => viewport.x -= 100.0,
                 _ => {}
