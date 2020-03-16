@@ -467,6 +467,18 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn do_inline(&self, looper:&mut Looper, parent:&LayoutBox) {
+        let link:Option<String> = match &parent.get_style_node().node.node_type {
+            Text(_) => None,
+            NodeType::Comment(_) => None,
+            Element(ed) => {
+                if ed.tag_name == "a" {
+                    ed.attributes.get("href").map(|s|String::from(s))
+                } else {
+                    None
+                }
+            },
+            NodeType::Meta(_) => None,
+        };
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
@@ -500,7 +512,7 @@ impl<'a> LayoutBox<'a> {
                                 font_size,
                                 font_family: font_family.clone(),
                                 font_style: font_style.clone(),
-                                link: None,
+                                link: link.clone(),
                                 font_weight,
                             }));
                             // println!("adding text box at {}", looper.current_bottom );
@@ -542,7 +554,7 @@ impl<'a> LayoutBox<'a> {
                         color: Some(color.clone()),
                         font_size,
                         font_family,
-                        link: None,
+                        link: link.clone(),
                         font_weight,
                         font_style
                     }));
