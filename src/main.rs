@@ -12,13 +12,14 @@ use font_kit::source::SystemSource;
 use font_kit::properties::Properties;
 use std::env;
 use rust_minibrowser::css::Value::StringLiteral;
+use rust_minibrowser::css::star;
 
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 1100;
 
 
-fn navigate_to_doc(url:Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
+fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let doc = load_doc_from_net(&url)?;
     let stylesheet = load_stylesheets_with_fallback(&doc)?;
     font_cache.scan_for_fontface_rules(&stylesheet);
@@ -48,16 +49,18 @@ fn main() -> Result<(),BrowserError>{
     let args: Vec<String> = env::args().collect();
     println!("args = {:?}", args);
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
+        title: true,
+        resize: true,
         ..WindowOptions::default()
     }).unwrap();
     let mut font_cache = init_fonts();
-    let size = window.get_size();
-    let size = Rect {
-        x: 0.0,
-        y: 0.0,
-        width: size.0 as f32,
-        height: size.1 as f32,
-    };
+    // let size = window.get_size();
+    // let size = Rect {
+    //     x: 0.0,
+    //     y: 0.0,
+    //     width: size.0 as f32,
+    //     height: size.1 as f32,
+    // };
 
     // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
 
@@ -85,17 +88,32 @@ fn main() -> Result<(),BrowserError>{
     // let start_page = relative_filepath_to_url("tests/image.html")?;
     // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
     // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
-    let (mut doc, mut render_root) = navigate_to_doc(start_page, &mut font_cache, containing_block).unwrap();
-    let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
+    let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
     let mut prev_left_down = false;
     let mut prev_right_down = false;
+    let mut prev_w = 100;
+    let mut prev_h = 100;
+    let mut dt = DrawTarget::new(prev_w as i32, prev_h as i32);
     let mut viewport = Rect{
         x: 0.0,
         y: 0.0,
-        width: WIDTH as f32,
-        height: HEIGHT as f32,
+        width: prev_w as f32,
+        height: prev_h as f32,
     };
     loop {
+        let (w,h) = window.get_size();
+        if w != prev_w || h != prev_h {
+            println!("resized");
+            dt = DrawTarget::new(w as i32, h as i32);
+            viewport.width = w as f32;
+            viewport.height = h as f32;
+            containing_block.content.width = w as f32;
+            let res = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
+            doc = res.0;
+            render_root = res.1;
+        }
+        prev_w = w;
+        prev_h = h;
         scroll_viewport(&window, &mut viewport);
         let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, -viewport.y);
         dt.set_transform(&ts);
@@ -113,7 +131,7 @@ fn main() -> Result<(),BrowserError>{
             let res = render_root.find_box_containing(x,y);
             if let QueryResult::Text(bx) = res {
                 if let Some(href) = &bx.link {
-                    let res = navigate_to_doc(calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
+                    let res = navigate_to_doc(&calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
                     doc = res.0;
                     render_root = res.1;
                 }
@@ -124,7 +142,7 @@ fn main() -> Result<(),BrowserError>{
 
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         draw_render_box(&render_root, &mut dt, &mut font_cache, &viewport);
-        window.update_with_buffer(dt.get_data(), size.width as usize, size.height as usize).unwrap();
+        window.update_with_buffer(dt.get_data(), w as usize, h as usize).unwrap();
     }
 }
 
