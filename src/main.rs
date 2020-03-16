@@ -88,6 +88,7 @@ fn main() -> Result<(),BrowserError>{
     let (mut doc, mut render_root) = navigate_to_doc(start_page, &mut font_cache, containing_block).unwrap();
     let mut dt = DrawTarget::new(size.width as i32, size.height as i32);
     let mut prev_left_down = false;
+    let mut prev_right_down = false;
     let mut viewport = Rect{
         x: 0.0,
         y: 0.0,
@@ -99,12 +100,17 @@ fn main() -> Result<(),BrowserError>{
         let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, -viewport.y);
         dt.set_transform(&ts);
 
-        let left_down = window.get_mouse_down(MouseButton::Left);
-        if left_down && !prev_left_down {
+        let right_down = window.get_mouse_down(MouseButton::Right);
+        if right_down && !prev_right_down {
             let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
             println!("Left mouse is down at {} , {}",x,y);
             let res = render_root.find_box_containing(x,y);
             println!("got a result under the click: {:#?}", res);
+        }
+        let left_down = window.get_mouse_down(MouseButton::Left);
+        if left_down && !prev_left_down {
+            let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
+            let res = render_root.find_box_containing(x,y);
             if let QueryResult::Text(bx) = res {
                 if let Some(href) = &bx.link {
                     let res = navigate_to_doc(calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
@@ -126,8 +132,8 @@ fn scroll_viewport(window:&Window, viewport:&mut Rect) {
     if let Some(keys) = window.get_keys_pressed(KeyRepeat::Yes) {
         for key in keys {
             match key {
-                Key::Up    => viewport.y -= 200.0,
-                Key::Down  => viewport.y += 200.0,
+                Key::Up    => viewport.y -= 300.0,
+                Key::Down  => viewport.y += 300.0,
                 Key::Left  => viewport.x += 100.0,
                 Key::Right => viewport.x -= 100.0,
                 _ => {}

@@ -49,11 +49,16 @@ h4 { font-size: 14px; }
 h5 { font-size: 11px; }
 h6 { font-size: 10px; }
 
-div, section, pre, article, p, blockquote, footer, figure, iframe, cite {
+div, section, pre, article, p, blockquote, footer, figure, iframe, cite, ul, ol, li, dl, dt, dd, fieldset {
     display: block;
 }
 p {
-    padding: 7px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    margin-left: 0px;
+    margin-right: 0px;
+    padding:0;
+    border-width: 0;
 }
 blockquote {
     margin: 40px;
@@ -61,19 +66,54 @@ blockquote {
 pre {
     white-space: pre;
 }
-span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time, samp {
+span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time, samp, kbd {
     display: inline;
 }
 code {
     font-family: monospace;
 }
-b {
+b, strong {
     font-weight: 700;
 }
 a {
     color: blue;
 }
-i, em {
+i, em, cite, dfn, var {
     font-style: italic;
 }
 
+ul,ol {
+    margin-left: 10px;
+    padding-left:40px;
+}
+li {
+    padding:0;
+    margin:0;
+    border-width: 1px;
+}
+dd {
+    margin-left: 40px;
+}
+small {
+    font-size: 14px;
+}
+cite {
+    font-style: italic;
+}
+fieldset {
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 5px 8px 6px 5px;
+    border-width: 2px;
+    border-color: black;
+}
+input, select, button {
+}
+button {
+    display: block;
+    background-color: aqua;
+    border: 1px solid black;
+}
+optgroup, option {
+    display: none;
+}
