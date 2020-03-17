@@ -111,8 +111,19 @@ input, select, button {
 }
 button {
     display: block;
-    background-color: aqua;
-    border: 1px solid black;
+    border-width: 1px;
+    border-color: blue;
+    background-color: lightcyan;
+    padding: 3px;
+    margin: 3px;
+}
+input {
+    display: block;
+    border-width: 1px;
+    border-color: gray;
+    background-color: lightgrey;
+    padding: 3px;
+    margin: 3px;
 }
 optgroup, option {
     display: none;
