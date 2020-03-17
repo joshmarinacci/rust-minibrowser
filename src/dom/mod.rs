@@ -720,5 +720,73 @@ fn test_strip_empty_nodes() {
         );
 }
 
+pub fn expand_entities(doc:&mut Document) {
+    expand_entities_helper(&mut doc.root_node);
+}
+fn expand_entities_helper(node:&mut Node) {
+    for ch in node.children.iter_mut() {
+        match &ch.node_type {
+            NodeType::Text(str) => {
+                let mut str2 = String::from(str);
+                str2 = str2.replace("&lt;","<");
+                str2 = str2.replace("&gt;",">");
+                str2 = str2.replace("&amp;","&");
+                ch.node_type = NodeType::Text(str2);
+            }
+            _ => {}
+        }
+        expand_entities_helper(ch);
+    }
+}
+
+#[test]
+fn test_expand_entities() {
+    let input = br#"
+    <html>
+        <body>
+            <div>&lt; &gt; &amp;</div>
+        </body>
+    </html>
+    "#;
+    let mut doc = document().parse(input).unwrap();
+    strip_empty_nodes(&mut doc);
+    expand_entities(&mut doc);
+    println!("{:?}", doc);
+    assert_eq!(
+        Document{
+            root_node: Node {
+                node_type: NodeType::Element(ElementData{
+                    tag_name: "html".to_string(),
+                    attributes: Default::default()
+                }),
+                children: vec![
+                    Node {
+                        node_type: NodeType::Element(ElementData {
+                            tag_name:"body".to_string(),
+                            attributes: Default::default()
+                        }),
+                        children: vec![
+                            Node {
+                                node_type: NodeType::Element(ElementData {
+                                    tag_name:"div".to_string(),
+                                    attributes: Default::default()
+                                }),
+                                children: vec![
+                                    Node {
+                                        node_type: NodeType::Text(String::from("< > &")),
+                                        children: vec![]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            base_url: Url::parse("https://www.mozilla.org/").unwrap()
+        },
+        doc
+    );
+
+}
 
 

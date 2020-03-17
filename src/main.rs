@@ -1,4 +1,4 @@
-use rust_minibrowser::dom::{Document, strip_empty_nodes};
+use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
 use minifb::{Window, WindowOptions, MouseButton, MouseMode, KeyRepeat, Key};
@@ -22,6 +22,7 @@ const HEIGHT: usize = 1100;
 fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let mut doc = load_doc_from_net(&url)?;
     strip_empty_nodes(&mut doc);
+    expand_entities(&mut doc);
     let stylesheet = load_stylesheets_with_fallback(&doc)?;
     font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
