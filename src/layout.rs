@@ -473,6 +473,7 @@ impl<'a> LayoutBox<'a> {
         let link:Option<String> = match &parent.get_style_node().node.node_type {
             Text(_) => None,
             NodeType::Comment(_) => None,
+            NodeType::Cdata(_) => None,
             Element(ed) => {
                 if ed.tag_name == "a" {
                     ed.attributes.get("href").map(|s|String::from(s))

@@ -49,6 +49,7 @@ pub struct Node {
 pub enum NodeType {
     Text(String),
     Comment(String),
+    Cdata(String),
     Element(ElementData),
     Meta(MetaData),
 }
@@ -215,7 +216,7 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    comment() | meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
+    cdata() | comment() | meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
 }
 fn standalone_tag<'a>() -> Parser<'a, u8, String> {
     (seq(b"img")|seq(b"link") | seq(b"input") | seq(b"hr") | seq(b"input"))
@@ -396,9 +397,9 @@ pub fn iseq<'a, 'b: 'a>(tag: &'b [u8]) -> Parser<'a, u8, &'a [u8]>
     })
 }
 
-
+//<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 fn doctype<'a>() -> Parser<'a, u8, ()> {
-     iseq(b"<!DOCTYPE html>").map(|_| ())
+    (iseq(b"<!DOCTYPE") + none_of(b">").repeat(0..) + sym(b'>')).map(|_| ())
 }
 fn document<'a>() -> Parser<'a, u8, Document> {
     (space().opt() + doctype().opt() + space() + element()).map(|(_,node)| Document {
@@ -411,6 +412,7 @@ fn document<'a>() -> Parser<'a, u8, Document> {
 fn test_doctype() {
     assert_eq!(Ok(()), doctype().parse(b"<!DOCTYPE html>"));
     assert_eq!(Ok(()), doctype().parse(b"<!doctype html>"));
+    assert_eq!(Ok(()), doctype().parse(b"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"));
 }
 
 
@@ -454,6 +456,19 @@ fn test_input_element() {
     assert!(element_child().parse(br#"<input ></input>"#).is_ok());
 }
 
+fn cdata<'a>() -> Parser<'a, u8, Node> {
+    let p
+        = seq(b"<![CDATA[")
+        + (!seq(b"]]>") * take(1)).repeat(0..)
+        + seq(b"]]>");
+    p.map(|((a,c),b)| {
+        let mut s:Vec<u8> = Vec::new();
+        for cc in c {
+            s.push(cc[0]);
+        }
+        Node{ node_type: NodeType::Cdata(v2s(&s)), children: vec![] }
+    })
+}
 fn comment<'a>() -> Parser<'a, u8, Node> {
     let p
         = seq(b"<!--")

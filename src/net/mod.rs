@@ -15,6 +15,7 @@ pub enum BrowserError {
     NetworkError(reqwest::Error),
     DiskError(std::io::Error),
     UrlError(ParseError),
+    ImageError(ImageError),
 }
 impl From<std::io::Error> for BrowserError {
     fn from(err: Error) -> Self {
@@ -32,9 +33,7 @@ impl From<reqwest::Error> for BrowserError {
     }
 }
 impl From<ImageError> for BrowserError {
-    fn from(_: ImageError) -> Self {
-        unimplemented!()
-    }
+    fn from(err: ImageError) -> Self { BrowserError::ImageError(err) }
 }
 impl From<pom::Error> for BrowserError {
     fn from(_: pom::Error) -> Self {
@@ -68,10 +67,12 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
     }
 
     if let Some(node) = style_node {
-        if let NodeType::Text(text) = &node.children[0].node_type {
-            let mut ss = parse_stylesheet(text)?;
-            ss.parent = Some(Box::new(default_stylesheet));
-            return Ok(ss);
+        if node.children.len() > 0 {
+            if let NodeType::Text(text) = &node.children[0].node_type {
+                let mut ss = parse_stylesheet(text)?;
+                ss.parent = Some(Box::new(default_stylesheet));
+                return Ok(ss);
+            }
         }
     }
     Ok(default_stylesheet)
