@@ -496,7 +496,7 @@ impl<'a> LayoutBox<'a> {
                     // println!("parent={:#?}", parent.get_style_node());
 
                     let mut curr_text = String::new();
-                    for word in txt.trim().split_whitespace() {
+                    for word in txt.split_whitespace() {
                         let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
                         let w: f32 = calculate_word_length(word, font, font_size);
                         //if it's too long then we need to wrap

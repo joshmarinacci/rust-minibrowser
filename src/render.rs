@@ -100,10 +100,9 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                     match inline {
                         RenderInlineBoxType::Text(text) => {
                             // stroke_rect(dt, &text.rect.with_inset(6.0), &color_to_source(&MAGENTA), 1 as f32);
-                            let trimmed = text.text.trim();
-                            if text.color.is_some() && !trimmed.is_empty() {
+                            if text.color.is_some() && !text.text.is_empty() {
                                 let font = font_cache.get_font(&text.font_family, text.font_weight, &text.font_style);
-                                draw_text(dt, font, &text.rect, &trimmed, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
+                                draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
