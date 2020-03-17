@@ -565,3 +565,78 @@ pub fn load_doc_from_bytestring(buf:&[u8]) -> Document {
     document().parse(buf).unwrap()
 }
 
+
+pub fn strip_empty_nodes(doc:&mut Document) {
+    strip_empty_nodes_helper(&mut doc.root_node);
+}
+fn strip_empty_nodes_helper(node:&mut Node) {
+    node.children.retain(|ch| {
+        match &ch.node_type {
+            NodeType::Text(str) => {
+                // println!("got a text node -{}-",str.trim());
+                if str.trim().len() == 0 {
+                    // println!("empty node. must prune it");
+                    false
+                } else {
+                    true
+                }
+            }
+            _ => true
+        }
+    });
+    for ch in node.children.iter_mut() {
+        strip_empty_nodes_helper(ch);
+    }
+}
+
+#[test]
+fn test_strip_empty_nodes() {
+    let input = br#"
+    <html>
+        <body>
+            <div>blah</div>
+        </body>
+    </html>
+    "#;
+    let mut doc = document().parse(input).unwrap();
+    println!("{:?}", doc);
+
+    strip_empty_nodes(&mut doc);
+    assert_eq!(
+        Document{
+            root_node: Node {
+                node_type: NodeType::Element(ElementData{
+                    tag_name: "html".to_string(),
+                    attributes: Default::default()
+                }),
+                children: vec![
+                    Node {
+                        node_type: NodeType::Element(ElementData {
+                            tag_name:"body".to_string(),
+                            attributes: Default::default()
+                        }),
+                        children: vec![
+                            Node {
+                                node_type: NodeType::Element(ElementData {
+                                    tag_name:"div".to_string(),
+                                    attributes: Default::default()
+                                }),
+                                children: vec![
+                                    Node {
+                                        node_type: NodeType::Text(String::from("blah")),
+                                        children: vec![]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            base_url: Url::parse("https://www.mozilla.org/").unwrap()
+        },
+        doc
+        );
+}
+
+
+
