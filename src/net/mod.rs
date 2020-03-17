@@ -14,7 +14,7 @@ use crate::dom::NodeType::Element;
 pub enum BrowserError {
     NetworkError(reqwest::Error),
     DiskError(std::io::Error),
-    UrlError(),
+    UrlError(ParseError),
 }
 impl From<std::io::Error> for BrowserError {
     fn from(err: Error) -> Self {
@@ -22,8 +22,8 @@ impl From<std::io::Error> for BrowserError {
     }
 }
 impl From<ParseError> for BrowserError {
-    fn from(_: ParseError) -> Self {
-        unimplemented!()
+    fn from(err: ParseError) -> Self {
+        BrowserError::UrlError(err)
     }
 }
 impl From<reqwest::Error> for BrowserError {

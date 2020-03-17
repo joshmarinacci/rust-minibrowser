@@ -11,8 +11,6 @@ use url::Url;
 use font_kit::source::SystemSource;
 use font_kit::properties::Properties;
 use std::env;
-use rust_minibrowser::css::Value::StringLiteral;
-use rust_minibrowser::css::star;
 
 
 const WIDTH: usize = 800;
@@ -83,7 +81,12 @@ fn main() -> Result<(),BrowserError>{
 
     let mut start_page = relative_filepath_to_url("tests/page1.html")?;
     if args.len() > 1 {
-        start_page = Url::parse(args[1].as_str())?;
+        println!("loading url {}", args[1]);
+        if args[1].starts_with("http") {
+            start_page = Url::parse(args[1].as_str())?;
+        } else {
+            start_page = relative_filepath_to_url(&*args[1])?;
+        }
     }
 
     // let start_page = relative_filepath_to_url("tests/nested.html")?;
