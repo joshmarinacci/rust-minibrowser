@@ -205,6 +205,7 @@ pub struct RenderTextBox {
     pub font_family:String,
     pub link:Option<String>,
     pub font_weight:f32,
+    pub font_style:String,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -364,12 +365,13 @@ impl<'a> LayoutBox<'a> {
             },
             extents: Rect {
                 x: dim.content.x,
-                y: dim.content.height + dim.content.y,
+                y: dim.content.y + dim.content.height,
                 width: dim.content.width,
                 height: 0.0,
             },
             current_start: dim.content.x,
             current_end: dim.content.x,
+            current_bottom: dim.content.y + dim.content.height,
             font_cache,
             doc,
         };
@@ -383,9 +385,19 @@ impl<'a> LayoutBox<'a> {
             }
             // println!("and now after it is {} {}", looper.current_start, looper.current_end)
         }
-        looper.lines.push(looper.current);
+        let old = looper.current;
+        looper.current_bottom += old.rect.height;
+        looper.extents.height += old.rect.height;
+        looper.lines.push(old);
+        self.dimensions.content.y = looper.extents.y;
         self.dimensions.content.width = looper.extents.width;
-        self.dimensions.content.height = looper.extents.height;
+        self.dimensions.content.height = looper.current_bottom - looper.extents.y ;
+        // println!("at the end of the looper, bottom = {} y = {} h = {}",
+        //          looper.current_bottom, self.dimensions.content.y, self.dimensions.content.height);
+        // println!("line boxes are");
+        // for line in looper.lines.iter() {
+        //     println!("  line {:#?}",line.rect);
+        // }
         return RenderAnonymousBox {
             rect: looper.extents,
             children: looper.lines,
@@ -413,6 +425,9 @@ impl<'a> LayoutBox<'a> {
                 src = data.attributes.get("src").unwrap().clone();
             }
         }
+        looper.current.rect.height = looper.current.rect.height.max(image_size.height);
+        println!("setting current height to {}", looper.current.rect.height);
+
         let bx = match load_image(looper.doc, &src) {
             Ok(image) => {
                 RenderInlineBoxType::Image(RenderImageBox {
@@ -455,12 +470,25 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn do_inline(&self, looper:&mut Looper, parent:&LayoutBox) {
+        let link:Option<String> = match &parent.get_style_node().node.node_type {
+            Text(_) => None,
+            NodeType::Comment(_) => None,
+            Element(ed) => {
+                if ed.tag_name == "a" {
+                    ed.attributes.get("href").map(|s|String::from(s))
+                } else {
+                    None
+                }
+            },
+            NodeType::Meta(_) => None,
+        };
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
-                NodeType::Text(txt) => {
+                 NodeType::Text(txt) => {
                     let font_family = parent.find_font_family(looper.font_cache);
                     let font_weight = parent.get_style_node().lookup_font_weight(400.0);
                     let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
+                    let font_style = parent.get_style_node().lookup_string("font-style", "normal");
                     let line_height = font_size*1.1;
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
                     // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
@@ -469,13 +497,16 @@ impl<'a> LayoutBox<'a> {
 
                     let mut curr_text = String::new();
                     for word in txt.trim().split_whitespace() {
-                        let font = looper.font_cache.get_font(&font_family, font_weight);
+                        let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
                         let w: f32 = calculate_word_length(word, font, font_size);
+                        //if it's too long then we need to wrap
                         if looper.current_end + w > looper.extents.width {
+                            //add current text to the current line
+                            // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
                             looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Rect{
                                     x: looper.current_start,
-                                    y: looper.extents.y,
+                                    y: looper.current_bottom,
                                     width: looper.current_end - looper.current_start,
                                     height: line_height
                                 },
@@ -483,20 +514,32 @@ impl<'a> LayoutBox<'a> {
                                 color: Some(color.clone()),
                                 font_size,
                                 font_family: font_family.clone(),
-                                link: None,
+                                font_style: font_style.clone(),
+                                link: link.clone(),
                                 font_weight,
                             }));
+                            // println!("adding text box at {}", looper.current_bottom );
+                            //calculate a new line height
                             looper.current.rect.height = line_height.max(looper.current.rect.height);
-                            looper.extents.height = looper.current.rect.height;
+                            //make new current text with the current word
                             curr_text = String::new();
+                            curr_text.push_str(word);
+                            curr_text.push_str(" ");
+                            looper.current_bottom += looper.current.rect.height;
+                            looper.extents.height += looper.current.rect.height;
                             let old = mem::replace(&mut looper.current, RenderLineBox {
-                                rect: Default::default(),
+                                rect: Rect{
+                                    x: looper.extents.x,
+                                    y: looper.current_bottom,
+                                    width: looper.extents.width,
+                                    height: 0.0
+                                },
                                 children: vec![],
                             });
                             looper.lines.push(old);
                             looper.current_start = looper.extents.x;
                             looper.current_end = looper.extents.x;
-                            looper.extents.y += line_height;
+                            looper.current_end += w;
                         } else {
                             looper.current_end += w;
                             curr_text.push_str(word);
@@ -506,7 +549,7 @@ impl<'a> LayoutBox<'a> {
                     looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
                         rect: Rect {
                             x: looper.current_start,
-                            y: looper.extents.y,
+                            y: looper.current_bottom,
                             width: looper.current_end - looper.current_start,
                             height: line_height,
                         },
@@ -514,13 +557,13 @@ impl<'a> LayoutBox<'a> {
                         color: Some(color.clone()),
                         font_size,
                         font_family,
-                        link: None,
+                        link: link.clone(),
                         font_weight,
+                        font_style
                     }));
+                    // println!("adding text box at {}", looper.extents.height);
                     looper.current_start = looper.current_end;
                     looper.current.rect.height = line_height.max(looper.current.rect.height);
-                    looper.extents.height = looper.current.rect.height;
-
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
@@ -946,6 +989,7 @@ struct Looper<'a> {
     extents:Rect,
     current_start:f32,
     current_end:f32,
+    current_bottom:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
 }
@@ -954,11 +998,9 @@ struct Looper<'a> {
 #[test]
 fn test_layout<'a>() {
     let mut font_cache = FontCache::new();
-    font_cache.install_font(&String::from("sans-serif"),
-                            400.0,
+    font_cache.install_font("sans-serif",400.0, "normal",
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font(&String::from("sans-serif"),
-                            700.0,
+    font_cache.install_font("sans-serif", 700.0, "normal",
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
 
     let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();

@@ -12,6 +12,8 @@ use std::path::Path;
 use url::Url;
 use crate::net::{BrowserError, load_doc_from_net};
 use crate::css::parse_stylesheet;
+use std::fmt::Debug;
+use self::pom::Error;
 
 // https://limpet.net/mbrubeck/2014/09/08/toy-layout-engine-5-boxes.html
 
@@ -46,6 +48,7 @@ pub struct Node {
 #[derive(Debug, PartialEq)]
 pub enum NodeType {
     Text(String),
+    Comment(String),
     Element(ElementData),
     Meta(MetaData),
 }
@@ -112,7 +115,7 @@ fn test_element_name_with_number() {
 }
 
 fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
-    let char_string = none_of(b"\\\"").repeat(1..).convert(String::from_utf8);
+    let char_string = none_of(b"\"").repeat(0..).convert(String::from_utf8);
     let p
         = space()
         + is_a(alpha).repeat(1..)
@@ -161,6 +164,26 @@ fn attributes<'a>() -> Parser<'a, u8, AttrMap> {
 fn test_several_attributes() {
     let input = b"foo=\"bar\" baz=\"quxx\" ";
     println!("{:#?}", attributes().parse(input));
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from("bar"));
+    hm.insert(String::from("baz"), String::from("quxx"));
+    assert_eq!(Ok(hm),attributes().parse(b"foo=\"bar\" baz=\"quxx\" "))
+}
+#[test]
+fn test_empty_attribute_value() {
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from("bar"));
+    assert_eq!(Ok(Node {
+        node_type: NodeType::Element(ElementData{ tag_name: "b".to_string(), attributes: hm }),
+        children: vec![]
+    }), element().parse(br#"<b foo="bar"></b>"#));
+
+    let mut hm = AttrMap::new();
+    hm.insert(String::from("foo"), String::from(""));
+    assert_eq!(Ok(Node {
+        node_type: NodeType::Element(ElementData{ tag_name: "b".to_string(), attributes: hm }),
+        children: vec![]
+    }),element().parse(br#"<b foo=""></b>"#));
 }
 
 
@@ -192,10 +215,10 @@ fn text_content<'a>() -> Parser<'a, u8, Node> {
     })
 }
 fn element_child<'a>() -> Parser<'a, u8, Node> {
-    meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
+    comment() | meta_tag() | text_content() | selfclosed_element() | standalone_element() | element()
 }
 fn standalone_tag<'a>() -> Parser<'a, u8, String> {
-    (seq(b"img")|seq(b"link") | seq(b"input"))
+    (seq(b"img")|seq(b"link") | seq(b"input") | seq(b"hr") | seq(b"input"))
         .map(|f| v2s(&f.to_vec()))
 }
 
@@ -254,7 +277,6 @@ fn element<'a>() -> Parser<'a, u8, Node> {
     let p
         = open_element()
         - space()
-//        - comment()
         + call(element_child).repeat(0..)
         - space()
         + close_element();
@@ -346,8 +368,37 @@ fn test_div_with_img_child() {
     println!("{:#?}", element().parse(input));
 }
 
+/// Success when sequence of symbols matches current input.
+pub fn iseq<'a, 'b: 'a>(tag: &'b [u8]) -> Parser<'a, u8, &'a [u8]>
+
+{
+    Parser::new(move |input: &'a [u8], start: usize| {
+        let mut index = 0;
+        loop {
+            let pos = start + index;
+            if index == tag.len() {
+                return Ok((tag, pos));
+            }
+            if let Some(s) = input.get(pos) {
+                let ch1 = tag[index].to_ascii_lowercase();
+                let ch2 = (*s).to_ascii_lowercase();
+                if ch1 != ch2 {
+                    return Err(Error::Mismatch {
+                        message: format!("seq {:?} expect: {:?}, found: {:?}", tag, tag[index], s),
+                        position: pos,
+                    });
+                }
+            } else {
+                return Err(Error::Incomplete);
+            }
+            index += 1;
+        }
+    })
+}
+
+
 fn doctype<'a>() -> Parser<'a, u8, ()> {
-     seq(b"<!DOCTYPE html>").map(|_| ())
+     iseq(b"<!DOCTYPE html>").map(|_| ())
 }
 fn document<'a>() -> Parser<'a, u8, Document> {
     (space().opt() + doctype().opt() + space() + element()).map(|(_,node)| Document {
@@ -358,10 +409,8 @@ fn document<'a>() -> Parser<'a, u8, Document> {
 
 #[test]
 fn test_doctype() {
-    let input = br#"<!DOCTYPE html>"#;
-    let result = doctype().parse(input);
-    println!("{:?}", result);
-    assert_eq!((), result.unwrap());
+    assert_eq!(Ok(()), doctype().parse(b"<!DOCTYPE html>"));
+    assert_eq!(Ok(()), doctype().parse(b"<!doctype html>"));
 }
 
 
@@ -405,29 +454,62 @@ fn test_input_element() {
     assert!(element_child().parse(br#"<input ></input>"#).is_ok());
 }
 
-fn comment<'a>() -> Parser<'a, u8, ()> {
-    let p = seq(b"<!--") + (!seq(b"-->") + take(1)).repeat(0..) + seq(b"-->");
-    p.map(|((_,_),b)| {
-        println!("comment {}",v2s(&b.to_vec()));
+fn comment<'a>() -> Parser<'a, u8, Node> {
+    let p
+        = seq(b"<!--")
+        + (!seq(b"-->") * take(1)).repeat(0..)
+        + seq(b"-->");
+    p.map(|((a,c),b)| {
+        let mut s:Vec<u8> = Vec::new();
+        for cc in c {
+            s.push(cc[0]);
+        }
+        Node{ node_type: NodeType::Comment(v2s(&s)), children: vec![] }
     })
 }
-/*
+
 #[test]
 fn test_comment() {
-    let input = br"<!-- a cool - comment-->";
-    let result = comment().parse(input);
-    println!("{:?}", result);
-    assert_eq!((),result.unwrap())
+    assert_eq!(Ok(Node{ node_type: NodeType::Comment(" a cool - comment".to_string()), children: vec![] }),
+               comment().parse(br"<!-- a cool - comment-->"))
 }
 
 #[test]
 fn test_comment_2() {
-    let input = br"<foo> and a better <!-- a cool - comment--></foo>";
-    let result = document().parse(input);
-    println!("{:?}", result);
-    // assert_eq!((),result.unwrap())
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{ node_type: NodeType::Comment(" a cool - comment".to_string()), children: vec![] }
+        ]
+    }), element().parse(br"<foo><!-- a cool - comment--></foo>"));
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{
+                node_type: NodeType::Comment(String::from(" a cool - comment")),
+                children: vec![]
+            },
+            Node{
+                node_type: NodeType::Text(String::from("after")),
+                children: vec![]
+            }
+        ]
+    }), element().parse(br"<foo><!-- a cool - comment-->after</foo>"));
+    assert_eq!(Ok(Node{
+        node_type: NodeType::Element(ElementData{ tag_name: "foo".to_string(), attributes: Default::default() }),
+        children: vec![
+            Node{
+                node_type: NodeType::Text(String::from("before")),
+                children: vec![]
+            },
+            Node{
+                node_type: NodeType::Comment(String::from(" a cool - comment")),
+                children: vec![]
+            },
+        ]
+    }), element().parse(br"<foo>before<!-- a cool - comment--></foo>"));
 }
-*/
+
 
 #[test]
 fn test_style_parse() {

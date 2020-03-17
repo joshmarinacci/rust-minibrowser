@@ -23,100 +23,97 @@
     white-space: normal;
     font-family: sans-serif;
     font-size: 18px;
+    border-width: 0;
 }
-html {
-    color: black;
-    background-color: white;
+body {
     font-family: sans-serif;
-    font-size: 18px;
     font-weight: normal;
+    background-color: white;
+    margin: 8px;
 }
-b {
-    display: inline;
-    color: red;
-    font-weight: 700;
-}
-a {
-    display: inline;
-    color: blue;
-}
+
 img {
     display: inline-block;
 }
-head {
+head, style {
     display: none;
 }
-body {
-    font-size: 18px;
-    border-color: black;
-    margin: 10px;
-    border-width: 10px;
-    padding: 10px;
-}
-h1 {
-    font-size: 36px;
+h1, h2, h3, h4, h5 {
     display: block;
-    font-family: "et-book", serif;
-    font-weight: 400;
+    font-weight: 700;
 }
-h2 {
+h1 { font-size: 36px; }
+h2 { font-size: 24px; }
+h3 { font-size: 18px; }
+h4 { font-size: 14px; }
+h5 { font-size: 11px; }
+h6 { font-size: 10px; }
+
+div, section, pre, article, p, blockquote, footer, figure, iframe, cite, ul, ol, li, dl, dt, dd, fieldset {
     display: block;
-    font-size: 28px;
 }
-h3 {
-    display: block;
-    font-size: 24px;
+p {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    margin-left: 0px;
+    margin-right: 0px;
+    padding:0;
+    border-width: 0;
 }
-div {
-    display: block;
-    border-width: 10px;
-    margin: 10px;
-    padding: 11px;
-    border-color: blue;
-    color: #ffff00;
+blockquote {
+    margin: 40px;
 }
 pre {
     white-space: pre;
 }
+span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time, samp, kbd {
+    display: inline;
+}
 code {
     font-family: monospace;
 }
-article {
-    display: block;
+b, strong {
+    font-weight: 700;
 }
-p {
-    display: block;
-    padding: 10px;
+a {
+    color: blue;
 }
-section {
-    display: block;
+i, em, cite, dfn, var {
+    font-style: italic;
 }
-span {
-    display: inline;
+
+ul,ol {
+    margin-left: 10px;
+    padding-left:40px;
 }
-code {
-    display: inline;
+li {
+    padding:0;
+    margin:0;
+    border-width: 1px;
 }
-blockquote {
-    display: block;
+dd {
+    margin-left: 40px;
 }
-em {
-    display: inline;
+small {
+    font-size: 14px;
 }
 cite {
-     display: inline;
+    font-style: italic;
 }
-
-footer {
+fieldset {
+    margin-left: 2px;
+    margin-right: 2px;
+    padding: 5px 8px 6px 5px;
+    border-width: 2px;
+    border-color: black;
+}
+input, select, button {
+}
+button {
     display: block;
+    background-color: aqua;
+    border: 1px solid black;
 }
-label {
-    display: inline;
-}
-
-figure {
-    display: block;
-}
-iframe {
-    display: block;
+optgroup, option {
+    display: none;
 }

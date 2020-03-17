@@ -74,7 +74,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
             for ch in block.children.iter() {
                 if let RenderBox::Block(blk) = ch {
                     if blk.rect.y > viewport.y + viewport.height {
-                        println!("outside! {}", blk.rect.y);
+                        // println!("outside! {}", blk.rect.y);
                         return false;
                     }
                 }
@@ -102,7 +102,7 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                             // stroke_rect(dt, &text.rect.with_inset(6.0), &color_to_source(&MAGENTA), 1 as f32);
                             let trimmed = text.text.trim();
                             if text.color.is_some() && !trimmed.is_empty() {
-                                let font = font_cache.get_font(&text.font_family, text.font_weight);
+                                let font = font_cache.get_font(&text.font_family, text.font_weight, &text.font_style);
                                 draw_text(dt, font, &text.rect, &trimmed, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
@@ -125,6 +125,7 @@ pub struct FontCache {
     families:HashMap<String,Url>,
     names:HashMap<String,Url>,
     fonts:HashMap<String,Font>,
+    default_font: Option<Font>,
 }
 
 fn extract_url(value:&Value, url:&Url) -> Option<Url> {
@@ -164,15 +165,28 @@ impl FontCache {
         Self {
             families: HashMap::new(),
             names: HashMap::new(),
-            fonts: HashMap::new()
+            fonts: HashMap::new(),
+            default_font: None,
         }
+    }
+    fn make_key(&self, name:&str, weight:f32, style:&str) -> String {
+        format!("{}-{}-{}",name,weight,style)
     }
     pub fn has_font_family(&self, name:&str) -> bool {
         self.families.contains_key(name)
     }
-    pub fn install_font(&mut self, name:&str, weight:f32, url:&Url) {
-        let key = format!("{}-{:#?}",name,weight);
-        println!("installing the font {} {} at url {} {}",name,weight, url, key);
+    pub fn install_default_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
+        let key = self.make_key(name,weight,style);
+        println!("installing the default font {} at url {}",key,url);
+
+        let pth = url.to_file_path().unwrap();
+        let mut file = File::open(pth).unwrap();
+        let font = Font::from_file(&mut file, 0).unwrap();
+        self.default_font = Some(font);
+    }
+    pub fn install_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
+        let key = self.make_key(name,weight,style);
+        println!("installing the font {} at url {}",key,url);
 
         let pth = url.to_file_path().unwrap();
         let mut file = File::open(pth).unwrap();
@@ -181,20 +195,29 @@ impl FontCache {
         self.names.insert(key.clone(),url.clone());
         self.fonts.insert(key, font);
     }
-    pub fn install_font_font(&mut self, name:&str, font:Font) {
-        self.fonts.insert(name.to_string(),font);
+    pub fn install_font_font(&mut self, name:&str, weight:f32, style:&str, font:Font) {
+        let key = self.make_key(name,weight,style);
+        println!("installing the font {}, {} from {:#?}",name,key,font);
+        self.fonts.insert(key,font);
     }
-    pub fn get_font(&mut self, name:&str, weight:f32) -> &Font {
-        let key = format!("{}-{:#?}",name,weight);
-        self.fonts.get(&key).unwrap()
+    pub fn get_font(&mut self, name:&str, weight:f32, style:&str) -> &Font {
+        let key = self.make_key(name,weight,style);
+        // println!("fetching the font {}",key);
+        if let Some(font) = self.fonts.get(&key) {
+            return font;
+        } else if let Some(font) = (&self.default_font) {
+            return font
+        } else {
+            panic!("no default font set!");
+        }
     }
-    fn load_font(&mut self, name:&str) {
-        println!("trying to load the font: '{}'",name);
-        let pth = self.names.get(name).unwrap().to_file_path().unwrap();
-        let mut file = File::open(pth).unwrap();
-        let font = Font::from_file(&mut file, 0).unwrap();
-        self.fonts.insert(String::from(name), font);
-    }
+    // fn load_font(&mut self, name:&str) {
+    //     println!("trying to load the font: '{}'",name);
+    //     let pth = self.names.get(name).unwrap().to_file_path().unwrap();
+    //     let mut file = File::open(pth).unwrap();
+    //     let font = Font::from_file(&mut file, 0).unwrap();
+    //     self.fonts.insert(String::from(name), font);
+    // }
     pub fn scan_for_fontface_rules(&mut self, stylesheet:&Stylesheet) {
         for rule in stylesheet.rules.iter() {
             if let RuleType::AtRule(at_rule) = rule {
@@ -220,10 +243,11 @@ impl FontCache {
                                         }
                                     }
                                 }
-                                println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
+                                // println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
                                 if font_family.is_some() && src.is_some() && font_weight.is_some() {
                                     self.install_font(&font_family.unwrap(),
                                                             font_weight.unwrap(),
+                                                            "normal",
                                                             &src.unwrap()
                                     )
                                 }
@@ -245,8 +269,8 @@ fn test_font_loading() {
     let font = Font::from_file(&mut file, 0).unwrap();
     let mut fc = FontCache::new();
     let name = String::from("sans-serif");
-    fc.install_font(&name, 400.0, &relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
-    println!("{:#?}",fc.get_font(&String::from("sans-serif"), 400.0));
+    fc.install_font(&name, 400.0, "normal",&relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
+    println!("{:#?}",fc.get_font("sans-serif", 400.0, "normal"));
     // println!("{:#?}",fc);
     //assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
 }
