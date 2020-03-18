@@ -128,3 +128,9 @@ input {
 optgroup, option {
     display: none;
 }
+sub {
+    vertical-align: sub;
+}
+sup {
+    vertical-align: super;
+}

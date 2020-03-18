@@ -207,6 +207,7 @@ pub struct RenderTextBox {
     pub link:Option<String>,
     pub font_weight:f32,
     pub font_style:String,
+    pub valign:String,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -221,10 +222,12 @@ impl RenderTextBox {
 pub struct RenderImageBox {
     pub(crate) rect:Rect,
     pub(crate) image:LoadedImage,
+    pub valign:String,
 }
 #[derive(Debug)]
 pub struct RenderErrorBox {
     pub(crate) rect:Rect,
+    pub valign:String,
 }
 
 pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> LayoutBox<'a> {
@@ -350,7 +353,6 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    //     do_inline_block_parent extents
     fn layout_anonymous_2(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         // println!("parent is {:#?}",self.get_type());
         let mut looper = Looper {
@@ -387,6 +389,7 @@ impl<'a> LayoutBox<'a> {
             }
             // println!("and now after it is {} {}", looper.current_start, looper.current_end)
         }
+        looper.adjust_current_line_vertical();
         let old = looper.current;
         looper.current_bottom += old.rect.height;
         looper.extents.height += old.rect.height;
@@ -427,17 +430,18 @@ impl<'a> LayoutBox<'a> {
                 src = data.attributes.get("src").unwrap().clone();
             }
         }
-        println!("setting current height to {}", looper.current.rect.height);
 
         let bx = match load_image(looper.doc, &src) {
             Ok(image) => {
+                println!("Loaded the image {} {}", image.width, image.height);
                 RenderInlineBoxType::Image(RenderImageBox {
                     rect: Rect {
                         x:looper.current_start,
                         y: looper.current.rect.y,
-                        width: image_size.width,
-                        height: image_size.height,
+                        width: image.width as f32,
+                        height: image.height as f32,
                     },
+                    valign: self.get_style_node().lookup_string("vertical-align","baseline"),
                     image
                 })
             },
@@ -450,10 +454,12 @@ impl<'a> LayoutBox<'a> {
                         width: image_size.width,
                         height: image_size.height,
                     },
+                    valign: self.get_style_node().lookup_string("vertical-align","baseline"),
                 })
             }
         };
         if looper.current_end + image_size.width > looper.extents.width {
+            looper.adjust_current_line_vertical();
             looper.start_new_line();
             looper.add_box_to_current_line(bx);
         } else {
@@ -483,7 +489,9 @@ impl<'a> LayoutBox<'a> {
                     let font_weight = parent.get_style_node().lookup_font_weight(400.0);
                     let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
                     let font_style = parent.get_style_node().lookup_string("font-style", "normal");
+                    let vertical_align = parent.get_style_node().lookup_string("vertical-align","baseline");
                     let line_height = font_size*1.1;
+                    let line_height = parent.get_style_node().lookup_length_px("line-height", line_height);
                     let color = parent.get_style_node().lookup_color("color", &BLACK);
                     // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
                     // println!("node={:#?}",self.get_style_node());
@@ -511,6 +519,7 @@ impl<'a> LayoutBox<'a> {
                                 font_style: font_style.clone(),
                                 link: link.clone(),
                                 font_weight,
+                                valign: vertical_align.clone(),
                             });
                             looper.add_box_to_current_line(bx);
                             //make new current text with the current word
@@ -519,6 +528,7 @@ impl<'a> LayoutBox<'a> {
                             curr_text.push_str(" ");
                             looper.current_bottom += looper.current.rect.height;
                             looper.extents.height += looper.current.rect.height;
+                            looper.adjust_current_line_vertical();
                             looper.start_new_line();
                             looper.current_end += w;
                         } else {
@@ -540,7 +550,8 @@ impl<'a> LayoutBox<'a> {
                         font_family,
                         link: link.clone(),
                         font_weight,
-                        font_style
+                        font_style,
+                        valign: vertical_align.clone(),
                     });
                     looper.add_box_to_current_line(bx);
                 }
@@ -679,52 +690,6 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn layout_image(child:&LayoutBox, x:f32, y:f32, line_height:f32, doc:&Document) -> Result<RenderImageBox, RenderErrorBox> {
-    let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
-    let mut src = String::from("");
-    if let InlineBlockNode(styled) = child.box_type {
-        if let Element(data) = &styled.node.node_type {
-            let width = if data.attributes.contains_key("width") {
-                data.attributes.get("width").unwrap().parse::<u32>().unwrap()
-            } else {
-                100
-            };
-            image_size.width = width as f32;
-            let height = if data.attributes.contains_key("height") {
-                data.attributes.get("height").unwrap().parse::<u32>().unwrap()
-            } else {
-                100
-            };
-            image_size.height = height as f32;
-            src = data.attributes.get("src").unwrap().clone();
-        }
-    }
-    match load_image(&doc, &src) {
-        Ok(image) => {
-            Ok(RenderImageBox {
-                rect: Rect {
-                    x,
-                    y: y - image_size.height + line_height,
-                    width: image_size.width,
-                    height: image_size.height,
-                },
-                image
-            })
-        },
-        Err(err) => {
-            println!("error loading the image for {} : {:#?}", src, err);
-            Err(RenderErrorBox {
-                rect: Rect {
-                    x,
-                    y: y - image_size.height + line_height,
-                    width: image_size.width,
-                    height: image_size.height,
-                },
-            })
-        }
-    }
-}
-
 fn calculate_word_length(text:&str, font:&Font, font_size:f32) -> f32 {
     let mut sum = 0.0;
     for ch in text.chars() {
@@ -772,6 +737,37 @@ impl Looper<'_> {
         self.current.children.push(bx);
         self.current_start = self.current_end;
     }
+    fn adjust_current_line_vertical(&mut self) {
+        for ch in self.current.children.iter_mut() {
+            let (mut rect,mut string) =  match ch {
+                RenderInlineBoxType::Text(bx) => (&mut bx.rect,&bx.valign),
+                RenderInlineBoxType::Error(bx) => (&mut bx.rect,&bx.valign),
+                RenderInlineBoxType::Image(bx) => (&mut bx.rect,&bx.valign),
+            };
+            match string.as_str() {
+                "bottom" => {
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height;
+                },
+                "sub" => {
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 + 10.0;
+                },
+                "baseline" => {
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0;
+                },
+                "super" => {
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 - 10.0;
+                },
+                "middle" => {
+                    rect.y = self.current.rect.y + (self.current.rect.height - rect.height)/2.0;
+                },
+                "top" => {
+                    rect.y = self.current.rect.y;
+                },
+                _ => {}
+            }
+        }
+    }
+
 }
 
 

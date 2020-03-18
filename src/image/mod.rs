@@ -12,8 +12,8 @@ use url::Url;
 #[derive(Debug,PartialEq)]
 pub struct LoadedImage {
     path:String,
-    width: i32,
-    height: i32,
+    pub(crate) width: i32,
+    pub(crate) height: i32,
     data:Vec<u32>,
 }
 
