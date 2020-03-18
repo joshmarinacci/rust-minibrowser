@@ -427,7 +427,6 @@ impl<'a> LayoutBox<'a> {
                 src = data.attributes.get("src").unwrap().clone();
             }
         }
-        looper.current.rect.height = looper.current.rect.height.max(image_size.height);
         println!("setting current height to {}", looper.current.rect.height);
 
         let bx = match load_image(looper.doc, &src) {
@@ -435,7 +434,7 @@ impl<'a> LayoutBox<'a> {
                 RenderInlineBoxType::Image(RenderImageBox {
                     rect: Rect {
                         x:looper.current_start,
-                        y: looper.extents.y - image_size.height + looper.current.rect.height,
+                        y: looper.current.rect.y,
                         width: image_size.width,
                         height: image_size.height,
                     },
@@ -447,7 +446,7 @@ impl<'a> LayoutBox<'a> {
                 RenderInlineBoxType::Error(RenderErrorBox {
                     rect: Rect {
                         x:looper.current_start,
-                        y: looper.extents.y - image_size.height,
+                        y: looper.current.rect.y,
                         width: image_size.width,
                         height: image_size.height,
                     },
@@ -456,12 +455,11 @@ impl<'a> LayoutBox<'a> {
         };
         if looper.current_end + image_size.width > looper.extents.width {
             looper.start_new_line();
-            looper.extents.y += image_size.height;
-            looper.current.children.push(bx);
+            looper.add_box_to_current_line(bx);
         } else {
             looper.current_end += image_size.width;
             looper.current_start = looper.current_end;
-            looper.current.children.push(bx);
+            looper.add_box_to_current_line(bx);
         }
     }
 
@@ -500,7 +498,7 @@ impl<'a> LayoutBox<'a> {
                         if looper.current_end + w > looper.extents.width {
                             //add current text to the current line
                             // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
-                            looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
+                            let bx = RenderInlineBoxType::Text(RenderTextBox{
                                 rect: Rect{
                                     x: looper.current_start,
                                     y: looper.current_bottom,
@@ -514,10 +512,8 @@ impl<'a> LayoutBox<'a> {
                                 font_style: font_style.clone(),
                                 link: link.clone(),
                                 font_weight,
-                            }));
-                            // println!("adding text box at {}", looper.current_bottom );
-                            //calculate a new line height
-                            looper.current.rect.height = line_height.max(looper.current.rect.height);
+                            });
+                            looper.add_box_to_current_line(bx);
                             //make new current text with the current word
                             curr_text = String::new();
                             curr_text.push_str(word);
@@ -532,7 +528,7 @@ impl<'a> LayoutBox<'a> {
                             curr_text.push_str(" ");
                         }
                     }
-                    looper.current.children.push(RenderInlineBoxType::Text(RenderTextBox{
+                    let bx = RenderInlineBoxType::Text(RenderTextBox{
                         rect: Rect {
                             x: looper.current_start,
                             y: looper.current_bottom,
@@ -546,10 +542,9 @@ impl<'a> LayoutBox<'a> {
                         link: link.clone(),
                         font_weight,
                         font_style
-                    }));
-                    // println!("adding text box at {}", looper.extents.height);
+                    });
+                    looper.add_box_to_current_line(bx);
                     looper.current_start = looper.current_end;
-                    looper.current.rect.height = line_height.max(looper.current.rect.height);
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
@@ -768,6 +763,15 @@ impl Looper<'_> {
         self.lines.push(old);
         self.current_start = self.extents.x;
         self.current_end = self.extents.x;
+    }
+    fn add_box_to_current_line(&mut self, bx:RenderInlineBoxType) {
+        let rect = match &bx {
+            RenderInlineBoxType::Text(bx) => &bx.rect,
+            RenderInlineBoxType::Error(bx) => &bx.rect,
+            RenderInlineBoxType::Image(bx) => &bx.rect,
+        };
+        self.current.rect.height = self.current.rect.height.max(rect.height);
+        self.current.children.push(bx);
     }
 }
 
