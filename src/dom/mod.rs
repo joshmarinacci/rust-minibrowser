@@ -115,16 +115,29 @@ fn test_element_name_with_number() {
     assert_eq!(String::from("h3"), result.unwrap());
 }
 
-fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
+fn single_quote_attribute_value<'a>() -> Parser<'a, u8, String> {
+    let char_string = none_of(b"\'").repeat(0..).convert(String::from_utf8);
+    let p = sym(b'\'') + char_string - sym(b'\'');
+    p.map(|(_,v)|v)
+}
+fn double_quote_attribute_value<'a>() -> Parser<'a, u8, String> {
     let char_string = none_of(b"\"").repeat(0..).convert(String::from_utf8);
+    let p = sym(b'\"') + char_string - sym(b'\"');
+    p.map(|(_,v)|v)
+}
+fn no_quote_attribute_value<'a>() -> Parser<'a, u8, String> {
+    let char_string = none_of(b" >").repeat(0..).convert(String::from_utf8);
+    char_string.map(|v|v)
+}
+fn attribute<'a>() -> Parser<'a, u8, (String,String)> {
+    // let char_string = none_of(b"\"\'").repeat(0..).convert(String::from_utf8);
     let p
         = space()
         + is_a(alpha).repeat(1..)
         - sym(b'=')
         - space()
-        - sym(b'"')
-        + char_string
-        - sym(b'"');
+        + (single_quote_attribute_value() | double_quote_attribute_value() | no_quote_attribute_value())
+    ;
     p.map(|((_,key),value)| (v2s(&key), value))
 }
 fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
@@ -136,17 +149,20 @@ fn standalone_attribute<'a>() -> Parser<'a, u8, (String,String)> {
 }
 
 #[test]
-fn test_attribute_simple() {
-    let input = b"foo=\"bar\"";
-    println!("{:#?}", attribute().parse(input));
-}
-#[test]
-fn test_attribute_complex() {
-    let input = b"foo=\"bar-foo-8\"";
-    println!("{:#?}", attribute().parse(input));
-}
-#[test]
-fn test_attribute_standalone() {
+fn test_attributes() {
+    //standard attribute with double quotes
+    assert_eq!(attribute().parse(b"foo=\"bar\""),
+               Ok((String::from("foo"),String::from("bar"))));
+    //attribute with complex value
+    assert_eq!(attribute().parse(b"foo=\"bar-foo-8\""),
+               Ok((String::from("foo"),String::from("bar-foo-8"))));
+    //attribute with single quotes
+    assert_eq!(attribute().parse(b"foo=\'bar\'"),
+               Ok((String::from("foo"),"bar".to_string())));
+    //attribute with no quotes
+    assert_eq!(attribute().parse(b"foo=bar"),
+               Ok((String::from("foo"),"bar".to_string())));
+
     let input = b"foo=\"bar\" baz";
     println!("{:#?}", attributes().parse(input));
 }
@@ -577,6 +593,35 @@ fn test_simple_doc() {
                             node_type: NodeType::Meta(MetaData{ attributes: atts }),
                             children: vec![]
                         }
+                    ]
+                }
+            ]
+        },
+        base_url: Url::parse("https://www.mozilla.org/").unwrap()
+    }, result.unwrap());
+}
+
+#[test]
+fn test_no_quotes_atts() {
+    let input = br#"<html><foo bar=baz></foo></html>"#;
+    let result = document().parse(input);
+    println!("foo");
+    println!("{:?}", result);
+    let mut atts = HashMap::new();
+    atts.insert("bar".to_string(),"baz".to_string());
+    assert_eq!(Document{
+        root_node: Node {
+            node_type: NodeType::Element(ElementData{
+                tag_name: "html".to_string(),
+                attributes: Default::default()
+            }),
+            children: vec![
+                Node {
+                    node_type: NodeType::Element(ElementData {
+                        tag_name:"foo".to_string(),
+                        attributes: atts,
+                    }),
+                    children: vec![
                     ]
                 }
             ]
