@@ -173,6 +173,7 @@ impl RenderAnonymousBox {
 pub struct RenderLineBox {
     pub(crate) rect:Rect,
     pub(crate) children: Vec<RenderInlineBoxType>,
+    pub(crate) baseline:f32,
 }
 impl RenderLineBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -361,6 +362,7 @@ impl<'a> LayoutBox<'a> {
                     width: dim.content.width,
                     height: 0.0,
                 },
+                baseline:0.0,
                 children: vec![]
             },
             extents: Rect {
@@ -455,7 +457,8 @@ impl<'a> LayoutBox<'a> {
         if looper.current_end + image_size.width > looper.extents.width {
             let old = mem::replace(&mut looper.current,RenderLineBox {
                 rect: Default::default(),
-                children: vec![]
+                children: vec![],
+                baseline:0.0,
             });
             looper.lines.push(old);
             looper.current_start = looper.extents.x;
@@ -535,6 +538,7 @@ impl<'a> LayoutBox<'a> {
                                     width: looper.extents.width,
                                     height: 0.0
                                 },
+                                baseline:0.0,
                                 children: vec![],
                             });
                             looper.lines.push(old);
@@ -577,233 +581,6 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-/*
-    fn layout_anonymous(&mut self, containing:Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
-        let color = self.get_style_node().lookup_color("color", &BLACK);
-        let font_size = self.get_style_node().lookup_length_px("font-size", 18.0);
-        let font_family = self.find_font_family(font_cache);
-        let mut font_weight = self.get_style_node().lookup_font_weight(400.0);
-        //println!("using the font: {}  size: {}  weight: {}",font_family, font_size, font_weight);
-        let mut d = self.dimensions.clone();
-        let line_height = font_size*1.1;
-        d.content.x = containing.content.x;
-        d.content.width = containing.content.width;
-        d.content.y = containing.content.height + containing.content.y;
-        let mut lines:Vec<RenderLineBox> = vec![];
-        let mut y = d.content.y;
-        let mut len = 0.0;
-        let mut line:String = String::new();
-        let mut line_box = RenderLineBox {
-            rect: Rect{
-                x: d.content.x + 1.0,
-                y: 0.0,
-                width: d.content.width - 2.0,
-                height: line_height - 2.0,
-            },
-            children: vec![]
-        };
-        let mut x = d.content.x;
-        //let v2 = self.make_flat_children();
-        let v2 = &self.children;
-        println!("children are {:#?}",v2);
-        for child in v2.iter() {
-            /*
-            to lay out an inline block we need to know the
-                current line box
-                current x extent
-                max length of the line block
-                the child to be laid out
-                any inherited styles
-            then it will
-                make a render box or error box
-                return the box
-            after the block is laid out we need to
-                add the inline box to the line box
-                move the x extent and maybe y extent
-                if the inline box was too long, then we need to finish the current line, start a new line, and add it there.
-
-            to lay out a normal text block we need to know the
-                current line box
-                current x extent
-                max length of the line block
-                the child to be laid out
-                any inherited styles
-            then it will
-                make the longest possible text box without wrapping
-                make more line boxes with more text with recursing
-                return the text boxes and line boxes
-            after the inline is laid out we need to
-                add the text boxes to the line box
-                add any newly created line boxes
-                move the x extent and y extent
-
-
-            do_inline_block_parent extents
-                make lines
-                for child in children
-                    if child is inline-block
-                        do inline block(child, lines, current line box, extents, doc, fonts)
-                        continue
-                    if child is inline
-                        do inline(child, lines, current line box, extents, doc, fonts)
-                        continue
-                add lines to a parent render box
-                return
-
-            do_block(child, lines, current line box, extents, doc, fonts)
-                calculate internal block size
-                load image
-                create image-block-box or error-block-box
-                if too wide
-                    make new current line box
-                    update extents
-                add to current line box
-                return
-
-            do_inline(child, lines, current_line_box, extents, doc, fonts)
-                if child is text
-                    measure text to fit the max width
-                        create text box
-                        add to current line box
-                    if wrap
-                        add new line box to lines
-                        measure more text
-                        create text box
-                        add to current line box
-                if child is element
-                    for ch in child
-                        do_inline(ch, lines, current_line_box, extents)
-                return
-            */
-            if let InlineBlockNode(_styled) = child.box_type {
-                match layout_image(&child, x, y, line_height, doc) {
-                    Ok(blk) => {
-                        x += blk.rect.width;
-                        line_box.children.push(RenderInlineBoxType::Image(blk));
-                    },
-                    Err(blk) => {
-                        x += blk.rect.width;
-                        line_box.children.push(RenderInlineBoxType::Error(blk))
-                    }
-                }
-                continue;
-            }
-            let mut color = color.clone();
-            let mut link:Option<&String> = Option::None;
-            let text = match child.box_type {
-                InlineNode(styled) => {
-                    match &styled.node.node_type {
-                        NodeType::Text(string) => string.clone(),
-                        NodeType::Element(data) => {
-                            // println!("got the styled node {:#?}",styled);
-                            color = styled.lookup_color("color", &color);
-                            font_weight = styled.lookup_font_weight(font_weight);
-                            if data.tag_name == "a" {
-                                link = data.attributes.get("href");
-                            }
-                            if data.tag_name == "img" {
-                                "".to_string()
-                            } else if styled.children.is_empty() {
-                                // println!("WARNING: inline element without a text child {:#?}",child);
-                                "".to_string()
-                            } else {
-                                match &styled.children[0].node.node_type {
-                                    NodeType::Text(string) => string.clone(),
-                                    _ => "".to_string()
-                                }
-                            }
-                        }
-                        _ => {
-                            "".to_string()
-                        }
-                    }
-                }
-                _ => "".to_string()
-            };
-            let text = text.trim();
-            if text.is_empty() { continue; }
-
-            let mut current_line = String::new();
-            // println!("got the text {}", text);
-            for word in text.split_whitespace() {
-                // println!("len is {}", len);
-                let font = font_cache.get_font(&font_family, font_weight);
-                let wlen: f32 = calculate_word_length(word, font, 10.0) / 2048.0 * 18.0;
-                if len + wlen > containing.content.width {
-                    // println!("adding text for wrap -{}- {} : {}", current_line, x, len);
-                    line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
-                        rect: Rect {
-                            x,
-                            y: y + 2.0,
-                            width: len,
-                            height: line_height - 4.0,
-                        },
-                        text: current_line,
-                        color: Some(color.clone()),
-                        font_size,
-                        font_family:font_family.clone(),
-                        font_weight,
-                        link: link.map(String::from),
-                    }));
-
-                    // println!("adding line box");
-                    lines.push(line_box);
-                    line_box = RenderLineBox {
-                        rect: Rect {
-                            x: d.content.x + 2.0,
-                            y: 0.0,
-                            width: 0.0,
-                            height: 0.0
-                        },
-                        children: vec![]
-                    };
-                    len = 0.0;
-                    line = String::new();
-                    current_line = String::new();
-                    d.content.height += line_height;
-                    y += line_height;
-                    x = d.content.x;
-                }
-                len += wlen;
-                line.push_str(word);
-                line.push_str(" ");
-                current_line.push_str(word);
-                current_line.push_str(" ");
-            }
-            // println!("ending text box -{}- at {} : {}",current_line,x,len);
-            line_box.children.push(RenderInlineBoxType::Text(RenderTextBox {
-                rect: Rect {
-                    x,
-                    y: y + 2.0,
-                    width: len,
-                    height: line_height - 4.0,
-                },
-                text: current_line,
-                font_family:font_family.clone(),
-                font_weight,
-                color: Some(color.clone()),
-                font_size,
-                link: link.map(String::from),
-            }));
-            x += len;
-            len = 0.0;
-        }
-
-        lines.push(line_box);
-        d.content.height += line_height;
-        self.dimensions = d;
-
-        RenderAnonymousBox {
-            rect: Rect {
-                x: d.content.x+2.0,
-                y: d.content.y+2.0,
-                width: d.content.width-4.0,
-                height: d.content.height-4.0,
-            },
-            children:lines,
-        }
-    }
-*/
 
     /// Calculate the width of a block-level non-replaced element in normal flow.
     ///
