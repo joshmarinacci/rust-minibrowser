@@ -108,7 +108,7 @@ fn main() -> Result<(),BrowserError>{
     loop {
         let (w,h) = window.get_size();
         if w != prev_w || h != prev_h {
-            println!("resized");
+            println!("resized to {}x{}",w,h);
             dt = DrawTarget::new(w as i32, h as i32);
             viewport.width = w as f32;
             viewport.height = h as f32;

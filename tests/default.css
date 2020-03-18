@@ -66,7 +66,7 @@ blockquote {
 pre {
     white-space: pre;
 }
-span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time, samp, kbd {
+span, a, b, i, em, strong, code, label, u, del, ins, s, sup, sub, small, abbr, q, dfn, mark, var, time, samp, kbd, strike {
     display: inline;
 }
 code {
