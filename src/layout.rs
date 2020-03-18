@@ -458,7 +458,6 @@ impl<'a> LayoutBox<'a> {
             looper.add_box_to_current_line(bx);
         } else {
             looper.current_end += image_size.width;
-            looper.current_start = looper.current_end;
             looper.add_box_to_current_line(bx);
         }
     }
@@ -544,7 +543,6 @@ impl<'a> LayoutBox<'a> {
                         font_style
                     });
                     looper.add_box_to_current_line(bx);
-                    looper.current_start = looper.current_end;
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
@@ -772,6 +770,7 @@ impl Looper<'_> {
         };
         self.current.rect.height = self.current.rect.height.max(rect.height);
         self.current.children.push(bx);
+        self.current_start = self.current_end;
     }
 }
 
