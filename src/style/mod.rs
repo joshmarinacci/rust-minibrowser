@@ -1,10 +1,10 @@
-use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring};
+use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring, strip_empty_nodes};
 use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration};
 use std::collections::HashMap;
 use crate::css::Selector::Simple;
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
-use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
+use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, load_stylesheets_with_fallback};
 use std::fs::File;
 use std::io::Read;
 use std::io::BufReader;
@@ -328,6 +328,27 @@ fn test_em_to_px() {
 
     //check html element
     assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
+}
+
+#[test]
+fn test_vertical_align() {
+    let doc_text = br#"<html>
+    <style type="text/css">
+        .top {
+            vertical-align: top;
+        }
+    </style>
+    <div class="top">top</div>
+    </html>"#;
+    let mut doc = load_doc_from_bytestring(doc_text);
+    strip_empty_nodes(&mut doc);
+    let stylesheet = load_stylesheets_with_fallback(&doc).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+    let div = &snode.children[1];
+    let text = &div.children[0];
+    println!("specified values are {:#?}",text.value("color"));
+    assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
 }
 
 #[test]

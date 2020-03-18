@@ -205,7 +205,7 @@ fn selector<'a>() -> Parser<'a, u8, Selector>{
             Selector::Simple(SimpleSelector {
                 tag_name: None,
                 id: None,
-                class: vec![name]
+                class: vec![name[1..].to_string()]
             })
         } else {
             Selector::Simple(SimpleSelector {
@@ -249,7 +249,7 @@ fn test_class_selector() {
     assert_eq!(Selector::Simple(SimpleSelector{
         tag_name:None,
         id: None,
-        class: vec![".cool".to_string()],
+        class: vec!["cool".to_string()],
     }), result.unwrap())
 }
 
@@ -611,7 +611,7 @@ fn test_file_load() {
                     Selector::Simple(SimpleSelector{
                         tag_name: None,
                         id: None,
-                        class: vec![String::from(".cool")]
+                        class: vec![String::from("cool")]
                     })
                 ],
                 declarations: vec![
