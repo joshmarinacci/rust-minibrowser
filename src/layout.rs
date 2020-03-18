@@ -455,14 +455,7 @@ impl<'a> LayoutBox<'a> {
             }
         };
         if looper.current_end + image_size.width > looper.extents.width {
-            let old = mem::replace(&mut looper.current,RenderLineBox {
-                rect: Default::default(),
-                children: vec![],
-                baseline:0.0,
-            });
-            looper.lines.push(old);
-            looper.current_start = looper.extents.x;
-            looper.current_end = looper.extents.x;
+            looper.start_new_line();
             looper.extents.y += image_size.height;
             looper.current.children.push(bx);
         } else {
@@ -531,19 +524,7 @@ impl<'a> LayoutBox<'a> {
                             curr_text.push_str(" ");
                             looper.current_bottom += looper.current.rect.height;
                             looper.extents.height += looper.current.rect.height;
-                            let old = mem::replace(&mut looper.current, RenderLineBox {
-                                rect: Rect{
-                                    x: looper.extents.x,
-                                    y: looper.current_bottom,
-                                    width: looper.extents.width,
-                                    height: 0.0
-                                },
-                                baseline:0.0,
-                                children: vec![],
-                            });
-                            looper.lines.push(old);
-                            looper.current_start = looper.extents.x;
-                            looper.current_end = looper.extents.x;
+                            looper.start_new_line();
                             looper.current_end += w;
                         } else {
                             looper.current_end += w;
@@ -770,6 +751,24 @@ struct Looper<'a> {
     current_bottom:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
+}
+
+impl Looper<'_> {
+    fn start_new_line(&mut self) {
+        let old = mem::replace(&mut self.current, RenderLineBox {
+            rect: Rect{
+                x: self.extents.x,
+                y: self.current_bottom,
+                width: self.extents.width,
+                height: 0.0
+            },
+            baseline:0.0,
+            children: vec![],
+        });
+        self.lines.push(old);
+        self.current_start = self.extents.x;
+        self.current_end = self.extents.x;
+    }
 }
 
 
