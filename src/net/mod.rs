@@ -51,7 +51,7 @@ pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserErr
 
 pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,BrowserError> {
     let style_node = getElementsByTagName(&doc.root_node, "style");
-    let default_stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css")?)?;
+    let ss1 = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css")?)?;
     println!("loading {:#?}", getElementsByTagName(&doc.root_node,"link"));
     let linked = getElementsByTagName(&doc.root_node, "link");
 
@@ -70,28 +70,31 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
     if let Some(node) = style_node {
         if node.children.len() > 0 {
             if let NodeType::Text(text) = &node.children[0].node_type {
-                let mut ss = parse_stylesheet(text)?;
-                println!("parsed inline styles {:#?}",ss);
-                for rule in ss.rules.iter() {
+                let mut ss2 = parse_stylesheet(text)?;
+                // println!("parsed inline styles {:#?}", ss2);
+                ss2.parent = Some(Box::new(ss1));
+                for rule in ss2.rules.iter() {
                     if let RuleType::AtRule(ar) = rule {
                         if ar.name == "import" {
                             println!("got an import ");
                             if let Some(Value::FunCall(fcv)) = &ar.value {
-                                println!("the url is {:#?}", fcv.arguments);
+                                // println!("the url is {:#?}", fcv.arguments);
                                 if let Value::StringLiteral(str) = &fcv.arguments[0] {
-                                    let ss3 = load_stylesheet_from_net(&Url::parse(str).unwrap());
-                                    println!("got the resulting stylesheet {:#?}", ss3);
+                                    let mut ss3 = load_stylesheet_from_net(&Url::parse(str).unwrap())?;
+                                    // println!("got the resulting stylesheet {:#?}", ss3);
+                                    println!("parsed the remote stylesheet {:#?}", fcv.arguments);
+                                    //ss2.parent = Some(Box::new(ss3));
+                                    // return Ok(ss2);
                                 }
                             }
                         }
                     }
                 }
-                ss.parent = Some(Box::new(default_stylesheet));
-                return Ok(ss);
+                return Ok(ss2);
             }
         }
     }
-    Ok(default_stylesheet)
+    Ok(ss1)
 }
 
 pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
