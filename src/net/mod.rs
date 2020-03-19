@@ -1,5 +1,5 @@
 use crate::dom::{load_doc_from_buffer, getElementsByTagName, NodeType, Document, load_doc};
-use crate::css::{parse_stylesheet, Stylesheet, parse_stylesheet_from_buffer};
+use crate::css::{parse_stylesheet, Stylesheet, parse_stylesheet_from_buffer, RuleType, Value};
 use crate::style::style_tree;
 use crate::image::{load_image_from_buffer, LoadedImage, load_image_from_filepath};
 use image::ImageError;
@@ -9,6 +9,7 @@ use std::io::{Error, Read};
 use url::{Url, ParseError};
 use std::fs::File;
 use crate::dom::NodeType::Element;
+use crate::css::Value::FunCall;
 
 #[derive(Debug)]
 pub enum BrowserError {
@@ -70,6 +71,21 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
         if node.children.len() > 0 {
             if let NodeType::Text(text) = &node.children[0].node_type {
                 let mut ss = parse_stylesheet(text)?;
+                println!("parsed inline styles {:#?}",ss);
+                for rule in ss.rules.iter() {
+                    if let RuleType::AtRule(ar) = rule {
+                        if ar.name == "import" {
+                            println!("got an import ");
+                            if let Some(Value::FunCall(fcv)) = &ar.value {
+                                println!("the url is {:#?}", fcv.arguments);
+                                if let Value::StringLiteral(str) = &fcv.arguments[0] {
+                                    let ss3 = load_stylesheet_from_net(&Url::parse(str).unwrap());
+                                    println!("got the resulting stylesheet {:#?}", ss3);
+                                }
+                            }
+                        }
+                    }
+                }
                 ss.parent = Some(Box::new(default_stylesheet));
                 return Ok(ss);
             }

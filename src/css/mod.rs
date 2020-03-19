@@ -152,6 +152,9 @@ fn string<'a>() -> Parser<'a, u8, String> {
     let string = sym(b'"') * (none_of(b"\\\"") | escape_sequence).repeat(0..) - sym(b'"');
     string.convert(String::from_utf8)
 }
+fn single_quote_string<'a>() -> Parser<'a, u8, String> {
+    (sym(b'\'') * none_of(b"'").repeat(0..) - sym(b'\'')).map(|v|v2s(&v))
+}
 
 fn v2s(v:&Vec<u8>) -> String {
     str::from_utf8(v).unwrap().to_string()
@@ -184,7 +187,7 @@ fn class_string<'a>() -> Parser<'a,u8,String> {
 
 
 fn string_literal<'a>() -> Parser<'a, u8, Value> {
-    string().map(StringLiteral)
+    (single_quote_string() | string()).map(StringLiteral)
 }
 
 #[test]
@@ -437,6 +440,14 @@ fn test_keyword_dash() {
     println!("{:?}", result);
     assert_eq!( Value::Keyword("inline-block".to_lowercase()), result.unwrap());
 }
+
+fn url<'a>() -> Parser<'a, u8, Value> {
+    let p = none_of(b")>").repeat(1..);
+    p.map(|s|{
+        Value::StringLiteral(v2s(&s))
+    })
+}
+
 fn one_value<'a>() -> Parser<'a, u8, Value> {
     funcall() | hexcolor() | length_unit() | keyword() | string_literal() | simple_number()
 }
@@ -533,7 +544,7 @@ fn test_rule() {
     println!("{:#?}",rule().parse(input))
 }
 fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
-    (rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
+    (rule() | import_rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
         rules,
         parent: None,
         base_url: Url::parse("https://www.mozilla.com/").unwrap()
@@ -638,6 +649,69 @@ fn test_tufte_rules() {
 
 }
 
+fn import_rule<'a>() -> Parser<'a, u8, RuleType> {
+    let p =
+            - space()
+            - sym(b'@')
+            + identifier()
+            - space()
+            - seq(b"url")
+            - sym(b'(')
+            + url()
+            - sym(b')')
+            - sym(b';')
+        ;
+    p.map(|( (a,name), url)| {
+        RuleType::AtRule(AtRule {
+            name,
+            value: Some(Value::FunCall(FunCallValue{
+                name: String::from("url"),
+                arguments: vec![url]
+            })),
+            rules: vec![]
+        })
+    })
+}
+
+
+#[test]
+fn test_import_rule() {
+    let input = br#"http://fonts.googleapis.com/css?family=Lato"#;
+    println!("{:#?}", url().parse(input));
+    // let input = br#"url(http://fonts.googleapis.com/css?family=Lato)"#;
+    // println!("{:#?}", funcall().parse(input));
+    let input = br#"@import url(http://fonts.googleapis.com/css?family=Lato);"#;
+
+    assert_eq!(import_rule().parse(input),Ok(RuleType::AtRule(AtRule{
+        name: "import".to_string(),
+        value: Some(Value::FunCall(FunCallValue{
+            name: "url".to_string(),
+            arguments: vec![Value::StringLiteral(String::from("http://fonts.googleapis.com/css?family=Lato"))]
+        })),
+        rules: vec![]
+    })));
+
+    let ss = stylesheet().parse(input);
+    println!("{:#?}",ss);
+
+    assert_eq!(stylesheet().parse(input),Ok(
+        Stylesheet{
+            rules: vec![
+                RuleType::AtRule(AtRule{
+                    name: "import".to_string(),
+                    value: Some(Value::FunCall(FunCallValue{
+                        name: "url".to_string(),
+                        arguments: vec![Value::StringLiteral(String::from("http://fonts.googleapis.com/css?family=Lato"))]
+                    })),
+                    rules: vec![]
+                })
+            ],
+            parent: None,
+            base_url: Url::parse("https://www.mozilla.com/").unwrap()
+        }
+    ));
+}
+
 
 //https://developer.mozilla.org/en-US/docs/Web/CSS/At-rule
 fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
@@ -702,13 +776,13 @@ fn test_fontface() {
                declaration().parse(br#"src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");"#));
 
     let mut input = br#"@font-face {
-    font-family: "et-book";
-    src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-"#;
+                font-family: "et-book";
+                src: url("et-book/et-book-roman-line-figures/et-book-roman-line-figures.eot");
+                font-weight: normal;
+                font-style: normal;
+                font-display: swap;
+            }
+            "#;
     let result = stylesheet().parse(input.as_ref());
     println!("{:?}", result);
     assert_eq!(Ok(Stylesheet {
@@ -922,3 +996,26 @@ fn test_font_weight() {
     );
 }
 
+#[test]
+fn test_gfonts() {
+    let input = br#"
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Lato Regular'), local('Lato-Regular'), url(https://fonts.gstatic.com/s/lato/v16/S6uyw4BMUTPHjxAwXiWtFCfQ7A.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Lato Regular'), local('Lato-Regular'), url(https://fonts.gstatic.com/s/lato/v16/S6uyw4BMUTPHjx4wXiWtFCc.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+"#;
+
+    println!("{:#?}",stylesheet().parse(input));
+}
