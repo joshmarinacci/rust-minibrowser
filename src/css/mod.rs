@@ -2,12 +2,12 @@ extern crate pom;
 use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
 use pom::char_class::alpha;
 use std::str::{self, FromStr};
-use self::pom::char_class::alphanum;
+use self::pom::char_class::{alphanum, hex_digit};
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral};
-use self::pom::parser::{list, call};
+use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral, UnicodeRange, UnicodeCodepoint};
+use self::pom::parser::{list, call, take};
 use url::Url;
 
 
@@ -20,7 +20,8 @@ pub struct Stylesheet {
 #[derive(Debug, PartialEq)]
 pub enum RuleType {
     Rule(Rule),
-    AtRule(AtRule)
+    AtRule(AtRule),
+    Comment(String),
 }
 #[derive(Debug, PartialEq)]
 pub struct Rule {
@@ -60,6 +61,8 @@ pub enum Value {
     ArrayValue(Vec<Value>),
     FunCall(FunCallValue),
     StringLiteral(String),
+    UnicodeCodepoint(i32),
+    UnicodeRange(i32,i32),
     Number(f32),
 }
 
@@ -324,7 +327,7 @@ fn funarg<'a>() -> Parser<'a, u8, Value> {
     string_literal() | hexcolor() | length_unit() | keyword()
 }
 
-fn funcall<'a>() -> Parser<'a, u8, Value> {
+fn normal_funcall<'a>() -> Parser<'a, u8, Value> {
     let p
         = space()
         + identifier()
@@ -338,6 +341,38 @@ fn funcall<'a>() -> Parser<'a, u8, Value> {
         name,
         arguments
     }))
+}
+//format('woff2')
+fn format_follower<'a>() -> Parser<'a, u8, Value> {
+    let p = seq(b"format")
+        - sym(b'(')
+        + (string_literal() | url())
+        - sym(b')');
+    p.map(|(a,b)|Value::FunCall(FunCallValue{
+        name: "format".to_string(),
+        arguments: vec![b]
+    }))
+}
+fn url_funcall<'a>() -> Parser<'a, u8, Value> {
+    let p
+        = space()
+        - seq(b"url")
+        - space()
+        - sym(b'(')
+        + (string_literal() | url())
+        - sym(b')')
+        - space()
+        + format_follower().opt()
+        ;
+    p.map(|((a,url),format)| Value::FunCall(FunCallValue{
+        name: "url".to_string(),
+        arguments: vec![url]
+    }))
+
+}
+
+fn funcall<'a>() -> Parser<'a, u8, Value> {
+    url_funcall() | normal_funcall()
 }
 
 #[test]
@@ -384,6 +419,42 @@ fn test_funcall_value() {
                        arguments: vec![
                            Value::HexColor(String::from("#fffff8")),
                            Value::HexColor(String::from("#fffff8")),
+                       ],
+                   })
+               }
+               ));
+    //check url with double quotes
+    assert_eq!(declaration().parse(br#"foo:url("https://www.google.com/");"#),
+               Ok(Declaration {
+                   name: String::from("foo"),
+                   value:Value::FunCall(FunCallValue{
+                       name: String::from("url"),
+                       arguments: vec![
+                           Value::StringLiteral(String::from("https://www.google.com/")),
+                       ],
+                   })
+               }
+               ));
+    //check url with single quotes
+    assert_eq!(declaration().parse(br"foo:url('https://www.google.com/');"),
+               Ok(Declaration {
+                   name: String::from("foo"),
+                   value:Value::FunCall(FunCallValue{
+                       name: String::from("url"),
+                       arguments: vec![
+                           Value::StringLiteral(String::from("https://www.google.com/")),
+                       ],
+                   })
+               }
+               ));
+    //check url with no quotes
+    assert_eq!(declaration().parse(br"foo:url(https://www.google.com/);"),
+               Ok(Declaration {
+                   name: String::from("foo"),
+                   value:Value::FunCall(FunCallValue{
+                       name: String::from("url"),
+                       arguments: vec![
+                           Value::StringLiteral(String::from("https://www.google.com/")),
                        ],
                    })
                }
@@ -448,8 +519,34 @@ fn url<'a>() -> Parser<'a, u8, Value> {
     })
 }
 
+fn hex4<'a>() -> Parser<'a,u8,i32> {
+    one_of(b"0123456789ABCDEFabcdef").repeat(4).map(|c| i32::from_str_radix(&v2s(&c),16).unwrap())
+}
+
+fn unicode_codepoint<'a>() -> Parser<'a, u8, Value> {
+    // U+0100
+    (space() * seq(b"U+") * hex4()).map(|c|Value::UnicodeCodepoint(c))
+    // let n = i32::from_str_radix(&str[1..], 16).unwrap();
+
+}
+#[test]
+fn test_unicode_codepoint() {
+    assert_eq!(one_value().parse(b"U+0100"),Ok(Value::UnicodeCodepoint(0x100)));
+    assert_eq!(one_value().parse(b" U+0100"),Ok(Value::UnicodeCodepoint(0x100)));
+}
+
+fn unicode_range<'a>() -> Parser<'a, u8, Value> {
+    // U+0100-024F
+    (space() - seq(b"U+") + hex4() - sym(b'-')+hex4()).map(|((_,a),b)|Value::UnicodeRange(a,b))
+}
+#[test]
+fn test_unicode_range() {
+    assert_eq!(one_value().parse(b"U+0100-024F"),Ok(Value::UnicodeRange(0x100, 0x24f)));
+}
+
+
 fn one_value<'a>() -> Parser<'a, u8, Value> {
-    funcall() | hexcolor() | length_unit() | keyword() | string_literal() | simple_number()
+    unicode_range() | unicode_codepoint() | funcall() | hexcolor() | length_unit() | keyword() | string_literal() | simple_number()
 }
 
 fn list_array_value<'a>() -> Parser<'a, u8, Value> {
@@ -538,13 +635,34 @@ fn rule<'a>() -> Parser<'a, u8, RuleType> {
     }))
 }
 
+fn comment<'a>() -> Parser<'a, u8, RuleType> {
+    let p
+        =
+        space()
+        - seq(b"/*")
+        + (!seq(b"*/") * take(1)).repeat(0..)
+        + seq(b"*/");
+    p.map(|((a,c),b)| {
+        let mut s:Vec<u8> = Vec::new();
+        for cc in c {
+            s.push(cc[0]);
+        }
+        RuleType::Comment(v2s(&s))
+    })
+}
+#[test]
+fn test_comment() {
+    let input = b"/* a cool comment */";
+    println!("{:#?}",comment().parse(input))
+}
+
 #[test]
 fn test_rule() {
     let input = b"div { border-width:1px; }";
     println!("{:#?}",rule().parse(input))
 }
 fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
-    (rule() | import_rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
+    (comment() | rule() | import_rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
         rules,
         parent: None,
         base_url: Url::parse("https://www.mozilla.com/").unwrap()
@@ -994,6 +1112,12 @@ fn test_font_weight() {
             value: Value::Number(400.0),
         }),
     );
+}
+
+#[test]
+fn test_list() {
+    let input = b"U+0100-024F, U+0259";
+    assert_eq!(list_array_value().parse(input),Ok(Value::ArrayValue(vec![UnicodeRange(0x0100,0x024f),UnicodeCodepoint(0x0259)])))
 }
 
 #[test]
