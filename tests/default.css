@@ -110,7 +110,7 @@ fieldset {
 input, select, button {
 }
 button {
-    display: block;
+    display: inline-block;
     border-width: 1px;
     border-color: blue;
     background-color: lightcyan;

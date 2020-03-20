@@ -1,6 +1,6 @@
 use font_kit::font::Font;
 
-use crate::dom::{NodeType, Document};
+use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, style_tree};
 use crate::css::{Color, Unit, Value};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
@@ -130,6 +130,7 @@ pub struct RenderBlockBox {
     pub background_color: Option<Color>,
     pub border_color: Option<Color>,
     pub border_width: f32,
+    pub valign:String,
     pub children: Vec<RenderBox>,
 }
 
@@ -194,6 +195,7 @@ impl RenderLineBox {
 pub enum RenderInlineBoxType {
     Text(RenderTextBox),
     Image(RenderImageBox),
+    Block(RenderBlockBox),
     Error(RenderErrorBox),
 }
 
@@ -312,6 +314,7 @@ impl<'a> LayoutBox<'a> {
             background_color: self.get_style_node().color("background-color"),
             border_width: self.get_style_node().insets("border-width"),
             border_color: self.get_style_node().color("border-color"),
+            valign: String::from("baseline"),
         }
     }
 
@@ -378,13 +381,14 @@ impl<'a> LayoutBox<'a> {
             current_bottom: dim.content.y + dim.content.height,
             font_cache,
             doc,
+            style_node:self.get_style_node(),
         };
-        for child in self.children.iter() {
+        for child in self.children.iter_mut() {
             // println!("working on child {:#?}", child.get_type());
             // println!("current start and end is {} {} ",looper.current_start, looper.current_end);
             match child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
-                InlineNode(_styled) => child.do_inline(&mut looper, &self),
+                InlineNode(_styled) => child.do_inline(&mut looper),
                 _ => println!("cant do this child of an anonymous box"),
             }
             // println!("and now after it is {} {}", looper.current_start, looper.current_end)
@@ -409,25 +413,66 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline_block(&self, looper:&mut Looper) {
+    fn do_inline_block(&mut self, looper:&mut Looper) {
         let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
         let mut src = String::from("");
         // let w = 100.0;
         if let InlineBlockNode(styled) = self.box_type {
             if let Element(data) = &styled.node.node_type {
-                let width = if data.attributes.contains_key("width") {
-                    data.attributes.get("width").unwrap().parse::<u32>().unwrap()
-                } else {
-                    100
-                };
-                image_size.width = width as f32;
-                let height = if data.attributes.contains_key("height") {
-                    data.attributes.get("height").unwrap().parse::<u32>().unwrap()
-                } else {
-                    100
-                };
-                image_size.height = height as f32;
-                src = data.attributes.get("src").unwrap().clone();
+                match data.tag_name.as_str() {
+                    "img" => {
+                        let width = if data.attributes.contains_key("width") {
+                            data.attributes.get("width").unwrap().parse::<u32>().unwrap()
+                        } else {
+                            100
+                        };
+                        image_size.width = width as f32;
+                        let height = if data.attributes.contains_key("height") {
+                            data.attributes.get("height").unwrap().parse::<u32>().unwrap()
+                        } else {
+                            100
+                        };
+                        image_size.height = height as f32;
+                        src = data.attributes.get("src").unwrap().clone();
+                    },
+                    "button" => {
+                        let font_family = self.find_font_family(looper.font_cache);
+                        let font_weight = self.get_style_node().lookup_font_weight(400.0);
+                        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
+                        let font_style = self.get_style_node().lookup_string("font-style", "normal");
+                        println!("button font size is {}",font_size);
+                        let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
+                        let text_node = styled.children[0].node;
+                        let text = match &text_node.node_type {
+                            NodeType::Text(str) => str,
+                            _ => panic!("can't do inline block layout if child isn't text"),
+                        };
+                        let w: f32 = calculate_word_length(text, font, font_size);
+                        println!("calculated width is {}",w);
+                        looper.current_end += w;
+                        let mut containing_block = Dimensions {
+                            content: Rect {
+                                x: 0.0,
+                                y: 0.0,
+                                width: 50.0,
+                                height: 0.0,
+                            },
+                            padding: Default::default(),
+                            border: Default::default(),
+                            margin: Default::default()
+                        };
+                        let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
+                        block.rect.x = looper.current_start;
+                        block.rect.y = looper.current.rect.y;
+                        block.valign = self.get_style_node().lookup_string("vertical-align","baseline");
+                        let rbx = RenderInlineBoxType::Block(block);
+                        looper.add_box_to_current_line(rbx);
+                        return;
+                    },
+                    _ => {
+                        panic!("We don't handle inline-block on non-images yet: tag_name={}",data.tag_name);
+                    },
+                }
             }
         }
 
@@ -468,8 +513,8 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline(&self, looper:&mut Looper, parent:&LayoutBox) {
-        let link:Option<String> = match &parent.get_style_node().node.node_type {
+    fn do_inline(&self, looper:&mut Looper) {
+        let link:Option<String> = match &looper.style_node.node.node_type {
             Text(_) => None,
             NodeType::Comment(_) => None,
             NodeType::Cdata(_) => None,
@@ -485,14 +530,14 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
-                    let font_family = parent.find_font_family(looper.font_cache);
-                    let font_weight = parent.get_style_node().lookup_font_weight(400.0);
-                    let font_size = parent.get_style_node().lookup_length_px("font-size", 10.0);
-                    let font_style = parent.get_style_node().lookup_string("font-style", "normal");
-                    let vertical_align = parent.get_style_node().lookup_string("vertical-align","baseline");
+                    let font_family = self.find_font_family(looper.font_cache);
+                    let font_weight = looper.style_node.lookup_font_weight(400.0);
+                    let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+                    let font_style = looper.style_node.lookup_string("font-style", "normal");
+                    let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
                     let line_height = font_size*1.1;
-                    let line_height = parent.get_style_node().lookup_length_px("line-height", line_height);
-                    let color = parent.get_style_node().lookup_color("color", &BLACK);
+                    let line_height = looper.style_node.lookup_length_px("line-height", line_height);
+                    let color = looper.style_node.lookup_color("color", &BLACK);
                     // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
                     // println!("node={:#?}",self.get_style_node());
                     // println!("parent={:#?}", parent.get_style_node());
@@ -558,7 +603,7 @@ impl<'a> LayoutBox<'a> {
                 //     if child is element
                 NodeType::Element(_ed) => {
                     for ch in self.children.iter() {
-                        ch.do_inline(looper, &self);
+                        ch.do_inline(looper);
                     }
                 }
                 _ => {}
@@ -711,6 +756,7 @@ struct Looper<'a> {
     current_bottom:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
+    style_node: &'a StyledNode<'a>,
 }
 
 impl Looper<'_> {
@@ -734,6 +780,7 @@ impl Looper<'_> {
             RenderInlineBoxType::Text(bx) => &bx.rect,
             RenderInlineBoxType::Error(bx) => &bx.rect,
             RenderInlineBoxType::Image(bx) => &bx.rect,
+            RenderInlineBoxType::Block(bx) => &bx.rect,
         };
         self.current.rect.height = self.current.rect.height.max(rect.height);
         self.current.children.push(bx);
@@ -742,9 +789,10 @@ impl Looper<'_> {
     fn adjust_current_line_vertical(&mut self) {
         for ch in self.current.children.iter_mut() {
             let (mut rect,mut string) =  match ch {
-                RenderInlineBoxType::Text(bx) => (&mut bx.rect,&bx.valign),
-                RenderInlineBoxType::Error(bx) => (&mut bx.rect,&bx.valign),
+                RenderInlineBoxType::Text(bx)    => (&mut bx.rect,&bx.valign),
+                RenderInlineBoxType::Error(bx)  => (&mut bx.rect,&bx.valign),
                 RenderInlineBoxType::Image(bx) => (&mut bx.rect,&bx.valign),
+                RenderInlineBoxType::Block(bx)  => (&mut bx.rect,&bx.valign),
             };
             match string.as_str() {
                 "bottom" => {
@@ -809,3 +857,32 @@ fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
     iter.fold(0., |a, b| a + b)
 }
 
+#[test]
+fn test_inline_block_element_layout() {
+    let mut font_cache = FontCache::new();
+    font_cache.install_font("sans-serif",400.0, "normal",
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font("sans-serif", 700.0, "normal",
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
+
+    let doc = load_doc_from_bytestring(b"<html><body><div><button>foofoo</button></div></body></html>");
+    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
+    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
+    font_cache.scan_for_fontface_rules(&stylesheet);
+    let snode = style_tree(&doc.root_node,&stylesheet);
+    let mut root_box = build_layout_tree(&snode, &doc);
+    let mut containing_block = Dimensions {
+        content: Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 200.0,
+            height: 0.0,
+        },
+        padding: Default::default(),
+        border: Default::default(),
+        margin: Default::default()
+    };
+    // println!("roob box is {:#?}",root_box);
+    println!(" ======== layout phase ========");
+    let render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
+}
