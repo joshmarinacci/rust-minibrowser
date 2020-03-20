@@ -638,9 +638,11 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn length_to_px(&self, value:&Value) -> f32{
+        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
         match value {
             Length(v, Unit::Px) => *v,
-            Length(v, Unit::Em) => (*v)*30.0,
+            Length(v, Unit::Em) => (*v)*font_size,
+            Length(v, Unit::Rem) => (*v)*font_size,
             _ => {0.0}
         }
     }
@@ -683,8 +685,8 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn calculate_block_height(&mut self) {
-        if let Some(Length(h, Px)) = self.get_style_node().value("height") {
-            self.dimensions.content.height = h;
+        if let Some(val) = self.get_style_node().value("height") {
+            self.dimensions.content.height = self.length_to_px(&val);
         }
     }
 
