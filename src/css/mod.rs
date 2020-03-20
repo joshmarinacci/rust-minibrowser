@@ -9,6 +9,7 @@ use crate::net::BrowserError;
 use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral, UnicodeRange, UnicodeCodepoint};
 use self::pom::parser::{list, call, take};
 use url::Url;
+use crate::css::RuleType::Comment;
 
 
 #[derive(Debug, PartialEq)]
@@ -142,8 +143,8 @@ fn test_float() {
 fn number<'a>() -> Parser<'a, u8, f64> {
     let integer = one_of(b"123456789") - one_of(b"0123456789").repeat(0..) | sym(b'0');
     let frac = sym(b'.') + one_of(b"0123456789").repeat(1..);
-    let exp = one_of(b"eE") + one_of(b"+-").opt() + one_of(b"0123456789").repeat(1..);
-    let number = sym(b'-').opt() + integer + frac.opt() + exp.opt();
+    // let exp = one_of(b"eE") + one_of(b"+-").opt() + one_of(b"0123456789").repeat(1..);
+    let number = sym(b'-').opt() + integer.opt() + frac.opt();// + exp.opt();
     number.collect().convert(str::from_utf8).convert(|s|f64::from_str(&s))
 }
 
@@ -306,8 +307,8 @@ fn unit<'a>() -> Parser<'a, u8, Unit> {
 }
 #[test]
 fn test_unit() {
-    let input = br"px";
-    println!("{:?}",unit().parse(input))
+    assert_eq!(unit().parse(b"px"),Ok(Unit::Px));
+    assert_eq!(unit().parse(b"em"),Ok(Unit::Em));
 }
 
 fn length_unit<'a>() -> Parser<'a, u8, Value> {
@@ -321,6 +322,8 @@ fn length_unit<'a>() -> Parser<'a, u8, Value> {
 fn test_length_units() {
     assert_eq!(length_unit().parse(br"3px"), Ok(Length(3.0,Unit::Px)));
     assert_eq!(length_unit().parse(br"3em"), Ok(Length(3.0,Unit::Em)));
+    assert_eq!(length_unit().parse(br"0.3em"), Ok(Length(0.3,Unit::Em)));
+    assert_eq!(length_unit().parse(br".3em"), Ok(Length(0.3,Unit::Em)));
 }
 
 fn funarg<'a>() -> Parser<'a, u8, Value> {
@@ -567,12 +570,40 @@ fn array_value_2<'a>() -> Parser<'a, u8, Value> {
     })
 }
 
+fn array_value_3<'a>() -> Parser<'a, u8, Value> {
+    let t = one_value() - space() + one_value() - space() + one_value();
+    t.map(|((v1,v2),v3)|{
+        Value::ArrayValue(vec![v1,v2,v3])
+    })
+}
+
 fn array_value_4<'a>() -> Parser<'a, u8, Value> {
     let t = one_value() - space() + one_value() - space() + one_value() - space() + one_value();
     t.map(|(((v1,v2),v3),v4)|{
         Value::ArrayValue(vec![v1,v2,v3,v4])
     })
 }
+#[test]
+fn test_list_array_values() {
+    assert_eq!(array_value_2().parse(b"3px 4px"),
+               Ok(Value::ArrayValue(vec![Value::Length(3.0,Unit::Px), Value::Length(4.0,Unit::Px)])));
+    assert_eq!(array_value_2().parse(b"3em 4.0rem"),
+               Ok(Value::ArrayValue(vec![Value::Length(3.0,Unit::Em), Value::Length(4.0,Unit::Rem)])));
+    assert_eq!(array_value_2().parse(b"0.3em 0.4rem"),
+               Ok(Value::ArrayValue(vec![Value::Length(0.3,Unit::Em), Value::Length(0.4,Unit::Rem)])));
+    assert_eq!(array_value_2().parse(b".3em 0.4rem"),
+               Ok(Value::ArrayValue(vec![Value::Length(0.3,Unit::Em), Value::Length(0.4,Unit::Rem)])));
+    assert_eq!(array_value_3().parse(b"1px solid black"),
+               Ok(Value::ArrayValue(vec![Value::Length(1.0,Unit::Px),
+                                         Value::Keyword(String::from("solid")),
+                                         Value::Keyword(String::from("black"))])));
+    assert_eq!(array_value_3().parse(b"1px solid #cccccc"),
+               Ok(Value::ArrayValue(vec![Value::Length(1.0,Unit::Px),
+                                         Value::Keyword(String::from("solid")),
+                                         Value::HexColor(String::from("#cccccc"))])));
+    /*border: 1px solid #cccccc;*/
+}
+
 
 fn value<'a>() -> Parser<'a, u8, Value> {
     call(array_value_4) | call(array_value_2) |
@@ -626,7 +657,9 @@ fn rule<'a>() -> Parser<'a, u8, RuleType> {
     let r
         = list(selector(),sym(b','))
         - ws_sym(b'{')
+        - comment().opt()
         + declaration().repeat(0..)
+        - comment().opt()
         - ws_sym(b'}')
         ;
     r.map(|(sel, declarations)| RuleType::Rule(Rule {
@@ -652,8 +685,8 @@ fn comment<'a>() -> Parser<'a, u8, RuleType> {
 }
 #[test]
 fn test_comment() {
-    let input = b"/* a cool comment */";
-    println!("{:#?}",comment().parse(input))
+    assert_eq!(comment().parse(b"/* a cool comment */"),
+               Ok(Comment(String::from(" a cool comment "))));
 }
 
 #[test]
@@ -993,6 +1026,7 @@ fn test_not_pseudo_selector() {
     let input = br"li:not(:first-child) { foo: bar; }";
 }
 
+
 #[test]
 fn test_four_part_margin() {
     println!("parsed {:#?}", value().parse(b"1px 2px 3px 4px"));
@@ -1007,6 +1041,17 @@ fn test_four_part_margin() {
         ])
     };
     assert_eq!(answer, declaration().parse(b"margin: 1px 2px 3px 4px;").unwrap());
+    println!("parsed {:#?}", declaration().parse(b"margin: 1px 2px 3px 4em;"));
+    let answer = Declaration {
+        name: String::from("margin"),
+        value: Value::ArrayValue(vec![
+            Length(1.0,Unit::Px),
+            Length(2.0,Unit::Px),
+            Length(3.0,Unit::Px),
+            Length(4.0,Unit::Em),
+        ])
+    };
+    assert_eq!(answer, declaration().parse(b"margin: 1px 2px 3px 4em;").unwrap());
 }
 #[test]
 fn test_two_part_margin() {
