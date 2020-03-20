@@ -47,7 +47,7 @@ pub struct SimpleSelector {
     pub id: Option<String>,
     pub class: Vec<String>,
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Declaration {
     pub(crate) name: String,
     pub(crate) value: Value,

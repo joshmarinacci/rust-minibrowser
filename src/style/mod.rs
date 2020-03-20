@@ -392,3 +392,154 @@ fn test_multi_selector_match() {
                &Keyword(String::from("red")));
 
 }
+
+fn expand_array_decl(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
+    match &dec.value {
+        Value::ArrayValue(arr) => {
+            if arr.len() == 2 {
+                new_decs.push(Declaration {
+                    name: format!("{}-top",dec.name),
+                    value: arr[0].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-right",dec.name),
+                    value: arr[1].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-bottom",dec.name),
+                    value: arr[0].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-left",dec.name),
+                    value: arr[1].clone()
+                });
+            }
+            if arr.len() == 4 {
+                new_decs.push(Declaration {
+                    name: format!("{}-top",dec.name),
+                    value: arr[0].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-right",dec.name),
+                    value: arr[1].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-bottom",dec.name),
+                    value: arr[2].clone()
+                });
+                new_decs.push(Declaration {
+                    name: format!("{}-left",dec.name),
+                    value: arr[3].clone()
+                });
+            }
+        }
+        Value::Length(_, _) => {
+            new_decs.push(Declaration {
+                name: format!("{}-top",dec.name),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration {
+                name: format!("{}-right",dec.name),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration {
+                name: format!("{}-bottom",dec.name),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration {
+                name: format!("{}-left",dec.name),
+                value: dec.value.clone()
+            });
+        }
+        _ => {
+            new_decs.push(dec.clone());
+        }
+    }
+}
+
+fn expand_styles(ss:&mut Stylesheet) {
+    for rule in ss.rules.iter_mut() {
+        match rule {
+            RuleType::Rule(rule) => {
+                let mut new_decs = vec![];
+                for dec in rule.declarations.iter_mut() {
+                    // println!("decl = {:#?}",dec);
+                    match dec.name.as_str() {
+                        "margin" => expand_array_decl(&mut new_decs, dec),
+                        "padding" => expand_array_decl(&mut new_decs, dec),
+                        "border-width" => expand_array_decl(&mut new_decs, dec),
+                        _ => new_decs.push(dec.clone()),
+                    }
+                }
+                rule.declarations = new_decs;
+            }
+            _ => {}
+        }
+    }
+}
+
+#[test]
+fn test_property_expansion_1() {
+    let doc_text = br#"<div></div>"#;
+    let css_text = br#"
+        div {
+            margin: 1px;
+            border-width: 1px;
+        }
+    "#;
+
+    let doc = load_doc_from_bytestring(doc_text);
+    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    expand_styles(&mut stylesheet);
+    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    println!("stylesheet is {:#?}",stylesheet);
+    assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-right",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-bottom",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-left",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("border-width-top",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("border-width-right",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("border-width-bottom",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("border-width-left",5.0),1.0);
+}
+
+#[test]
+fn test_property_expansion_2() {
+    let doc_text = br#"<div></div>"#;
+    let css_text = br#"
+        div {
+            margin: 1px 2px;
+        }
+    "#;
+
+    let doc = load_doc_from_bytestring(doc_text);
+    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    expand_styles(&mut stylesheet);
+    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+    assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-right",5.0),2.0);
+    assert_eq!(snode.lookup_length_px("margin-bottom",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-left",5.0),2.0);
+}
+
+
+#[test]
+fn test_property_expansion_4() {
+    let doc_text = br#"<div></div>"#;
+    let css_text = br#"
+        div {
+            margin: 1px 2px 3px 4px;
+        }
+    "#;
+
+    let doc = load_doc_from_bytestring(doc_text);
+    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    expand_styles(&mut stylesheet);
+    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+    assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
+    assert_eq!(snode.lookup_length_px("margin-right",5.0),2.0);
+    assert_eq!(snode.lookup_length_px("margin-bottom",5.0),3.0);
+    assert_eq!(snode.lookup_length_px("margin-left",5.0),4.0);
+}
