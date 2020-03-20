@@ -5,7 +5,7 @@ use raqote::{DrawTarget,
 };
 use font_kit::font::Font;
 use crate::css::{Color, Value, Stylesheet, RuleType};
-use crate::layout::{Rect, RenderBox, RenderInlineBoxType};
+use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
@@ -58,34 +58,35 @@ fn color_to_source(c:&Color) -> Source {
     Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b))
 }
 
+fn draw_render_box_block(block:&RenderBlockBox, dt:&mut DrawTarget, font_cache:&mut FontCache, viewport:&Rect) -> bool {
+    if let Some(color) = &block.background_color {
+        fill_rect(dt, &block.content_area_as_rect(), &color_to_source(color));
+    }
+
+    if block.border_width > 0.0 && block.border_color.is_some() {
+        let color = color_to_source(&block.border_color.as_ref().unwrap());
+        stroke_rect(dt, &block.content_area_as_rect(), &color, block.border_width)
+    }
+    // stroke_rect(dt, &block.rect, &color_to_source(&BLACK), 1 as f32);
+    for ch in block.children.iter() {
+        if let RenderBox::Block(blk) = ch {
+            if blk.rect.y > viewport.y + viewport.height {
+                // println!("outside! {}", blk.rect.y);
+                return false;
+            }
+        }
+
+        let ret = draw_render_box(&ch, dt, font_cache, viewport);
+        if !ret {
+            return false;
+        }
+    }
+    true
+}
 pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut FontCache, viewport:&Rect) -> bool {
     // println!("====== rendering ======");
     match root {
-        RenderBox::Block(block) => {
-            if let Some(color) = &block.background_color {
-                fill_rect(dt, &block.content_area_as_rect(), &color_to_source(color));
-            }
-
-            if block.border_width > 0.0 && block.border_color.is_some() {
-                let color = color_to_source(&block.border_color.as_ref().unwrap());
-                stroke_rect(dt, &block.content_area_as_rect(), &color, block.border_width)
-            }
-            // stroke_rect(dt, &block.rect, &color_to_source(&BLACK), 1 as f32);
-            for ch in block.children.iter() {
-                if let RenderBox::Block(blk) = ch {
-                    if blk.rect.y > viewport.y + viewport.height {
-                        // println!("outside! {}", blk.rect.y);
-                        return false;
-                    }
-                }
-
-                let ret = draw_render_box(&ch, dt, font_cache, viewport);
-                if !ret {
-                    return false;
-                }
-            }
-            true
-        },
+        RenderBox::Block(block) => draw_render_box_block(block,dt,font_cache,viewport),
         RenderBox::Inline() => {   true    },
         RenderBox::InlineBlock() => {  true },
         RenderBox::Anonymous(block) => {
@@ -110,6 +111,9 @@ pub fn draw_render_box(root:&RenderBox, dt:&mut DrawTarget, font_cache:&mut Font
                         }
                         RenderInlineBoxType::Error(err) => {
                             fill_rect(dt, &err.rect, &color_to_source(&MAGENTA))
+                        }
+                        RenderInlineBoxType::Block(block) => {
+                            draw_render_box_block(block,dt, font_cache, viewport);
                         }
                     }
                 }
