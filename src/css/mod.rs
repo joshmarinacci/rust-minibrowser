@@ -9,6 +9,7 @@ use crate::net::BrowserError;
 use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral, UnicodeRange, UnicodeCodepoint};
 use self::pom::parser::{list, call, take};
 use url::Url;
+use crate::css::Selector::Simple;
 
 
 #[derive(Debug, PartialEq)]
@@ -39,13 +40,20 @@ pub struct AtRule {
 
 #[derive(Debug, PartialEq)]
 pub enum Selector {
-    Simple(SimpleSelector)
+    Simple(SimpleSelector),
+    Ancestor(AncestorSelector),
 }
 #[derive(Debug, PartialEq)]
 pub struct SimpleSelector {
     pub tag_name: Option<String>,
     pub id: Option<String>,
     pub class: Vec<String>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AncestorSelector {
+    pub ancestor: Box<Selector>,
+    pub child: Box<Selector>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct Declaration {
@@ -106,17 +114,25 @@ pub type Specificity = (usize, usize, usize);
 
 impl Selector {
     pub fn specificity(&self) -> Specificity {
-        let Selector::Simple(ref simple) = *self;
-        let a = simple.id.iter().count();
-        let b = simple.class.len();
-        let c = simple.tag_name.iter().count();
-        (a,b,c)
+        if let Selector::Simple(ref simple) = *self {
+            let a = simple.id.iter().count();
+            let b = simple.class.len();
+            let c = simple.tag_name.iter().count();
+            return (a, b, c)
+        }
+        if let Selector::Ancestor(ref anc) = *self {
+            return anc.ancestor.specificity();
+        }
+        panic!("unknown selector type");
     }
 }
 
 
 fn space<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
+}
+fn space1<'a>() -> Parser<'a, u8, ()> {
+    one_of(b" \t\r\n").repeat(1..).discard()
 }
 
 fn integer_string<'a>() -> Parser<'a, u8, String> {
@@ -167,25 +183,42 @@ pub fn star(term:u8) -> bool {
     term == b'*'
 }
 
-fn alphanum_string<'a>() -> Parser<'a, u8, String> {
+fn alphanum_string<'a>() -> Parser<'a, u8, Selector> {
     let r = is_a(alphanum).repeat(1..);
-    r.map(|str| String::from_utf8(str).unwrap())
+    r.map(|str| {
+        Selector::Simple(SimpleSelector{
+            tag_name: Some(v2s(&str)),
+            id: None,
+            class: vec![]
+        })
+    })
 }
-fn star_string<'a>() -> Parser<'a, u8, String> {
+fn star_string<'a>() -> Parser<'a, u8, Selector> {
     let r = sym(b'*');
     r.map(|str|{
-        let mut s = String::new();
-        s.push(char::from(str));
-        s
+        Selector::Simple(SimpleSelector{
+            tag_name: Some(char::from(str).to_string()),
+            id: None,
+            class: vec![]
+        })
     })
 }
-fn class_string<'a>() -> Parser<'a,u8,String> {
-    let r = sym(b'.') + alphanum_string();
+fn class_string<'a>() -> Parser<'a,u8,Selector> {
+    let r = sym(b'.') + is_a(alphanum).repeat(1..);
     r.map(|(dot,str)| {
-        let mut s = String::from(str);
-        s.insert(0,char::from(dot));
-        s
+        Selector::Simple(SimpleSelector{
+            tag_name: None,
+            id: None,
+            class: vec![v2s(&str)]
+        })
     })
+}
+fn ancestor<'a>() -> Parser<'a,u8,Selector> {
+    let r = alphanum_string() - space1() + alphanum_string();
+    r.map(|(a,b)| Selector::Ancestor(AncestorSelector{
+        ancestor: Box::new(a),
+        child: Box::new(b),
+    }))
 }
 
 
@@ -203,60 +236,48 @@ fn test_string_literal() {
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
         = space()
-        + (class_string() | star_string() | alphanum_string())
+        + (ancestor() | class_string() | star_string() | alphanum_string())
         - space()
     ;
-    r.map(|(_,name)| {
-        if name.starts_with('.') {
-            Selector::Simple(SimpleSelector {
-                tag_name: None,
-                id: None,
-                class: vec![name[1..].to_string()]
-            })
-        } else {
-            Selector::Simple(SimpleSelector {
-                tag_name: Some(name),
-                id: None,
-                class: vec![]
-            })
-        }
-    })
+    r.map(|(_, selector)| selector)
 }
 
 #[test]
-fn test_div_selector() {
-    let input = br#"div"#;
-    let result = selector().parse(input);
-    println!("{:?}", result);
-    assert_eq!(Selector::Simple(SimpleSelector{
-        tag_name:Some("div".to_string()),
-        id: None,
-        class: vec![],
-    }), result.unwrap())
+fn test_selectors() {
+    assert_eq!(selector().parse(b"div"),
+               Ok(Selector::Simple(SimpleSelector {
+                   tag_name: Some("div".to_string()),
+                   id: None,
+                   class: vec![],
+               })));
+    assert_eq!(selector().parse(b"h3"),
+               Ok(Selector::Simple(SimpleSelector {
+                   tag_name: Some("h3".to_string()),
+                   id: None,
+                   class: vec![],
+               })));
+    assert_eq!(selector().parse(b".cool"),
+               Ok(Selector::Simple(SimpleSelector {
+                   tag_name: None,
+                   id: None,
+                   class: vec![String::from("cool")],
+               })));
 }
-
 #[test]
-fn test_h3_selector() {
-    let input = br#"h3"#;
-    let result = selector().parse(input);
-    println!("{:?}", result);
-    assert_eq!(Selector::Simple(SimpleSelector{
-        tag_name:Some("h3".to_string()),
-        id: None,
-        class: vec![],
-    }), result.unwrap())
-}
-
-#[test]
-fn test_class_selector() {
-    let input = br#".cool"#;
-    let result = selector().parse(input);
-    println!("{:?}", result);
-    assert_eq!(Selector::Simple(SimpleSelector{
-        tag_name:None,
-        id: None,
-        class: vec!["cool".to_string()],
-    }), result.unwrap())
+fn test_ancestor_selector() {
+    assert_eq!(selector().parse(b"a b"),
+               Ok(Selector::Ancestor(AncestorSelector{
+                   ancestor:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("a")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   child:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("b")),
+                       id: None,
+                       class: vec![],
+                   })),
+               })));
 }
 
 #[test]

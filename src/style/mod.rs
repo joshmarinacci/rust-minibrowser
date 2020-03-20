@@ -1,7 +1,7 @@
 use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring, strip_empty_nodes};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration, AncestorSelector};
 use std::collections::HashMap;
-use crate::css::Selector::Simple;
+use crate::css::Selector::{Simple, Ancestor};
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, load_stylesheets_with_fallback};
@@ -134,7 +134,11 @@ impl StyledNode<'_> {
 
 fn matches(elem: &ElementData, selector: &Selector) -> bool {
     match *selector {
-        Simple(ref simple_selector) => matches_simple_selector(elem, simple_selector)
+        Simple(ref simple_selector) => matches_simple_selector(elem, simple_selector),
+        Ancestor(ref sel) => {
+            println!("ACNESTOR NOT SUPPORTED YET");
+            false
+        }
     }
 }
 
