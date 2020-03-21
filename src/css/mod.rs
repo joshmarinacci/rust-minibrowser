@@ -622,14 +622,19 @@ fn test_list_array_values() {
                Ok(Value::ArrayValue(vec![Value::Length(1.0,Unit::Px),
                                          Value::Keyword(String::from("solid")),
                                          Value::HexColor(String::from("#cccccc"))])));
-    /*border: 1px solid #cccccc;*/
+    assert_eq!(value().parse(b"1px solid #cccccc"),
+               Ok(Value::ArrayValue(vec![Value::Length(1.0,Unit::Px),
+                                         Value::Keyword(String::from("solid")),
+                                         Value::HexColor(String::from("#cccccc"))])));
 }
 
 
 fn value<'a>() -> Parser<'a, u8, Value> {
-    call(array_value_4) | call(array_value_2) |
-        call(list_array_value) |
-        one_value()
+    call(array_value_4)
+        | call(array_value_3)
+        | call(array_value_2)
+        | call(list_array_value)
+        | one_value()
 }
 
 
