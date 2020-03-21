@@ -3,7 +3,7 @@ use rust_minibrowser::layout;
 
 use minifb::{Window, WindowOptions, MouseButton, MouseMode, KeyRepeat, Key};
 use raqote::{DrawTarget, SolidSource, Transform};
-use rust_minibrowser::style::style_tree;
+use rust_minibrowser::style::{style_tree, expand_styles};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::{draw_render_box, FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
@@ -21,7 +21,8 @@ fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensi
     let mut doc = load_doc_from_net(&url)?;
     strip_empty_nodes(&mut doc);
     expand_entities(&mut doc);
-    let stylesheet = load_stylesheets_with_fallback(&doc)?;
+    let mut stylesheet = load_stylesheets_with_fallback(&doc)?;
+    expand_styles(&mut stylesheet);
     font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
