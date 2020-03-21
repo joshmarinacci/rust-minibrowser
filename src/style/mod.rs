@@ -132,12 +132,21 @@ impl StyledNode<'_> {
     }
 }
 
-fn matches(elem: &ElementData, selector: &Selector) -> bool {
+fn matches(elem: &ElementData, selector: &Selector, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> bool {
     match *selector {
         Simple(ref simple_selector) => matches_simple_selector(elem, simple_selector),
         Ancestor(ref sel) => {
-            println!("ACNESTOR NOT SUPPORTED YET");
-            false
+            println!("ANCESTOR NOT SUPPORTED YET");
+
+            let child_match = matches(elem, &*sel.child, ancestors);
+            let mut parent_match = false;
+            if !ancestors.is_empty() {
+                let (parent_node,_) = &ancestors[0];
+                if let NodeType::Element(ed) = &parent_node.node_type {
+                    parent_match = matches(ed, &*sel.ancestor, ancestors);
+                }
+            }
+            return child_match && parent_match;
         }
     }
 }
@@ -163,9 +172,9 @@ fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> boo
 type MatchedRule<'a> = (Specificity, &'a Rule);
 
 // return rule that matches, if any.
-fn match_rule<'a>(elem: &ElementData, rule: &'a Rule) -> Option<MatchedRule<'a>> {
+fn match_rule<'a>(elem: &ElementData, rule: &'a Rule, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> Option<MatchedRule<'a>> {
     rule.selectors.iter()
-        .find(|selector| matches(elem, selector))
+        .find(|selector| matches(elem, selector, ancestors))
         .map(|selector| (selector.specificity(), rule))
 }
 
@@ -176,16 +185,16 @@ fn only_real_rules(rtype:&RuleType) -> Option<&Rule> {
     }
 }
 //find all matching rules for an element
-fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet) -> Vec<MatchedRule<'a>> {
+fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> Vec<MatchedRule<'a>> {
     let mut rules:Vec<MatchedRule> = match &stylesheet.parent {
         Some(parent) => parent.rules.iter()
             .filter_map(only_real_rules)
-            .filter_map(|rule| match_rule(elem, &rule)).collect(),
+            .filter_map(|rule| match_rule(elem, &rule,ancestors)).collect(),
         None => vec![],
     };
     let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter()
         .filter_map(only_real_rules)
-        .filter_map(|rule| match_rule(elem,&rule)).collect();
+        .filter_map(|rule| match_rule(elem,&rule,ancestors)).collect();
     rules.append(&mut rules2);
     rules
 }
@@ -212,7 +221,7 @@ fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut 
     //     println!("   ancestor {:#?} {:#?}", an.0.node_type, an.1);
     // }
     let mut values:HashMap<String,Value> = HashMap::new();
-    let mut rules = matching_rules(elem,stylesheet);
+    let mut rules = matching_rules(elem,stylesheet,ancestors);
 
     //sort rules by specificity
     rules.sort_by(|&(a,_),&(b,_)| a.cmp(&b));
@@ -397,6 +406,33 @@ fn test_multi_selector_match() {
 
 }
 
+#[test]
+fn test_ancestor_match() {
+    let doc_text = br#"
+    <b><a>rad</a></b>
+    "#;
+    let css_text = br#"
+        * {
+            color: black;
+        }
+        b a {
+            color:red;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+
+    //check b
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check b a
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+
+}
 fn expand_array_decl(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
     match &dec.value {
         Value::ArrayValue(arr) => {
