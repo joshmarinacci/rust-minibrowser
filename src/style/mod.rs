@@ -467,7 +467,7 @@ pub fn expand_styles(ss:&mut Stylesheet) {
             RuleType::Rule(rule) => {
                 let mut new_decs = vec![];
                 for dec in rule.declarations.iter_mut() {
-                    println!("decl = {:#?}",dec);
+                    // println!("decl = {:#?}",dec);
                     match dec.name.as_str() {
                         "margin" => expand_array_decl(&mut new_decs, dec),
                         "padding" => expand_array_decl(&mut new_decs, dec),
