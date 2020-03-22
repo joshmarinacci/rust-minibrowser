@@ -134,3 +134,31 @@ sub {
 sup {
     vertical-align: super;
 }
+
+table {
+    border-width: 1px;
+    border-color: black;
+    border-style: solid;
+    display: block;
+    background-color: aqua;
+    padding: 5px;
+}
+thead {
+    background-color: yellow;
+    display: block;
+}
+tbody {
+    background-color: magenta;
+    display: block;
+}
+tr {
+    display: block;
+    margin: 5px;
+    background-color: red;
+}
+td {
+    display: inline;
+    padding: 5px;
+    border: 1px solid black;
+}
+
