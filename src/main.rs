@@ -14,7 +14,7 @@ use std::env;
 
 
 const WIDTH: usize = 800;
-const HEIGHT: usize = 1100;
+const HEIGHT: usize = 800;
 
 
 fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
@@ -55,18 +55,7 @@ fn main() -> Result<(),BrowserError>{
         ..WindowOptions::default()
     }).unwrap();
     let mut font_cache = init_fonts();
-    // let size = window.get_size();
-    // let size = Rect {
-    //     x: 0.0,
-    //     y: 0.0,
-    //     width: size.0 as f32,
-    //     height: size.1 as f32,
-    // };
 
-    // let doc = load_doc_from_net("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-
-    // let doc = load_doc("tests/simple.html");
-    // let doc = load_doc("tests/image.html");
     let mut containing_block = Dimensions {
         content: Rect {
             x: 0.0,
@@ -78,7 +67,6 @@ fn main() -> Result<(),BrowserError>{
         border: Default::default(),
         margin: Default::default()
     };
-    // println!("render root is {:#?}",render_root);
 
     let mut start_page = relative_filepath_to_url("tests/page1.html")?;
     if args.len() > 1 {
