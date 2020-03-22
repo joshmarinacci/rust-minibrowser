@@ -2,7 +2,7 @@ use font_kit::font::Font;
 
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, style_tree};
-use crate::css::{Color, Unit, Value};
+use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
@@ -885,4 +885,42 @@ fn test_inline_block_element_layout() {
     // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
     let render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
+}
+
+fn standard_init<'a>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet){
+    let mut font_cache = FontCache::new();
+    font_cache.install_font("sans-serif",400.0, "normal",
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
+    font_cache.install_font("sans-serif", 700.0, "normal",
+                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
+    let mut doc = load_doc_from_bytestring(html);
+    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
+    let styled = style_tree(&doc.root_node,&stylesheet);
+    let mut root_box = build_layout_tree(&styled, &doc);
+    let mut cb = Dimensions {
+        content: Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 200.0,
+            height: 0.0,
+        },
+        padding: Default::default(),
+        border: Default::default(),
+        margin: Default::default()
+    };
+    let render_box = root_box.layout(&mut cb, &mut font_cache, &doc);
+    return (font_cache,doc, stylesheet);
+}
+
+#[test]
+fn test_table_layout() {
+    let render_box = standard_init(
+        br#"<table></table>"#,
+        br#"
+        table {
+            display: table;
+        }
+        "#
+    );
+    println!("it all ran! {:#?}",render_box);
 }

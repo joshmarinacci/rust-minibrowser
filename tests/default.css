@@ -139,9 +139,11 @@ table {
     border-width: 1px;
     border-color: black;
     border-style: solid;
-    display: block;
     background-color: aqua;
     padding: 5px;
+    table-layout: fixed;
+    width: 100%;
+    display: table;
 }
 thead {
     background-color: yellow;
