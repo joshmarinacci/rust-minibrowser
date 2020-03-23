@@ -2,15 +2,14 @@ extern crate pom;
 use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
 use pom::char_class::alpha;
 use std::str::{self, FromStr};
-use self::pom::char_class::{alphanum, hex_digit};
+use self::pom::char_class::{alphanum};
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
-use crate::css::Value::{Length, Keyword, HexColor, ArrayValue, StringLiteral, UnicodeRange, UnicodeCodepoint};
+use crate::css::Value::{Length, Keyword,  StringLiteral, UnicodeRange, UnicodeCodepoint};
 use self::pom::parser::{list, call, take};
 use url::Url;
 use crate::css::RuleType::Comment;
-use crate::css::Selector::Simple;
 
 
 #[derive(Debug, PartialEq)]

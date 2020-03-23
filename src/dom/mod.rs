@@ -10,7 +10,7 @@ use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
 use std::path::Path;
 use url::Url;
-use crate::net::{BrowserError, load_doc_from_net};
+use crate::net::{BrowserError};
 use crate::css::parse_stylesheet;
 use std::fmt::Debug;
 use self::pom::Error;

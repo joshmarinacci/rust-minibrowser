@@ -208,7 +208,7 @@ impl FontCache {
         // println!("fetching the font {}",key);
         if let Some(font) = self.fonts.get(&key) {
             return font;
-        } else if let Some(font) = (&self.default_font) {
+        } else if let Some(font) = &self.default_font {
             return font
         } else {
             panic!("no default font set!");
@@ -269,7 +269,7 @@ static TEST_FONT_FILE_PATH: &str =
 fn test_font_loading() {
     let pth = Path::new(TEST_FONT_FILE_PATH);
     let mut file = File::open(pth).unwrap();
-    let font = Font::from_file(&mut file, 0).unwrap();
+    let _font = Font::from_file(&mut file, 0).unwrap();
     let mut fc = FontCache::new();
     let name = String::from("sans-serif");
     fc.install_font(&name, 400.0, "normal",&relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());

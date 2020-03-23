@@ -1,12 +1,11 @@
-use crate::dom::{Node, ElementData, load_doc, Document, NodeType, load_doc_from_buffer, load_doc_from_bytestring, strip_empty_nodes};
-use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration, AncestorSelector};
+use crate::dom::{Node, ElementData, NodeType, load_doc_from_bytestring, strip_empty_nodes};
+use crate::css::{Selector, SimpleSelector, Rule, Stylesheet, Specificity, Value, Color, parse_stylesheet_from_bytestring, Unit, RuleType, Declaration};
 use std::collections::HashMap;
 use crate::css::Selector::{Simple, Ancestor};
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, load_stylesheets_with_fallback};
 use std::fs::File;
-use std::io::Read;
 use std::io::BufReader;
 
 type PropertyMap = HashMap<String, Value>;
@@ -41,6 +40,10 @@ pub enum Display {
     Block,
     Inline,
     InlineBlock,
+    Table,
+    TableRowGroup,
+    TableRow,
+    TableCell,
     None,
 }
 
@@ -108,7 +111,14 @@ impl StyledNode<'_> {
                 "block" => Display::Block,
                 "none" => Display::None,
                 "inline-block" => Display::InlineBlock,
-                _ => Display::Inline,
+                "table" => Display::Table,
+                "table-row-group" => Display::TableRowGroup,
+                "table-row" => Display::TableRow,
+                "table-cell" => Display::TableCell,
+                _ => {
+                    println!("WARNING: unsupported display keyword {}",s);
+                    Display::Inline
+                },
             },
             _ => Display::Inline,
         }

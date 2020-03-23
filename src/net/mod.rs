@@ -9,7 +9,6 @@ use std::io::{Error, Read};
 use url::{Url, ParseError};
 use std::fs::File;
 use crate::dom::NodeType::Element;
-use crate::css::Value::FunCall;
 
 #[derive(Debug)]
 pub enum BrowserError {

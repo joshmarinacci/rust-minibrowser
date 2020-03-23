@@ -3,17 +3,15 @@ use font_kit::font::Font;
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, style_tree};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
-use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode};
+use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
-use crate::layout::RenderBox::Anonymous;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::mem;
+use crate::style::Display::{TableRowGroup, TableRow};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -86,6 +84,10 @@ pub enum BoxType<'a> {
     InlineNode(&'a StyledNode<'a>),
     InlineBlockNode(&'a StyledNode<'a>),
     AnonymousBlock(&'a StyledNode<'a>),
+    TableNode(&'a StyledNode<'a>),
+    TableRowGroupNode(&'a StyledNode<'a>),
+    TableRowNode(&'a StyledNode<'a>),
+    TableCellNode(&'a StyledNode<'a>),
 }
 
 #[derive(Debug)]
@@ -237,6 +239,10 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
         Display::Block => BlockNode(style_node),
         Display::Inline => InlineNode(style_node),
         Display::InlineBlock => InlineBlockNode(style_node),
+        Display::Table => TableNode(style_node),
+        Display::TableRowGroup => TableRowGroupNode(style_node),
+        Display::TableRow => TableRowNode(style_node),
+        Display::TableCell => TableCellNode(style_node),
         Display::None => panic!("Root node has display none.")
     });
 
@@ -246,6 +252,10 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
             Display::Block =>  root.children.push(build_layout_tree(&child, doc)),
             Display::Inline => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::InlineBlock => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
+            Display::Table => root.children.push(build_layout_tree(&child,doc)),
+            Display::TableRowGroup => root.children.push(build_layout_tree(&child, doc)),
+            Display::TableRow => root.children.push(build_layout_tree(&child,doc)),
+            Display::TableCell => root.children.push(build_layout_tree(&child,doc)),
             Display::None => {  },
         }
     }
@@ -263,6 +273,10 @@ impl<'a> LayoutBox<'a> {
     fn get_style_node(&self) -> &'a StyledNode<'a> {
         match self.box_type {
             BlockNode(node)
+            | TableNode(node)
+            | TableRowGroupNode(node)
+            | TableRowNode(node)
+            | TableCellNode(node)
             | InlineNode(node)
             | InlineBlockNode(node)
             | AnonymousBlock(node) => node
@@ -271,8 +285,11 @@ impl<'a> LayoutBox<'a> {
 
     fn get_inline_container(&mut self) -> &mut LayoutBox<'a> {
         match self.box_type {
-            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) => self,
-            BlockNode(node) => {
+            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
+            BlockNode(node)
+            | TableNode(node)
+            | TableRowGroupNode(node)
+            | TableRowNode(node) => {
                 // if last child is anonymous block, keep using it
                 match self.children.last() {
                     Some(&LayoutBox { box_type: AnonymousBlock(_node), ..}) => {},
@@ -286,6 +303,10 @@ impl<'a> LayoutBox<'a> {
     pub fn layout(&mut self, containing: &mut Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
         match self.box_type {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
+            TableNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
+            TableRowGroupNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
+            TableRowNode(_node) =>      RenderBox::Block(self.layout_table_row(containing, font, doc)),
+            TableCellNode(_node) =>     RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
@@ -293,7 +314,12 @@ impl<'a> LayoutBox<'a> {
     }
     fn debug_calculate_element_name(&mut self) -> String{
         match self.box_type {
-            BlockNode(sn) => match &sn.node.node_type {
+            BlockNode(sn)
+            | TableNode(sn)
+            | TableRowGroupNode(sn)
+            | TableRowNode(sn)
+            | TableCellNode(sn)
+            => match &sn.node.node_type {
                 NodeType::Element(data) => data.tag_name.clone(),
                 _ => "non-element".to_string(),
             }
@@ -315,6 +341,64 @@ impl<'a> LayoutBox<'a> {
             border_width: self.get_style_node().insets("border-width"),
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
+        }
+    }
+
+    fn layout_table_row(&mut self, cb:&mut Dimensions, font_cache:&mut FontCache, doc: &Document) -> RenderBlockBox {
+        // println!("layout_table_row");
+        self.calculate_block_width(cb);
+        self.calculate_block_position(cb);
+        self.dimensions.content.height = 50.0;
+        let mut children:Vec<RenderBox> = vec![];
+
+        // println!("table row dims now {:#?}", self.dimensions);
+        //count the number of table cell children
+        let mut count = 0;
+        for child in self.children.iter() {
+            match child.box_type {
+                BoxType::TableCellNode(_) => count+=1,
+                _ => {}
+            }
+        }
+        let child_width = self.dimensions.content.width / count as f32;
+        let self_height = self.dimensions.content.height;
+        let mut index = 0;
+        for child in self.children.iter_mut() {
+            match child.box_type {
+                BoxType::TableCellNode(_) => {
+                    let mut cb = Dimensions {
+                        content: Rect {
+                            x: self.dimensions.content.x + child_width * (index as f32),
+                            y: self.dimensions.content.y,
+                            width: child_width,
+                            height: 0.0
+                        },
+                        padding: Default::default(),
+                        border: Default::default(),
+                        margin: Default::default()
+                    };
+                    // println!("table cell child with count {} w = {} index = {} cb = {:#?}",count, child_width,index, cb);
+                    let bx = child.layout(&mut cb, font_cache, doc);
+                    // println!("table cell child created {:#?}",bx);
+                    children.push(bx)
+                }
+                BoxType::AnonymousBlock(_)=>println!(" anonymous child"),
+                _ => {
+                    println!("table_row can't have child of {:#?}",child.get_type());
+                }
+            };
+            index += 1;
+        };
+        RenderBlockBox {
+            title: self.debug_calculate_element_name(),
+            rect:self.dimensions.content,
+            margin: self.dimensions.margin,
+            padding: self.dimensions.padding,
+            background_color: self.get_style_node().color("background-color"),
+            border_width: self.get_style_node().insets("border-width"),
+            border_color: self.get_style_node().color("border-color"),
+            valign: String::from("baseline"),
+            children: children,
         }
     }
 
@@ -351,6 +435,10 @@ impl<'a> LayoutBox<'a> {
         match self.box_type {
             BoxType::AnonymousBlock(styled)
             | BoxType::BlockNode(styled)
+            | BoxType::TableNode(styled)
+            | BoxType::TableRowGroupNode(styled)
+            | BoxType::TableRowNode(styled)
+            | BoxType::TableCellNode(styled)
             | BoxType::InlineBlockNode(styled)
             | BoxType::InlineNode(styled) => format!("{:#?}",styled.node.node_type)
         }
@@ -623,6 +711,11 @@ impl<'a> LayoutBox<'a> {
         // 'width' has initial value 'auto'
         let auto = Keyword("auto".to_string());
         let mut width = style.value("width").unwrap_or_else(||auto.clone());
+        // println!("width set to {:#?}",width);
+        if let Length(per, Unit::Per) = width {
+            // println!("its a percentage width {} {}",per,containing.content.width);
+            width = Length(containing.content.width*(per/100.0), Px);
+        }
 
         // margin, border, and padding have initial value of 0
         let zero = Length(0.0, Px);
@@ -649,6 +742,7 @@ impl<'a> LayoutBox<'a> {
         // Each arm of the `match` should increase the total width by exactly `underflow`,
         // and afterward all values should be absolute lengths in px.
         let underflow = containing.content.width - total;
+        // println!("underflow = {}",underflow);
 
         match (width == auto, margin_left == auto, margin_right == auto) {
             (false,false,false) => {
@@ -671,6 +765,7 @@ impl<'a> LayoutBox<'a> {
                 margin_right = Length(underflow / 2.0, Px);
             }
         }
+        // println!("width set to {:#?}",width);
 
         self.dimensions.content.width = self.length_to_px(&width);
         self.dimensions.padding.left = self.length_to_px(&padding_left);
@@ -679,7 +774,10 @@ impl<'a> LayoutBox<'a> {
         self.dimensions.border.right = self.length_to_px(&border_right);
         self.dimensions.margin.left = self.length_to_px(&margin_left);
         self.dimensions.margin.right = self.length_to_px(&margin_right);
-        //println!("final width is {} padding = {} margin: {}", d.content.width, d.padding.left, d.margin.left);
+        // println!("final width is width= {} padding = {} margin: {}",
+        //          self.dimensions.content.width,
+        //          self.dimensions.padding.left,
+        //          self.dimensions.margin.left);
     }
 
     fn length_to_px(&self, value:&Value) -> f32{
@@ -688,6 +786,10 @@ impl<'a> LayoutBox<'a> {
             Length(v, Unit::Px) => *v,
             Length(v, Unit::Em) => (*v)*font_size,
             Length(v, Unit::Rem) => (*v)*font_size,
+            Length(v, Unit::Per) => {
+                println!("WARNING: percentage in length_to_px. should have be converted to pixels already");
+                0.0
+            }
             _ => {0.0}
         }
     }
@@ -849,7 +951,7 @@ fn test_layout<'a>() {
     };
     // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
+    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
     // println!("final render box is {:#?}", render_box);
 }
 
@@ -884,7 +986,7 @@ fn test_inline_block_element_layout() {
     };
     // println!("roob box is {:#?}",root_box);
     println!(" ======== layout phase ========");
-    let render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
+    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
 }
 
 fn standard_init<'a>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet){
@@ -901,7 +1003,7 @@ fn standard_init<'a>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet)
         content: Rect {
             x: 0.0,
             y: 0.0,
-            width: 200.0,
+            width: 500.0,
             height: 0.0,
         },
         padding: Default::default(),
@@ -909,16 +1011,44 @@ fn standard_init<'a>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet)
         margin: Default::default()
     };
     let render_box = root_box.layout(&mut cb, &mut font_cache, &doc);
+    // println!("the final render box is {:#?}",render_box);
     return (font_cache,doc, stylesheet);
 }
 
 #[test]
 fn test_table_layout() {
     let render_box = standard_init(
-        br#"<table></table>"#,
+        br#"<table>
+            <tbody>
+                <tr>
+                    <td>data 1</td>
+                    <td>data 2</td>
+                    <td>data 3</td>
+                </tr>
+                <tr>
+                    <td>data 4</td>
+                    <td>data 5</td>
+                    <td>data 6</td>
+                </tr>
+                <tr>
+                    <td>data 7</td>
+                    <td>data 8</td>
+                    <td>data 9</td>
+                </tr>
+            </tbody>
+        </table>"#,
         br#"
         table {
             display: table;
+        }
+        tbody {
+            display: table-row-group;
+        }
+        tr {
+            display: table-row;
+        }
+        td {
+            display: table-cell;
         }
         "#
     );

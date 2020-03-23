@@ -142,25 +142,26 @@ table {
     background-color: aqua;
     padding: 5px;
     table-layout: fixed;
-    width: 100%;
     display: table;
 }
-thead {
-    background-color: yellow;
-    display: block;
-}
 tbody {
-    background-color: magenta;
-    display: block;
-}
-tr {
-    display: block;
-    margin: 5px;
+    border-width: 1px;
+    border-color: black;
+    padding: 5px;
+    display: table-row-group;
     background-color: red;
 }
-td {
-    display: inline;
+tr {
+    border-width: 1px;
+    border-color: black;
+    background-color: yellow;
+    display: table-row;
     padding: 5px;
-    border: 1px solid black;
+}
+td {
+    border-width: 1px;
+    border-color: black;
+    display: table-cell;
+    padding: 5px;
 }
 
