@@ -11,50 +11,21 @@ use url::Url;
 use font_kit::source::SystemSource;
 use font_kit::properties::Properties;
 use std::env;
+use rust_minibrowser::app::{parse_args, init_fonts, navigate_to_doc};
 
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 800;
 
 
-fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
-    let mut doc = load_doc_from_net(&url)?;
-    strip_empty_nodes(&mut doc);
-    expand_entities(&mut doc);
-    let mut stylesheet = load_stylesheets_with_fallback(&doc)?;
-    expand_styles(&mut stylesheet);
-    font_cache.scan_for_fontface_rules(&stylesheet);
-    let styled = style_tree(&doc.root_node,&stylesheet);
-    let mut bbox = layout::build_layout_tree(&styled, &doc);
-    let render_root = bbox.layout(&mut containing_block.clone(), font_cache, &doc);
-    Ok((doc,render_root))
-}
-
-fn init_fonts() -> FontCache {
-    let mut font_cache = FontCache::new();
-    font_cache.install_default_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif",  700.0,"normal",&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
-
-    font_cache.install_font("sans-serif",  400.0,"italic", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Italic.ttf").unwrap());
-    font_cache.install_font("sans-serif",  700.0,"italic",&relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf").unwrap());
-    font_cache.install_font_font("monospace",  400.0,"normal", SystemSource::new()
-        .select_best_match(&[font_kit::family_name::FamilyName::Monospace], &Properties::new())
-        .expect("monospace should be found")
-        .load()
-        .unwrap()
-    );
-    font_cache
-}
 fn main() -> Result<(),BrowserError>{
-    let args: Vec<String> = env::args().collect();
-    println!("args = {:?}", args);
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         title: true,
         resize: true,
         ..WindowOptions::default()
     }).unwrap();
     let mut font_cache = init_fonts();
+    let start_page = parse_args().unwrap();
 
     let mut containing_block = Dimensions {
         content: Rect {
@@ -68,34 +39,21 @@ fn main() -> Result<(),BrowserError>{
         margin: Default::default()
     };
 
-    let mut start_page = relative_filepath_to_url("tests/page1.html")?;
-    if args.len() > 1 {
-        println!("loading url {}", args[1]);
-        if args[1].starts_with("http") {
-            start_page = Url::parse(args[1].as_str())?;
-        } else {
-            start_page = relative_filepath_to_url(&*args[1])?;
-        }
-    }
-
-    // let start_page = relative_filepath_to_url("tests/nested.html")?;
-    // let start_page = relative_filepath_to_url("tests/image.html")?;
-    // let start_page = Url::parse("https://apps.josh.earth/rust-minibrowser/test1.html").unwrap();
-    // let start_page = relative_filepath_to_url("tests/tufte/tufte.html")?;
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-    let mut prev_left_down = false;
-    let mut prev_right_down = false;
-    let mut prev_w = 100;
-    let mut prev_h = 100;
+    // let mut prev_left_down = false;
+    // let mut prev_right_down = false;
+    let mut prev_w = WIDTH;
+    let mut prev_h = HEIGHT;
     let mut dt = DrawTarget::new(prev_w as i32, prev_h as i32);
     let mut viewport = Rect{
         x: 0.0,
         y: 0.0,
-        width: prev_w as f32,
-        height: prev_h as f32,
+        width: 100.0,
+        height: 100.0,
     };
     loop {
         let (w,h) = window.get_size();
+        /*
         if w != prev_w || h != prev_h {
             println!("resized to {}x{}",w,h);
             dt = DrawTarget::new(w as i32, h as i32);
@@ -133,23 +91,9 @@ fn main() -> Result<(),BrowserError>{
 
         }
         prev_left_down = left_down;
-
+        */
         dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
         draw_render_box(&render_root, &mut dt, &mut font_cache, &viewport);
         window.update_with_buffer(dt.get_data(), w as usize, h as usize).unwrap();
-    }
-}
-
-fn scroll_viewport(window:&Window, viewport:&mut Rect) {
-    if let Some(keys) = window.get_keys_pressed(KeyRepeat::Yes) {
-        for key in keys {
-            match key {
-                Key::Up    => viewport.y -= 300.0,
-                Key::Down  => viewport.y += 300.0,
-                Key::Left  => viewport.x += 100.0,
-                Key::Right => viewport.x -= 100.0,
-                _ => {}
-            }
-        }
     }
 }

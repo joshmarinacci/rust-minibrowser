@@ -9,3 +9,4 @@ pub mod css;
 pub mod net;
 pub mod image;
 pub mod globals;
+pub mod app;
