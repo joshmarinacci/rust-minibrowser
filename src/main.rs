@@ -1,24 +1,92 @@
 use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
-use minifb::{Window, WindowOptions, MouseButton, MouseMode, KeyRepeat, Key};
-use raqote::{DrawTarget, SolidSource, Transform};
 use rust_minibrowser::style::{style_tree, expand_styles};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
 use rust_minibrowser::render::{draw_render_box, FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
-use font_kit::source::SystemSource;
-use font_kit::properties::Properties;
-use std::env;
+
+
 use rust_minibrowser::app::{parse_args, init_fonts, navigate_to_doc};
+
+use cgmath::{Matrix4, Rad, Transform, Vector3};
+use gfx::{
+    format::{Depth, Srgba8},
+    Device,
+};
+use gfx_glyph::*;
+use glutin::{
+    event::{
+        ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, VirtualKeyCode,
+        WindowEvent,
+    },
+    event_loop::ControlFlow,
+};
+use old_school_gfx_glutin_ext::*;
+use std::{
+    env,
+    error::Error,
+    f32::consts::PI as PI32,
+    io::{self, Write},
+};
 
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 800;
 
-
 fn main() -> Result<(),BrowserError>{
+    let start_page = parse_args().unwrap();
+    println!("using the start page {}",start_page);
+
+    //make an event loop
+    let event_loop = glutin::event_loop::EventLoop::new();
+    //build the window
+    let window_builder = glutin::window::WindowBuilder::new()
+        .with_title("some title")
+        .with_inner_size(glutin::dpi::PhysicalSize::new(1024, 576));
+    let (window_ctx, mut device, mut factory, mut main_color, mut main_depth) =
+        glutin::ContextBuilder::new()
+            .with_gfx_color_depth::<Srgba8, Depth>()
+            .build_windowed(window_builder, &event_loop)?
+            .init_gfx::<Srgba8, Depth>();
+
+    //TODO: I don't know what this does
+    let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+    //TODO: loop helper. I don't really know what this does.
+    let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(250.0);
+    let mut modifiers = ModifiersState::default();
+    // main event loop
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
+        match event {
+            //TODO: just redraw on main events cleared. what does that mean?
+            Event::MainEventsCleared => window_ctx.window().request_redraw(),
+            Event::WindowEvent { event, .. } => match event {
+                //if esc or close requested, close the window
+                WindowEvent::ModifiersChanged(new_mods) => modifiers = new_mods,
+                WindowEvent::KeyboardInput {
+                    input:
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        ..
+                    },
+                    ..
+                }
+                | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                _ => (),
+            }
+            Event::RedrawRequested(_) => {
+                //TODO:  clear the window?
+                encoder.clear(&main_color, [0.02, 0.02, 0.02, 1.0]);
+            },
+
+            _ => (),
+        }
+    });
+}
+/*
+fn main2() -> Result<(),BrowserError>{
     let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
         title: true,
         resize: true,
@@ -97,3 +165,4 @@ fn main() -> Result<(),BrowserError>{
         window.update_with_buffer(dt.get_data(), w as usize, h as usize).unwrap();
     }
 }
+*/
