@@ -56,6 +56,16 @@ fn main() -> Result<(),BrowserError>{
     //TODO: loop helper. I don't really know what this does.
     let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(250.0);
     let mut modifiers = ModifiersState::default();
+
+    let mut font_size: f32 = 18.0;
+    let text = "foo";
+
+    //load a font
+    let font: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let mut glyph_brush = gfx_glyph::GlyphBrushBuilder::using_font_bytes(font)
+        .initial_cache_size((1024, 1024))
+        .build(factory.clone());
+
     // main event loop
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -79,6 +89,35 @@ fn main() -> Result<(),BrowserError>{
             Event::RedrawRequested(_) => {
                 //TODO:  clear the window?
                 encoder.clear(&main_color, [0.02, 0.02, 0.02, 1.0]);
+                // i think this is the main color BUFFER
+                let (width, height, ..) = main_color.get_dimensions();
+                let (width, height) = (f32::from(width), f32::from(height));
+                let scale = Scale::uniform(font_size * window_ctx.window().scale_factor() as f32);
+                let section = gfx_glyph::Section {
+                    text: &text,
+                    scale,
+                    screen_position: (0.0, 0.0),
+                    bounds: (width / 3.15, height),
+                    color: [0.9, 0.3, 0.3, 1.0],
+                    ..Section::default()
+                };
+                glyph_brush.queue(section);
+                glyph_brush
+                    .use_queue()
+                    // .transform(projection)
+                    .draw(&mut encoder, &main_color)
+                    .unwrap();
+                encoder.flush(&mut device);
+                window_ctx.swap_buffers().unwrap();
+                device.cleanup();
+                if let Some(rate) = loop_helper.report_rate() {
+                    window_ctx
+                        .window()
+                        .set_title(&format!("{} - {:.0} FPS", "some text", rate));
+                }
+
+                loop_helper.loop_sleep();
+                loop_helper.loop_start();
             },
 
             _ => (),
