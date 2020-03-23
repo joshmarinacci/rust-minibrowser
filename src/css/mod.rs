@@ -84,10 +84,10 @@ pub enum Unit {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Color {
-    pub(crate) r:u8,
-    pub(crate) g:u8,
-    pub(crate) b:u8,
-    pub(crate) a:u8,
+    pub r:u8,
+    pub g:u8,
+    pub b:u8,
+    pub a:u8,
 }
 impl Color {
     pub fn from_hex(str:&str) -> Self {

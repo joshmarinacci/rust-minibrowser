@@ -2,7 +2,7 @@ use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
 use rust_minibrowser::style::{style_tree, expand_styles};
-use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult};
+use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType};
 use rust_minibrowser::render::{draw_render_box, FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
@@ -11,10 +11,7 @@ use url::Url;
 use rust_minibrowser::app::{parse_args, init_fonts, navigate_to_doc};
 
 use cgmath::{Matrix4, Rad, Transform, Vector3};
-use gfx::{
-    format::{Depth, Srgba8},
-    Device,
-};
+use gfx::{format::{Depth, Srgba8}, Device, Resources, Factory};
 use gfx_glyph::*;
 use glutin::{
     event::{
@@ -34,6 +31,52 @@ use std::{
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 800;
+
+pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A, B>, scale:Scale, width:f32, height:f32) {
+    let text = "foo";
+    // let width = 200.0;
+    // let height = 100.0;
+    match bx {
+        RenderBox::Block(rbx) => {
+            for ch in rbx.children.iter() {
+                draw_boxes(ch, gb, scale, width, height);
+            }
+        }
+        RenderBox::Anonymous(bx) => {
+            for lb in bx.children.iter() {
+                // draw_boxes(ch, gb, scale, width, height);
+                for inline in lb.children.iter() {
+                    match inline {
+                        RenderInlineBoxType::Text(text) => {
+                            if text.color.is_some() && !text.text.is_empty() {
+                                let color = text.color.as_ref().unwrap().clone();
+                                let section = gfx_glyph::Section {
+                                    text: &*text.text,
+                                    scale,
+                                    screen_position: (text.rect.x, text.rect.y),
+                                    bounds: (width / 3.15, height),
+                                    color: [
+                                        (color.r as f32)/255.0,
+                                        (color.g as f32)/255.0,
+                                        0.3,
+                                        1.0],
+                                    ..Section::default()
+                                };
+                                gb.queue(section);
+                                // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
+                            }
+                        }
+                        _ => {
+
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 
 fn main() -> Result<(),BrowserError>{
     let start_page = parse_args().unwrap();
@@ -62,9 +105,25 @@ fn main() -> Result<(),BrowserError>{
 
     //load a font
     let font: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
-    let mut glyph_brush = gfx_glyph::GlyphBrushBuilder::using_font_bytes(font)
+    let mut glyph_brush =
+        GlyphBrushBuilder::using_font_bytes(font)
         .initial_cache_size((1024, 1024))
         .build(factory.clone());
+
+    let mut font_cache = init_fonts();
+    let start_page = parse_args().unwrap();
+    let mut containing_block = Dimensions {
+        content: Rect {
+            x: 0.0,
+            y: 0.0,
+            width: WIDTH as f32,
+            height: 0.0,
+        },
+        padding: Default::default(),
+        border: Default::default(),
+        margin: Default::default()
+    };
+    let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
 
     // main event loop
     event_loop.run(move |event, _, control_flow| {
@@ -88,20 +147,14 @@ fn main() -> Result<(),BrowserError>{
             }
             Event::RedrawRequested(_) => {
                 //TODO:  clear the window?
-                encoder.clear(&main_color, [0.02, 0.02, 0.02, 1.0]);
+                encoder.clear(&main_color, [0.92, 0.92, 0.92, 1.0]);
                 // i think this is the main color BUFFER
                 let (width, height, ..) = main_color.get_dimensions();
                 let (width, height) = (f32::from(width), f32::from(height));
                 let scale = Scale::uniform(font_size * window_ctx.window().scale_factor() as f32);
-                let section = gfx_glyph::Section {
-                    text: &text,
-                    scale,
-                    screen_position: (0.0, 0.0),
-                    bounds: (width / 3.15, height),
-                    color: [0.9, 0.3, 0.3, 1.0],
-                    ..Section::default()
-                };
-                glyph_brush.queue(section);
+
+                draw_boxes(&render_root, &mut glyph_brush, scale, width, height);
+
                 glyph_brush
                     .use_queue()
                     // .transform(projection)
@@ -122,7 +175,7 @@ fn main() -> Result<(),BrowserError>{
 
             _ => (),
         }
-    });
+    })
 }
 /*
 fn main2() -> Result<(),BrowserError>{
@@ -205,3 +258,4 @@ fn main2() -> Result<(),BrowserError>{
     }
 }
 */
+

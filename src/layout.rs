@@ -175,7 +175,7 @@ impl RenderAnonymousBox {
 #[derive(Debug)]
 pub struct RenderLineBox {
     pub(crate) rect:Rect,
-    pub(crate) children: Vec<RenderInlineBoxType>,
+    pub children: Vec<RenderInlineBoxType>,
     pub(crate) baseline:f32,
 }
 impl RenderLineBox {
@@ -203,8 +203,8 @@ pub enum RenderInlineBoxType {
 
 #[derive(Debug)]
 pub struct RenderTextBox {
-    pub(crate) rect:Rect,
-    pub(crate) text:String,
+    pub rect:Rect,
+    pub text:String,
     pub color:Option<Color>,
     pub font_size:f32,
     pub font_family:String,
