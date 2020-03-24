@@ -13,13 +13,10 @@ use rust_minibrowser::app::{parse_args, init_fonts, navigate_to_doc};
 use cgmath::{Matrix4, Rad, Transform, Vector3};
 use gfx::{format::{Depth, Srgba8}, Device, Resources, Factory};
 use gfx_glyph::*;
-use glutin::{
-    event::{
-        ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, VirtualKeyCode,
-        WindowEvent,
-    },
-    event_loop::ControlFlow,
-};
+use glutin::{event::{
+    ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, VirtualKeyCode,
+    WindowEvent,
+}, event_loop::ControlFlow, ContextWrapper};
 use old_school_gfx_glutin_ext::*;
 use std::{
     env,
@@ -32,14 +29,18 @@ use std::{
 const WIDTH: usize = 800;
 const HEIGHT: usize = 800;
 
-pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A, B>, scale:Scale, width:f32, height:f32) {
+pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox,
+                                            gb:&mut GlyphBrush<A, B>,
+                                            scale_factor:f32,
+                                            width:f32,
+                                            height:f32) {
     let text = "foo";
     // let width = 200.0;
     // let height = 100.0;
     match bx {
         RenderBox::Block(rbx) => {
             for ch in rbx.children.iter() {
-                draw_boxes(ch, gb, scale, width, height);
+                draw_boxes(ch, gb, scale_factor, width, height);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -50,6 +51,7 @@ pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A,
                         RenderInlineBoxType::Text(text) => {
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
+                                let scale = Scale::uniform(text.font_size * scale_factor * 0.5);
                                 let section = gfx_glyph::Section {
                                     text: &*text.text,
                                     scale,
@@ -143,6 +145,10 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 }
                 | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::Resized(size) => {
+                    window_ctx.resize(size);
+                    window_ctx.update_gfx(&mut main_color, &mut main_depth);
+                },
                 _ => (),
             }
             Event::RedrawRequested(_) => {
@@ -151,9 +157,7 @@ fn main() -> Result<(),BrowserError>{
                 // i think this is the main color BUFFER
                 let (width, height, ..) = main_color.get_dimensions();
                 let (width, height) = (f32::from(width), f32::from(height));
-                let scale = Scale::uniform(font_size * window_ctx.window().scale_factor() as f32);
-
-                draw_boxes(&render_root, &mut glyph_brush, scale, width, height);
+                draw_boxes(&render_root, &mut glyph_brush, window_ctx.window().scale_factor() as f32, width, height);
 
                 glyph_brush
                     .use_queue()
