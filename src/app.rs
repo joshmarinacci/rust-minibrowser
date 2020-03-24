@@ -1,5 +1,5 @@
 use url::Url;
-use crate::render::FontCache;
+use crate::render::{FontCache};
 use crate::layout::{Dimensions, RenderBox, Rect};
 use crate::dom::{Document, strip_empty_nodes, expand_entities};
 use crate::net::{BrowserError, load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url};
@@ -9,20 +9,21 @@ use font_kit::source::SystemSource;
 use std::env;
 use minifb::{Key, Window, KeyRepeat};
 use font_kit::properties::Properties;
+use gfx::{Resources, Factory};
 
-pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
+pub fn navigate_to_doc<R:Resources,F:Factory<R>>(url:&Url, font_cache:&mut FontCache<R,F>, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let mut doc = load_doc_from_net(&url)?;
     strip_empty_nodes(&mut doc);
     expand_entities(&mut doc);
     let mut stylesheet = load_stylesheets_with_fallback(&doc)?;
     expand_styles(&mut stylesheet);
-    font_cache.scan_for_fontface_rules(&stylesheet);
+    // font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
     let render_root = bbox.layout(&mut containing_block.clone(), font_cache, &doc);
     Ok((doc,render_root))
 }
-
+/*
 pub fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();
     font_cache.install_default_font("sans-serif",  400.0,"normal", &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
@@ -39,7 +40,7 @@ pub fn init_fonts() -> FontCache {
     );
     font_cache
 }
-
+*/
 pub fn parse_args() -> Result<Url, BrowserError> {
     let args: Vec<String> = env::args().collect();
     println!("args = {:?}", args);
