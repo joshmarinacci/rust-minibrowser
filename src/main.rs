@@ -3,24 +3,26 @@ use rust_minibrowser::layout;
 
 use rust_minibrowser::style::{style_tree, expand_styles};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType};
-use rust_minibrowser::render::{draw_render_box, FontCache};
+use rust_minibrowser::render::{FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
 
 
-use rust_minibrowser::app::{parse_args, init_fonts, navigate_to_doc};
+use rust_minibrowser::app::{parse_args, navigate_to_doc};
 
 use cgmath::{Matrix4, Rad, Transform, Vector3};
 use gfx::{format::{Depth, Srgba8}, Device, Resources, Factory};
-use gfx_glyph::*;
+use gfx_glyph::{GlyphBrush, Scale, Section, GlyphBrushBuilder};
 use glutin::{
+
     event::{
         ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, VirtualKeyCode,
         WindowEvent,
     },
     event_loop::ControlFlow,
+
 };
-use old_school_gfx_glutin_ext::*;
+use old_school_gfx_glutin_ext::{ContextBuilderExt, WindowInitExt};
 use std::{
     env,
     error::Error,
@@ -32,14 +34,11 @@ use std::{
 const WIDTH: usize = 800;
 const HEIGHT: usize = 800;
 
-pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A, B>, scale:Scale, width:f32, height:f32) {
-    let text = "foo";
-    // let width = 200.0;
-    // let height = 100.0;
+pub fn draw_boxes<R:Resources,F:Factory<R>>(bx:&RenderBox, gb:&mut FontCache<R,F>, width:f32, height:f32, scale_factor:f64) {
     match bx {
         RenderBox::Block(rbx) => {
             for ch in rbx.children.iter() {
-                draw_boxes(ch, gb, scale, width, height);
+                draw_boxes(ch, gb, width, height, scale_factor);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -50,6 +49,7 @@ pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A,
                         RenderInlineBoxType::Text(text) => {
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
+                                let scale = Scale::uniform(text.font_size * scale_factor as f32);
                                 let section = gfx_glyph::Section {
                                     text: &*text.text,
                                     scale,
@@ -62,7 +62,7 @@ pub fn draw_boxes<A:Resources,B:Factory<A>>(bx:&RenderBox, gb:&mut GlyphBrush<A,
                                         1.0],
                                     ..Section::default()
                                 };
-                                gb.queue(section);
+                                gb.brush.queue(section);
                                 // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
@@ -105,12 +105,14 @@ fn main() -> Result<(),BrowserError>{
 
     //load a font
     let font: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
-    let mut glyph_brush =
-        GlyphBrushBuilder::using_font_bytes(font)
-        .initial_cache_size((1024, 1024))
-        .build(factory.clone());
+    let mut font_cache =  FontCache {
+        factory: factory.clone(),
+        brush: GlyphBrushBuilder::using_font_bytes(font)
+            .initial_cache_size((1024, 1024))
+            .build(factory.clone())
+    };
 
-    let mut font_cache = init_fonts();
+    //let mut font_cache = init_fonts();
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {
         content: Rect {
@@ -151,11 +153,10 @@ fn main() -> Result<(),BrowserError>{
                 // i think this is the main color BUFFER
                 let (width, height, ..) = main_color.get_dimensions();
                 let (width, height) = (f32::from(width), f32::from(height));
-                let scale = Scale::uniform(font_size * window_ctx.window().scale_factor() as f32);
 
-                draw_boxes(&render_root, &mut glyph_brush, scale, width, height);
+                draw_boxes(&render_root, &mut font_cache, width, height, window_ctx.window().scale_factor());
 
-                glyph_brush
+                font_cache.brush
                     .use_queue()
                     // .transform(projection)
                     .draw(&mut encoder, &main_color)
