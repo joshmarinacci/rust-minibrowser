@@ -126,7 +126,7 @@ fn main() -> Result<(),BrowserError>{
         margin: Default::default()
     };
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-
+    let mut yoff = 0.0;
     // main event loop
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -149,6 +149,21 @@ fn main() -> Result<(),BrowserError>{
                     window_ctx.resize(size);
                     window_ctx.update_gfx(&mut main_color, &mut main_depth);
                 },
+                WindowEvent::MouseWheel {
+                    delta,
+                    ..
+                } => {
+                    match delta {
+                        MouseScrollDelta::LineDelta(x,y) => {
+                            yoff += y;
+                            yoff = yoff.min(0.0);
+                        },
+                        MouseScrollDelta::PixelDelta(lp) => {
+                            yoff += lp.y as f32;
+                            yoff = yoff.min(0.0);
+                        },
+                    }
+                },
                 _ => (),
             }
             Event::RedrawRequested(_) => {
@@ -158,10 +173,11 @@ fn main() -> Result<(),BrowserError>{
                 let (width, height, ..) = main_color.get_dimensions();
                 let (width, height) = (f32::from(width), f32::from(height));
                 draw_boxes(&render_root, &mut glyph_brush, window_ctx.window().scale_factor() as f32, width, height);
-
+                let projection: Matrix4<f32> = gfx_glyph::default_transform(&main_color).into();
+                let offset = Matrix4::from_translation(Vector3::new(0.0, yoff, 0.0));
                 glyph_brush
                     .use_queue()
-                    // .transform(projection)
+                    .transform(projection * offset)
                     .draw(&mut encoder, &main_color)
                     .unwrap();
                 encoder.flush(&mut device);
