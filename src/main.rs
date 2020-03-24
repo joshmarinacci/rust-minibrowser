@@ -31,8 +31,8 @@ use std::{
 };
 
 
-const WIDTH: usize = 800;
-const HEIGHT: usize = 800;
+const WIDTH:i32 = 800;
+const HEIGHT:i32 = 800;
 
 pub fn draw_boxes<R:Resources,F:Factory<R>>(bx:&RenderBox, gb:&mut FontCache<R,F>, width:f32, height:f32, scale_factor:f64) {
     match bx {
@@ -54,12 +54,13 @@ pub fn draw_boxes<R:Resources,F:Factory<R>>(bx:&RenderBox, gb:&mut FontCache<R,F
                                     text: &*text.text,
                                     scale,
                                     screen_position: (text.rect.x, text.rect.y),
-                                    bounds: (width / 3.15, height),
+                                    bounds: (text.rect.width*2.0, text.rect.height),
                                     color: [
                                         (color.r as f32)/255.0,
                                         (color.g as f32)/255.0,
-                                        0.3,
-                                        1.0],
+                                        (color.b as f32)/255.0,
+                                        (color.a as f32)/255.0,
+                                    ],
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
@@ -87,7 +88,7 @@ fn main() -> Result<(),BrowserError>{
     //build the window
     let window_builder = glutin::window::WindowBuilder::new()
         .with_title("some title")
-        .with_inner_size(glutin::dpi::PhysicalSize::new(1024, 576));
+        .with_inner_size(glutin::dpi::PhysicalSize::new(WIDTH, HEIGHT));
     let (window_ctx, mut device, mut factory, mut main_color, mut main_depth) =
         glutin::ContextBuilder::new()
             .with_gfx_color_depth::<Srgba8, Depth>()

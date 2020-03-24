@@ -20,7 +20,9 @@ pub fn navigate_to_doc<R:Resources,F:Factory<R>>(url:&Url, font_cache:&mut FontC
     // font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
+    println!("doing layout with bounds {:#?}", containing_block);
     let render_root = bbox.layout(&mut containing_block.clone(), font_cache, &doc);
+    println!("render root is {:#?}",render_root);
     Ok((doc,render_root))
 }
 /*

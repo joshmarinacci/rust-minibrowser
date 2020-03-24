@@ -844,18 +844,16 @@ impl<'a> LayoutBox<'a> {
 }
 
 fn calculate_word_length<R:Resources,F:Factory<R>>(text:&str, font:&mut FontCache<R,F>, font_size:f32) -> f32 {
-    let mut sum = 0.0;
     use gfx_glyph::GlyphCruncher;
     let sec = Section {
         text,
         ..Section::default()
     };
-    // println!("font size is {}",font_size);
-    for g in font.brush.glyphs(sec) {
-        // println!("glyph {:#?}",g.position());
-        sum += g.position().x*font_size/18.0*2.0;
+    let bds = font.brush.glyph_bounds(sec);
+    match &bds {
+        Some(rect) => rect.max.x*font_size/18.0*2.0,
+        None => 0.0,
     }
-    sum
 }
 
 struct Looper<'a,R:Resources,F:Factory<R>> {
