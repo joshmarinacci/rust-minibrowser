@@ -47,14 +47,16 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position);
 
+pub fn transform(x:f32, y:f32) -> (f32,f32){
+    let w = WIDTH as f32;
+    let h = HEIGHT as f32;
+    return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
+}
 pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect) {
     println!("box is {:#?}",rect);
-    make_box2(shape,
-              rect.x/(WIDTH as f32) - 0.5,
-              rect.y/(HEIGHT as f32) + 0.5,
-              (rect.x+rect.width)/(WIDTH as f32) - 0.5,
-              (rect.y + rect.height)/(HEIGHT as f32) + 0.5,
-    )
+    let (x1,y1) = transform(rect.x,rect.y);
+    let (x2,y2) = transform(rect.x+rect.width,rect.y+rect.height);
+    make_box2(shape, x1, y1, x2, y2);
 }
 
 pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32) {
@@ -208,13 +210,15 @@ fn main() -> Result<(),BrowserError>{
         draw_boxes(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
-        font_cache.brush.draw_queued(&display, &mut target);
 
         let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+
+        //draw boxes
         target.draw(&vertex_buffer, &indices, &program, &glium::uniforms::EmptyUniforms,
                     &Default::default()).unwrap();
-
+        //draw fonts
+        font_cache.brush.draw_queued(&display, &mut target);
         target.finish().unwrap();
         /*
         match event {
