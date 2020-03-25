@@ -1,9 +1,3 @@
-use raqote::{DrawTarget,
-    SolidSource, PathBuilder, Source,
-    DrawOptions, StrokeStyle,
-    LineCap, LineJoin
-};
-use font_kit::font::Font;
 use crate::css::{Color, Value, Stylesheet, RuleType};
 use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox};
 use std::collections::HashMap;
@@ -11,9 +5,7 @@ use std::path::Path;
 use std::fs::File;
 use url::Url;
 use crate::net::relative_filepath_to_url;
-use gfx_glyph::GlyphBrush;
-use glyph_brush::DefaultSectionHasher;
-use gfx::{Resources, Factory};
+use glium_glyph::GlyphBrush;
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
@@ -27,6 +19,7 @@ pub const YELLOW:Color = Color { r:255, g:255, b:0, a:255 };
 pub const GREEN:Color = Color { r:0, g:255, b:0, a:255 };
 pub const MAGENTA:Color = Color { r:255, g:0, b:255, a:255 };
 
+/*
 pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
     let mut pb = PathBuilder::new();
     pb.rect(dim.x as f32, dim.y as f32, dim.width as f32, dim.height as f32);
@@ -59,7 +52,8 @@ fn draw_text(dt: &mut DrawTarget, font:&Font, rect:&Rect, text:&str, c:&Source, 
 
 fn color_to_source(c:&Color) -> Source {
     Source::Solid(SolidSource::from_unpremultiplied_argb(c.a, c.r, c.g, c.b))
-}
+}*/
+
 /*
 fn draw_render_box_block<R:Resources,F:Factory<R>>(block:&RenderBlockBox, dt:&mut DrawTarget, font_cache:&mut FontCache<R,F>, viewport:&Rect) -> bool {
     if let Some(color) = &block.background_color {
@@ -129,10 +123,9 @@ pub fn draw_render_box<R:Resources,F:Factory<R>>(root:&RenderBox, dt:&mut DrawTa
 }
 */
 
-#[derive(Debug)]
-pub struct FontCache<R: Resources,F:Factory<R>> {
-    pub factory: F,
-    pub brush: GlyphBrush<'static, R, F>,
+
+pub struct FontCache {
+    pub brush: GlyphBrush<'static, 'static>,
     // families:HashMap<String,Url>,
     // names:HashMap<String,Url>,
     // fonts:HashMap<String,Font>,

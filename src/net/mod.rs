@@ -43,9 +43,7 @@ impl From<pom::Error> for BrowserError {
 impl From<()> for BrowserError {
     fn from(_: ()) -> Self { unimplemented!()  }
 }
-impl From<glutin::CreationError> for BrowserError {
-    fn from(_: glutin::CreationError) -> Self { unimplemented!() }
-}
+
 
 pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserError>{
     Ok(doc.base_url.join(href)?)

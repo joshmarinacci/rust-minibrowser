@@ -17,9 +17,6 @@ image = "0.23.0"
 url = "2.1.1"
 lazy_static = "1.4.0"
 cgmath = "0.17"
-gfx = "0.18"
-glutin = "0.24"
-old_school_gfx_glutin_ext = "0.24"
-gfx_glyph = "0.16.0"
-glyph_brush = { version = "0.6" }
 spin_sleep = "0.3"
+glium = {version = "0.26.0" }
+glium-glyph = "0.7.0"

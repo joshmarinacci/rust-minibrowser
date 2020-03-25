@@ -11,30 +11,30 @@ use url::Url;
 use rust_minibrowser::app::{parse_args, navigate_to_doc};
 
 use cgmath::{Matrix4, Rad, Transform, Vector3};
-use gfx::{format::{Depth, Srgba8}, Device, Resources, Factory};
-use gfx_glyph::{GlyphBrush, Scale, Section, GlyphBrushBuilder};
-use glutin::{
-
-    event::{
-        ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, VirtualKeyCode,
-        WindowEvent,
-    },
-    event_loop::ControlFlow,
-
+use glium::glutin::{Api,
+                    GlProfile,
+                    GlRequest,
+                    window::WindowBuilder,
+                    event_loop::ControlFlow,
+                    event_loop::EventLoop,
+                    event::WindowEvent,
+                    event::StartCause,
+                    event::Event,
+                    ContextBuilder,
 };
-use old_school_gfx_glutin_ext::{ContextBuilderExt, WindowInitExt};
-use std::{
-    env,
-    error::Error,
-    f32::consts::PI as PI32,
-    io::{self, Write},
-};
-
+use glium::glutin;
+use glium::Surface;
+use glium_glyph::GlyphBrush;
+use glium_glyph::glyph_brush::{Section,
+                               rusttype::{
+                                   Font,
+                                   Scale
+                               }};
 
 const WIDTH:i32 = 800;
 const HEIGHT:i32 = 800;
 
-pub fn draw_boxes<R:Resources,F:Factory<R>>(bx:&RenderBox, gb:&mut FontCache<R,F>, width:f32, height:f32, scale_factor:f64) {
+pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64) {
     match bx {
         RenderBox::Block(rbx) => {
             for ch in rbx.children.iter() {
@@ -50,7 +50,7 @@ pub fn draw_boxes<R:Resources,F:Factory<R>>(bx:&RenderBox, gb:&mut FontCache<R,F
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
                                 let scale = Scale::uniform(text.font_size * scale_factor as f32);
-                                let section = gfx_glyph::Section {
+                                let section = Section {
                                     text: &*text.text,
                                     scale,
                                     screen_position: (text.rect.x, text.rect.y),
@@ -86,31 +86,29 @@ fn main() -> Result<(),BrowserError>{
     //make an event loop
     let event_loop = glutin::event_loop::EventLoop::new();
     //build the window
-    let window_builder = glutin::window::WindowBuilder::new()
+    let window = glutin::window::WindowBuilder::new()
         .with_title("some title")
         .with_inner_size(glutin::dpi::PhysicalSize::new(WIDTH, HEIGHT));
-    let (window_ctx, mut device, mut factory, mut main_color, mut main_depth) =
-        glutin::ContextBuilder::new()
-            .with_gfx_color_depth::<Srgba8, Depth>()
-            .build_windowed(window_builder, &event_loop)?
-            .init_gfx::<Srgba8, Depth>();
+    let context = glutin::ContextBuilder::new();
+    let display = glium::Display::new(window, context, &event_loop).unwrap();
 
     //TODO: I don't know what this does
-    let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+    // let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
     //TODO: loop helper. I don't really know what this does.
-    let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(250.0);
-    let mut modifiers = ModifiersState::default();
+    // let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(250.0);
+    // let mut modifiers = ModifiersState::default();
 
     let mut font_size: f32 = 18.0;
     let text = "foo";
 
     //load a font
-    let font: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let open_sans: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let fonts = vec![Font::from_bytes(open_sans).unwrap()];
     let mut font_cache =  FontCache {
-        factory: factory.clone(),
-        brush: GlyphBrushBuilder::using_font_bytes(font)
-            .initial_cache_size((1024, 1024))
-            .build(factory.clone())
+        // factory: factory.clone(),
+        brush: GlyphBrush::new(&display, fonts),
+            // .initial_cache_size((1024, 1024))
+            // .build(factory.clone())
     };
 
     //let mut font_cache = init_fonts();
@@ -129,8 +127,23 @@ fn main() -> Result<(),BrowserError>{
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
 
     // main event loop
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    event_loop.run(move |event, _tgt, control_flow| {
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = ControlFlow::Exit;
+                },
+                _ => (),
+            },
+            _ => (),
+        }
+        let screen_dims = display.get_framebuffer_dimensions();
+        let mut target = display.draw();
+        target.clear_color(1.0, 1.0, 1.0, 1.0);
+        draw_boxes(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0);
+        font_cache.brush.draw_queued(&display, &mut target);
+        target.finish().unwrap();
+        /*
         match event {
             //TODO: just redraw on main events cleared. what does that mean?
             Event::MainEventsCleared => window_ctx.window().request_redraw(),
@@ -176,7 +189,7 @@ fn main() -> Result<(),BrowserError>{
             },
 
             _ => (),
-        }
+        }*/
     })
 }
 /*

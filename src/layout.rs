@@ -1,4 +1,3 @@
-use font_kit::font::Font;
 
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, style_tree};
@@ -12,8 +11,7 @@ use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 use std::mem;
 use crate::style::Display::{TableRowGroup, TableRow};
-use gfx::{Resources, Factory};
-use gfx_glyph::{Section, PositionedGlyph};
+use glium_glyph::glyph_brush::Section;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -302,7 +300,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    pub fn layout<R:Resources,F:Factory<R>>(&mut self, containing: &mut Dimensions, font:&mut FontCache<R,F>, doc:&Document) -> RenderBox {
+    pub fn layout(&mut self, containing: &mut Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
         match self.box_type {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
@@ -328,7 +326,7 @@ impl<'a> LayoutBox<'a> {
             _ => "non-element".to_string(),
         }
     }
-    fn layout_block<R:Resources,F:Factory<R>>(&mut self, containing_block: &mut Dimensions, font_cache:&mut FontCache<R,F>, doc:&Document) -> RenderBlockBox {
+    fn layout_block(&mut self, containing_block: &mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderBlockBox {
         self.calculate_block_width(containing_block);
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font_cache, doc);
@@ -346,7 +344,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn layout_table_row<R:Resources,F:Factory<R>>(&mut self, cb:&mut Dimensions, font_cache:&mut FontCache<R,F>, doc: &Document) -> RenderBlockBox {
+    fn layout_table_row(&mut self, cb:&mut Dimensions, font_cache:&mut FontCache, doc: &Document) -> RenderBlockBox {
         // println!("layout_table_row");
         self.calculate_block_width(cb);
         self.calculate_block_position(cb);
@@ -404,7 +402,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 /*
-    fn find_font_family<R:Resources,F:Factory<R>>(&self, font_cache:&mut FontCache<R,F>) -> String {
+    fn find_font_family(&self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.get_style_node().lookup("font-family",
                                                               "font-family",
                                                               &Value::Keyword(String::from("sans-serif")));
@@ -446,7 +444,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn layout_anonymous_2<R:Resources,F:Factory<R>>(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache<R,F>, doc:&Document) -> RenderAnonymousBox {
+    fn layout_anonymous_2(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         // println!("parent is {:#?}",self.get_type());
         let mut looper = Looper {
             lines: vec![],
@@ -469,7 +467,7 @@ impl<'a> LayoutBox<'a> {
             current_start: dim.content.x,
             current_end: dim.content.x,
             current_bottom: dim.content.y + dim.content.height,
-            font_cache,
+            font_cache:font_cache,
             doc,
             style_node:self.get_style_node(),
         };
@@ -503,7 +501,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline_block<R:Resources,F:Factory<R>>(&mut self, looper:&mut Looper<R,F>) {
+    fn do_inline_block(&mut self, looper:&mut Looper) {
         let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
         let mut src = String::from("");
         // let w = 100.0;
@@ -604,7 +602,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline<R:Resources,F:Factory<R>>(&self, looper:&mut Looper<R,F>) {
+    fn do_inline(&self, looper:&mut Looper) {
         let link:Option<String> = match &looper.style_node.node.node_type {
             Text(_) => None,
             NodeType::Comment(_) => None,
@@ -824,7 +822,7 @@ impl<'a> LayoutBox<'a> {
         d.content.y = containing.content.height + containing.content.y + d.margin.top + d.border.top + d.padding.top;
     }
 
-    fn layout_block_children<R:Resources,F:Factory<R>>(&mut self, font_cache:&mut FontCache<R,F>, doc:&Document) -> Vec<RenderBox>{
+    fn layout_block_children(&mut self, font_cache:&mut FontCache, doc:&Document) -> Vec<RenderBox>{
         let d = &mut self.dimensions;
         let mut children:Vec<RenderBox> = vec![];
         for child in self.children.iter_mut() {
@@ -843,8 +841,8 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn calculate_word_length<R:Resources,F:Factory<R>>(text:&str, font:&mut FontCache<R,F>, font_size:f32) -> f32 {
-    use gfx_glyph::GlyphCruncher;
+fn calculate_word_length(text:&str, font:&mut FontCache, font_size:f32) -> f32 {
+    use glium_glyph::glyph_brush::GlyphCruncher;
     let sec = Section {
         text,
         ..Section::default()
@@ -856,19 +854,19 @@ fn calculate_word_length<R:Resources,F:Factory<R>>(text:&str, font:&mut FontCach
     }
 }
 
-struct Looper<'a,R:Resources,F:Factory<R>> {
+struct Looper<'a> {
     lines:Vec<RenderLineBox>,
     current: RenderLineBox,
     extents:Rect,
     current_start:f32,
     current_end:f32,
     current_bottom:f32,
-    font_cache:&'a mut FontCache<R,F>,
+    font_cache:&'a mut FontCache,
     doc: &'a Document,
     style_node: &'a StyledNode<'a>,
 }
 
-impl<R:Resources,F:Factory<R>> Looper<'_, R,F> {
+impl Looper<'_> {
     fn start_new_line(&mut self) {
         let old = mem::replace(&mut self.current, RenderLineBox {
             rect: Rect{
@@ -997,7 +995,7 @@ fn test_inline_block_element_layout() {
 }
 */
 /*
-fn standard_init<'a,R:Resources,F:Factory<R>>(html:&[u8], css:&[u8]) -> (FontCache<R,F>, Document, Stylesheet){
+fn standard_init<'a,R:Resources,F:Factory<R>>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet){
     let mut font_cache = FontCache::new();
     font_cache.install_font("sans-serif",400.0, "normal",
                             &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());

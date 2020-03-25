@@ -5,13 +5,9 @@ use crate::dom::{Document, strip_empty_nodes, expand_entities};
 use crate::net::{BrowserError, load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url};
 use crate::style::{expand_styles, style_tree};
 use crate::layout;
-use font_kit::source::SystemSource;
 use std::env;
-use minifb::{Key, Window, KeyRepeat};
-use font_kit::properties::Properties;
-use gfx::{Resources, Factory};
 
-pub fn navigate_to_doc<R:Resources,F:Factory<R>>(url:&Url, font_cache:&mut FontCache<R,F>, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
+pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let mut doc = load_doc_from_net(&url)?;
     strip_empty_nodes(&mut doc);
     expand_entities(&mut doc);
@@ -64,7 +60,7 @@ pub fn parse_args() -> Result<Url, BrowserError> {
     Ok(start_page)
 }
 
-
+/*
 fn scroll_viewport(window:&Window, viewport:&mut Rect) {
     if let Some(keys) = window.get_keys_pressed(KeyRepeat::Yes) {
         for key in keys {
@@ -78,3 +74,4 @@ fn scroll_viewport(window:&Window, viewport:&mut Rect) {
         }
     }
 }
+*/
