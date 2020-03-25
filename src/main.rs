@@ -23,6 +23,8 @@ use glium::glutin::{Api,
                     event_loop::EventLoop,
                     event::WindowEvent,
                     event::StartCause,
+                    event::VirtualKeyCode,
+                    event::KeyboardInput,
                     event::Event,
                     ContextBuilder,
 };
@@ -187,9 +189,15 @@ fn main() -> Result<(),BrowserError>{
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                },
+                WindowEvent::KeyboardInput {
+                    input:
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        ..
+                    },
+                    ..
+                }
+                | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 _ => (),
             },
             _ => (),
