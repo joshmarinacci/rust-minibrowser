@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate glium;
+extern crate glium_glyph;
+
 use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
@@ -34,11 +38,38 @@ use glium_glyph::glyph_brush::{Section,
 const WIDTH:i32 = 800;
 const HEIGHT:i32 = 800;
 
-pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64) {
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    position: [f32; 2],
+}
+
+implement_vertex!(Vertex, position);
+
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect) {
+    println!("box is {:#?}",rect);
+    make_box2(shape,
+              rect.x/(WIDTH as f32) - 0.5,
+              rect.y/(HEIGHT as f32) + 0.5,
+              (rect.x+rect.width)/(WIDTH as f32) - 0.5,
+              (rect.y + rect.height)/(HEIGHT as f32) + 0.5,
+    )
+}
+
+pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32) {
+    shape.push(Vertex { position: [x1,  y1] });
+    shape.push(Vertex { position: [ x2,  y1] });
+    shape.push(Vertex { position: [ x2, y2] });
+
+    shape.push(Vertex { position: [ x2, y2] });
+    shape.push(Vertex { position: [x1, y2] });
+    shape.push( Vertex { position: [x1,  y1] });
+}
+
+pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64, shape:&mut Vec<Vertex>) {
     match bx {
         RenderBox::Block(rbx) => {
             for ch in rbx.children.iter() {
-                draw_boxes(ch, gb, width, height, scale_factor);
+                draw_boxes(ch, gb, width, height, scale_factor, shape);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -64,6 +95,7 @@ pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
+                                make_box(shape, &text.rect)
                                 // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
@@ -88,7 +120,7 @@ fn main() -> Result<(),BrowserError>{
     //build the window
     let window = glutin::window::WindowBuilder::new()
         .with_title("some title")
-        .with_inner_size(glutin::dpi::PhysicalSize::new(WIDTH, HEIGHT));
+        .with_inner_size(glutin::dpi::LogicalSize::new(WIDTH, HEIGHT));
     let context = glutin::ContextBuilder::new();
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
@@ -125,6 +157,31 @@ fn main() -> Result<(),BrowserError>{
         margin: Default::default()
     };
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
+    let screen_dims = display.get_framebuffer_dimensions();
+
+
+    let vertex_shader_src = r#"
+        #version 140
+
+        in vec2 position;
+
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    "#;
+
+    let fragment_shader_src = r#"
+        #version 140
+
+        out vec4 color;
+
+        void main() {
+            color = vec4(1.0, 1.0, 0.0, 1.0);
+        }
+    "#;
+
+    let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
+
 
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
@@ -138,10 +195,18 @@ fn main() -> Result<(),BrowserError>{
             _ => (),
         }
         let screen_dims = display.get_framebuffer_dimensions();
+        let mut shape:Vec<Vertex> = Vec::new();
+
+        draw_boxes(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
-        draw_boxes(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0);
         font_cache.brush.draw_queued(&display, &mut target);
+
+        let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
+        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+        target.draw(&vertex_buffer, &indices, &program, &glium::uniforms::EmptyUniforms,
+                    &Default::default()).unwrap();
+
         target.finish().unwrap();
         /*
         match event {
