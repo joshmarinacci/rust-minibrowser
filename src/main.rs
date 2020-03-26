@@ -237,7 +237,14 @@ fn main() -> Result<(),BrowserError>{
         target.draw(&vertex_buffer, &indices, &program, &uniforms,
                     &Default::default()).unwrap();
         //draw fonts
-        font_cache.brush.draw_queued(&display, &mut target);
+        let dims = display.get_framebuffer_dimensions();
+        let transform = [
+            [2.0 / (dims.0 as f32), 0.0, 0.0, 0.0],
+            [0.0, 2.0 / (dims.1 as f32), 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [-1.0, -1.0 - t, 0.0, 1.0],
+        ];
+        font_cache.brush.draw_queued_with_transform(transform, &display, &mut target);
         target.finish().unwrap();
     })
 }
