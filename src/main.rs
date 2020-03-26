@@ -187,7 +187,7 @@ fn main() -> Result<(),BrowserError>{
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
-    let mut yoff = 0.0;
+    let mut yoff:f32 = 0.0;
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -206,8 +206,8 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 } => {
                     match delta {
-                        LineDelta(x, y) => {},
-                        PixelDelta(lp) => yoff += lp.y,
+                        LineDelta(x, y) => yoff += y * 10.0,
+                        PixelDelta(lp) => yoff += lp.y as f32,
                     }
                 },
                 _ => (),
