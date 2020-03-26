@@ -22,6 +22,7 @@ use glium::glutin::{Api,
                     event_loop::ControlFlow,
                     event_loop::EventLoop,
                     event::WindowEvent,
+                    event::MouseScrollDelta::{PixelDelta, LineDelta},
                     event::StartCause,
                     event::VirtualKeyCode,
                     event::KeyboardInput,
@@ -185,7 +186,7 @@ fn main() -> Result<(),BrowserError>{
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
-
+    let mut yoff = 0.0;
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -199,6 +200,15 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 }
                 | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::MouseWheel {
+                    delta,
+                    ..
+                } => {
+                    match delta {
+                        LineDelta(x, y) => {},
+                        PixelDelta(lp) => yoff += lp.y,
+                    }
+                },
                 _ => (),
             },
             _ => (),
