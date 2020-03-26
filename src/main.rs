@@ -168,9 +168,10 @@ fn main() -> Result<(),BrowserError>{
         #version 140
 
         in vec2 position;
+        uniform mat4 matrix;
 
         void main() {
-            gl_Position = vec4(position, 0.0, 1.0);
+            gl_Position = matrix * vec4(position, 0.0, 1.0);
         }
     "#;
 
@@ -224,7 +225,16 @@ fn main() -> Result<(),BrowserError>{
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
         //draw boxes
-        target.draw(&vertex_buffer, &indices, &program, &glium::uniforms::EmptyUniforms,
+        let t = (yoff/800.0) as f32;
+        let uniforms = uniform! {
+            matrix: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [ 0.0 , t, 0.0, 1.0f32],
+            ]
+        };
+        target.draw(&vertex_buffer, &indices, &program, &uniforms,
                     &Default::default()).unwrap();
         //draw fonts
         font_cache.brush.draw_queued(&display, &mut target);
