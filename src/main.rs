@@ -53,7 +53,6 @@ pub fn transform(x:f32, y:f32) -> (f32,f32){
     return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
 }
 pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect) {
-    println!("box is {:#?}",rect);
     let (x1,y1) = transform(rect.x,rect.y);
     let (x2,y2) = transform(rect.x+rect.width,rect.y+rect.height);
     make_box2(shape, x1, y1, x2, y2);
@@ -220,92 +219,11 @@ fn main() -> Result<(),BrowserError>{
         //draw fonts
         font_cache.brush.draw_queued(&display, &mut target);
         target.finish().unwrap();
-        /*
-        match event {
-            //TODO: just redraw on main events cleared. what does that mean?
-            Event::MainEventsCleared => window_ctx.window().request_redraw(),
-            Event::WindowEvent { event, .. } => match event {
-                //if esc or close requested, close the window
-                WindowEvent::ModifiersChanged(new_mods) => modifiers = new_mods,
-                WindowEvent::KeyboardInput {
-                    input:
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        ..
-                    },
-                    ..
-                }
-                | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                _ => (),
-            }
-            Event::RedrawRequested(_) => {
-                //TODO:  clear the window?
-                encoder.clear(&main_color, [0.92, 0.92, 0.92, 1.0]);
-                // i think this is the main color BUFFER
-                let (width, height, ..) = main_color.get_dimensions();
-                let (width, height) = (f32::from(width), f32::from(height));
-
-                draw_boxes(&render_root, &mut font_cache, width, height, window_ctx.window().scale_factor());
-
-                font_cache.brush
-                    .use_queue()
-                    // .transform(projection)
-                    .draw(&mut encoder, &main_color)
-                    .unwrap();
-                encoder.flush(&mut device);
-                window_ctx.swap_buffers().unwrap();
-                device.cleanup();
-                if let Some(rate) = loop_helper.report_rate() {
-                    window_ctx
-                        .window()
-                        .set_title(&format!("{} - {:.0} FPS", "some text", rate));
-                }
-
-                loop_helper.loop_sleep();
-                loop_helper.loop_start();
-            },
-
-            _ => (),
-        }*/
     })
 }
 /*
-fn main2() -> Result<(),BrowserError>{
-    let mut window = Window::new("Rust-Minibrowser", WIDTH, HEIGHT, WindowOptions {
-        title: true,
-        resize: true,
-        ..WindowOptions::default()
-    }).unwrap();
-    let mut font_cache = init_fonts();
-    let start_page = parse_args().unwrap();
 
-    let mut containing_block = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: WIDTH as f32,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-
-    let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-    // let mut prev_left_down = false;
-    // let mut prev_right_down = false;
-    let mut prev_w = WIDTH;
-    let mut prev_h = HEIGHT;
-    let mut dt = DrawTarget::new(prev_w as i32, prev_h as i32);
-    let mut viewport = Rect{
-        x: 0.0,
-        y: 0.0,
-        width: 100.0,
-        height: 100.0,
-    };
-    loop {
         let (w,h) = window.get_size();
-        /*
         if w != prev_w || h != prev_h {
             println!("resized to {}x{}",w,h);
             dt = DrawTarget::new(w as i32, h as i32);
@@ -342,11 +260,6 @@ fn main2() -> Result<(),BrowserError>{
             }
 
         }
-        prev_left_down = left_down;
-        */
-        dt.clear(SolidSource::from_unpremultiplied_argb(0xff, 0xff, 0xff, 0xff));
-        draw_render_box(&render_root, &mut dt, &mut font_cache, &viewport);
-        window.update_with_buffer(dt.get_data(), w as usize, h as usize).unwrap();
     }
 }
 */

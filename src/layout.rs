@@ -11,7 +11,7 @@ use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 use std::mem;
 use crate::style::Display::{TableRowGroup, TableRow};
-use glium_glyph::glyph_brush::Section;
+use glium_glyph::glyph_brush::{Section, rusttype::Scale};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -635,7 +635,9 @@ impl<'a> LayoutBox<'a> {
                     let mut curr_text = String::new();
                     for word in txt.split_whitespace() {
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
-                        let w: f32 = calculate_word_length(word, looper.font_cache, font_size);
+                        let mut word2 = String::from(" ");
+                        word2.push_str(word);
+                        let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size);
                         //if it's too long then we need to wrap
                         if looper.current_end + w > looper.extents.width {
                             //add current text to the current line
@@ -659,7 +661,7 @@ impl<'a> LayoutBox<'a> {
                             looper.add_box_to_current_line(bx);
                             //make new current text with the current word
                             curr_text = String::new();
-                            curr_text.push_str(word);
+                            curr_text.push_str(&word2);
                             curr_text.push_str(" ");
                             looper.current_bottom += looper.current.rect.height;
                             looper.extents.height += looper.current.rect.height;
@@ -668,8 +670,7 @@ impl<'a> LayoutBox<'a> {
                             looper.current_end += w;
                         } else {
                             looper.current_end += w;
-                            curr_text.push_str(word);
-                            curr_text.push_str(" ");
+                            curr_text.push_str(&word2);
                         }
                     }
                     let bx = RenderInlineBoxType::Text(RenderTextBox{
@@ -843,15 +844,23 @@ impl<'a> LayoutBox<'a> {
 
 fn calculate_word_length(text:&str, font:&mut FontCache, font_size:f32) -> f32 {
     use glium_glyph::glyph_brush::GlyphCruncher;
+    let scale = Scale::uniform(font_size * 2.0 as f32);
     let sec = Section {
         text,
+        scale,
         ..Section::default()
     };
-    let bds = font.brush.glyph_bounds(sec);
-    match &bds {
-        Some(rect) => rect.max.x*font_size/18.0*2.0,
+    let px_bounds = font.brush.pixel_bounds(sec);
+    let glyph_bounds = font.brush.glyph_bounds(sec);
+    // println!("bounds {:#?} {:#?}", px_bounds, glyph_bounds);
+    match &glyph_bounds {
+        Some(rect) => rect.max.x as f32,
         None => 0.0,
     }
+    // match &px_bounds {
+    //     Some(rect) => (rect.max.x - rect.min.x) as f32,
+    //     None => 0.0,
+    // }
 }
 
 struct Looper<'a> {

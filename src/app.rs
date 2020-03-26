@@ -16,9 +16,9 @@ pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dim
     // font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
-    println!("doing layout with bounds {:#?}", containing_block);
+    // println!("doing layout with bounds {:#?}", containing_block);
     let render_root = bbox.layout(&mut containing_block.clone(), font_cache, &doc);
-    println!("render root is {:#?}",render_root);
+    // println!("render root is {:#?}",render_root);
     Ok((doc,render_root))
 }
 /*
