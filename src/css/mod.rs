@@ -102,6 +102,9 @@ impl Color {
             a: 255
         }
     }
+    pub fn to_array(&self) -> [f32;4]{
+        return [(self.r as f32)/255.0, (self.g as f32)/255.0, (self.b as f32)/255.0, (self.a as f32)/255.0]
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

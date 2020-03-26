@@ -37,6 +37,7 @@ use glium_glyph::glyph_brush::{Section,
                                    Font,
                                    Scale
                                }};
+use rust_minibrowser::css::Color;
 
 const WIDTH:i32 = 800;
 const HEIGHT:i32 = 800;
@@ -44,29 +45,30 @@ const HEIGHT:i32 = 800;
 #[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 2],
+    color: [f32; 4],
 }
 
-implement_vertex!(Vertex, position);
+implement_vertex!(Vertex, position, color);
 
 pub fn transform(x:f32, y:f32) -> (f32,f32){
     let w = WIDTH as f32;
     let h = HEIGHT as f32;
     return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
 }
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect) {
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color) {
     let (x1,y1) = transform(rect.x,rect.y);
     let (x2,y2) = transform(rect.x+rect.width,rect.y+rect.height);
-    make_box2(shape, x1, y1, x2, y2);
+    make_box2(shape, x1, y1, x2, y2, color);
 }
 
-pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32) {
-    shape.push(Vertex { position: [x1,  y1] });
-    shape.push(Vertex { position: [ x2,  y1] });
-    shape.push(Vertex { position: [ x2, y2] });
+pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Color) {
+    shape.push(Vertex { position: [x1,  y1], color:color.to_array() });
+    shape.push(Vertex { position: [ x2,  y1], color:color.to_array() });
+    shape.push(Vertex { position: [ x2, y2], color:color.to_array() });
 
-    shape.push(Vertex { position: [ x2, y2] });
-    shape.push(Vertex { position: [x1, y2] });
-    shape.push( Vertex { position: [x1,  y1] });
+    shape.push(Vertex { position: [ x2, y2], color:color.to_array() });
+    shape.push(Vertex { position: [x1, y2], color:color.to_array() });
+    shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
 pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64, shape:&mut Vec<Vertex>) {
@@ -99,7 +101,7 @@ pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                make_box(shape, &text.rect)
+                                make_box(shape, &text.rect, &Color::from_hex("#ff0000"))
                                 // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
@@ -168,9 +170,12 @@ fn main() -> Result<(),BrowserError>{
         #version 140
 
         in vec2 position;
+        in vec4 color;
+        out vec4 f_color;
         uniform mat4 matrix;
 
         void main() {
+            f_color = color;
             gl_Position = matrix * vec4(position, 0.0, 1.0);
         }
     "#;
@@ -179,15 +184,18 @@ fn main() -> Result<(),BrowserError>{
         #version 140
 
         out vec4 color;
+        in vec4 f_color;
 
         void main() {
-            color = vec4(1.0, 1.0, 0.0, 1.0);
+            color = f_color;
+            //color = vec4(1.0, 1.0, 0.0, 1.0);
         }
     "#;
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
     let mut yoff:f32 = 0.0;
+    let zero:f32 = 0.0;
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -206,8 +214,8 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 } => {
                     match delta {
-                        LineDelta(x, y) => yoff += y * 10.0,
-                        PixelDelta(lp) => yoff += lp.y as f32,
+                        LineDelta(x, y) => yoff = zero.max(yoff - y * 10.0),
+                        PixelDelta(lp) => yoff = zero.max( yoff - lp.y as f32),
                     }
                 },
                 _ => (),
