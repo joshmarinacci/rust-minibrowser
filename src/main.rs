@@ -71,11 +71,11 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
-pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64, shape:&mut Vec<Vertex>) {
+pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64, shapes:&mut Vec<Vertex>) {
     match bx {
         RenderBox::Block(rbx) => {
             for ch in rbx.children.iter() {
-                draw_boxes(ch, gb, width, height, scale_factor, shape);
+                draw_render_box(ch, gb, width, height, scale_factor, shapes);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -101,12 +101,18 @@ pub fn draw_boxes(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                make_box(shape, &text.rect, &Color::from_hex("#ff0000"))
+                                // make_box(shape, &text.rect, &Color::from_hex("#ff0000"))
                                 // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
                             }
                         }
-                        _ => {
-
+                        RenderInlineBoxType::Image(img) => {
+                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"))
+                        }
+                        RenderInlineBoxType::Error(err) => {
+                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"))
+                        }
+                        RenderInlineBoxType::Block(block) => {
+                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"))
                         }
                     }
                 }
@@ -225,7 +231,7 @@ fn main() -> Result<(),BrowserError>{
         let screen_dims = display.get_framebuffer_dimensions();
         let mut shape:Vec<Vertex> = Vec::new();
 
-        draw_boxes(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape);
+        draw_render_box(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 

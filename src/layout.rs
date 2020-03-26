@@ -224,13 +224,13 @@ impl RenderTextBox {
 
 #[derive(Debug)]
 pub struct RenderImageBox {
-    pub(crate) rect:Rect,
-    pub(crate) image:LoadedImage,
+    pub rect:Rect,
+    pub image:LoadedImage,
     pub valign:String,
 }
 #[derive(Debug)]
 pub struct RenderErrorBox {
-    pub(crate) rect:Rect,
+    pub rect:Rect,
     pub valign:String,
 }
 
