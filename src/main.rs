@@ -136,26 +136,21 @@ fn main() -> Result<(),BrowserError>{
     let context = glutin::ContextBuilder::new();
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
-    //TODO: I don't know what this does
-    // let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    //TODO: loop helper. I don't really know what this does.
-    // let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(250.0);
-    // let mut modifiers = ModifiersState::default();
-
-    let mut font_size: f32 = 18.0;
-    let text = "foo";
-
     //load a font
-    let open_sans: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
-    let fonts = vec![Font::from_bytes(open_sans).unwrap()];
+    let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
+    let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+    let fonts = vec![
+        Font::from_bytes(open_sans_light).unwrap(),
+        Font::from_bytes(open_sans_reg).unwrap(),
+        Font::from_bytes(open_sans_bold).unwrap(),
+    ];
     let mut font_cache =  FontCache {
-        // factory: factory.clone(),
         brush: GlyphBrush::new(&display, fonts),
             // .initial_cache_size((1024, 1024))
             // .build(factory.clone())
     };
 
-    //let mut font_cache = init_fonts();
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {
         content: Rect {

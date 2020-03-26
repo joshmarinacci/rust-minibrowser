@@ -1,4 +1,3 @@
-
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, style_tree};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
@@ -12,6 +11,7 @@ use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url,
 use std::mem;
 use crate::style::Display::{TableRowGroup, TableRow};
 use glium_glyph::glyph_brush::{Section, rusttype::Scale};
+use glium_glyph::glyph_brush::GlyphCruncher;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -623,6 +623,7 @@ impl<'a> LayoutBox<'a> {
                     let font_family = "sans-serif".to_string();
                     let font_weight = looper.style_node.lookup_font_weight(400.0);
                     let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+                     println!("font size is {}",font_size);
                     let font_style = looper.style_node.lookup_string("font-style", "normal");
                     let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
                     let line_height = font_size*2.0;
@@ -842,25 +843,18 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn calculate_word_length(text:&str, font:&mut FontCache, font_size:f32) -> f32 {
-    use glium_glyph::glyph_brush::GlyphCruncher;
+fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32) -> f32 {
     let scale = Scale::uniform(font_size * 2.0 as f32);
     let sec = Section {
         text,
         scale,
         ..Section::default()
     };
-    let px_bounds = font.brush.pixel_bounds(sec);
-    let glyph_bounds = font.brush.glyph_bounds(sec);
-    // println!("bounds {:#?} {:#?}", px_bounds, glyph_bounds);
+    let glyph_bounds = fc.brush.glyph_bounds(sec);
     match &glyph_bounds {
         Some(rect) => rect.max.x as f32,
         None => 0.0,
     }
-    // match &px_bounds {
-    //     Some(rect) => (rect.max.x - rect.min.x) as f32,
-    //     None => 0.0,
-    // }
 }
 
 struct Looper<'a> {
