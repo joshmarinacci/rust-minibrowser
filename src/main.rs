@@ -55,9 +55,9 @@ pub fn transform(x:f32, y:f32) -> (f32,f32){
     let h = HEIGHT as f32;
     return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
 }
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color) {
-    let (x1,y1) = transform(rect.x,rect.y);
-    let (x2,y2) = transform(rect.x+rect.width,rect.y+rect.height);
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32) {
+    let (x1,y1) = transform(rect.x*sf,rect.y*sf);
+    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf);
     make_box2(shape, x1, y1, x2, y2, color);
 }
 
@@ -71,16 +71,18 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
-pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f64, shapes:&mut Vec<Vertex>) {
+pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>) {
     match bx {
         RenderBox::Block(rbx) => {
+            if let Some(color) = &rbx.background_color {
+                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor);
+            }
             for ch in rbx.children.iter() {
                 draw_render_box(ch, gb, width, height, scale_factor, shapes);
             }
         }
         RenderBox::Anonymous(bx) => {
             for lb in bx.children.iter() {
-                // draw_boxes(ch, gb, scale, width, height);
                 for inline in lb.children.iter() {
                     match inline {
                         RenderInlineBoxType::Text(text) => {
@@ -90,8 +92,8 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                 let section = Section {
                                     text: &*text.text,
                                     scale,
-                                    screen_position: (text.rect.x, text.rect.y),
-                                    bounds: (text.rect.width*2.0, text.rect.height),
+                                    screen_position: (text.rect.x*scale_factor, text.rect.y*scale_factor),
+                                    bounds: (text.rect.width*scale_factor, text.rect.height*scale_factor),
                                     color: [
                                         (color.r as f32)/255.0,
                                         (color.g as f32)/255.0,
@@ -106,13 +108,13 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
-                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"))
+                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor)
                         }
                         RenderInlineBoxType::Error(err) => {
-                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"))
+                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor)
                         }
                         RenderInlineBoxType::Block(block) => {
-                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"))
+                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor)
                         }
                     }
                 }
