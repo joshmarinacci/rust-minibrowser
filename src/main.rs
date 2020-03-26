@@ -6,7 +6,7 @@ use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
 use rust_minibrowser::style::{style_tree, expand_styles};
-use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType};
+use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes};
 use rust_minibrowser::render::{FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
@@ -71,11 +71,49 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
+pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32) {
+    // println!("making border {:#?} {:#?}",border_width,color);
+    //left
+    make_box(shapes, &Rect {
+        x: rect.x,
+        y: rect.y,
+        width: border_width.left,
+        height: rect.height
+    }, color, sf);
+    //right
+    make_box(shapes, &Rect {
+        x: rect.x + rect.width - border_width.right,
+        y: rect.y,
+        width: border_width.right,
+        height: rect.height
+    }, color, sf);
+
+    //top
+    make_box(shapes, &Rect {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: border_width.top
+    }, color, sf);
+    //bottom
+    make_box(shapes, &Rect {
+        x: rect.x,
+        y: rect.y+rect.height - border_width.bottom,
+        width: rect.width,
+        height: border_width.bottom
+    }, color, sf);
+}
+
 pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>) {
     match bx {
         RenderBox::Block(rbx) => {
+            // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
             if let Some(color) = &rbx.background_color {
                 make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor);
+            }
+            if rbx.border_color.is_some() {
+                let color = rbx.border_color.as_ref().unwrap();
+                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor);
             }
             for ch in rbx.children.iter() {
                 draw_render_box(ch, gb, width, height, scale_factor, shapes);

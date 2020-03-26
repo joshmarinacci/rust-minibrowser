@@ -131,7 +131,7 @@ pub struct RenderBlockBox {
     pub padding:EdgeSizes,
     pub background_color: Option<Color>,
     pub border_color: Option<Color>,
-    pub border_width: f32,
+    pub border_width: EdgeSizes,
     pub valign:String,
     pub children: Vec<RenderBox>,
 }
@@ -148,10 +148,10 @@ impl RenderBlockBox {
     }
     pub fn content_area_as_rect(&self) -> Rect {
         Rect {
-            x: self.rect.x - self.padding.left - self.border_width,
-            y: self.rect.y - self.padding.top - self.border_width,
-            width: self.rect.width + self.padding.left + self.padding.right + self.border_width*2.0,
-            height: self.rect.height + self.padding.top + self.padding.bottom + self.border_width*2.0
+            x: self.rect.x - self.padding.left - self.border_width.left,
+            y: self.rect.y - self.padding.top - self.border_width.top,
+            width: self.rect.width + self.padding.left + self.padding.right + self.border_width.left + self.border_width.right,
+            height: self.rect.height + self.padding.top + self.padding.bottom + self.border_width.left + self.border_width.right,
         }
     }
 }
@@ -331,6 +331,9 @@ impl<'a> LayoutBox<'a> {
         self.calculate_block_position(containing_block);
         let children:Vec<RenderBox> = self.layout_block_children(font_cache, doc);
         self.calculate_block_height();
+        let zero = Length(0.0, Px);
+        let style = self.get_style_node();
+        // println!("border top for block is {} {:#?}", self.debug_calculate_element_name(), &style.lookup("border-top", "border-width", &zero));
         RenderBlockBox{
             rect:self.dimensions.content,
             margin: self.dimensions.margin,
@@ -338,7 +341,12 @@ impl<'a> LayoutBox<'a> {
             children,
             title: self.debug_calculate_element_name(),
             background_color: self.get_style_node().color("background-color"),
-            border_width: self.get_style_node().insets("border-width"),
+            border_width: EdgeSizes {
+                top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
+                bottom: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
+                left: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
+                right: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
+            },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
         }
@@ -389,13 +397,20 @@ impl<'a> LayoutBox<'a> {
             };
             index += 1;
         };
+        let zero = Length(0.0, Px);
+        let style = self.get_style_node();
         RenderBlockBox {
             title: self.debug_calculate_element_name(),
             rect:self.dimensions.content,
             margin: self.dimensions.margin,
             padding: self.dimensions.padding,
             background_color: self.get_style_node().color("background-color"),
-            border_width: self.get_style_node().insets("border-width"),
+            border_width: EdgeSizes {
+                top: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
+                bottom: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
+                left: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
+                right: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
+            },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
             children: children,
@@ -725,8 +740,8 @@ impl<'a> LayoutBox<'a> {
         let zero = Length(0.0, Px);
         let mut margin_left = style.lookup("margin-left","margin", &zero);
         let mut margin_right = style.lookup("margin-right","margin", &zero);
-        let border_left = style.lookup("border-left","border-width", &zero);
-        let border_right = style.lookup("border-right","border-width", &zero);
+        let border_left = style.lookup("border-width-left","border-width", &zero);
+        let border_right = style.lookup("border-width-right","border-width", &zero);
         let padding_left = style.lookup("padding-left","padding", &zero);
         let padding_right = style.lookup("padding-right","padding", &zero);
 
@@ -800,14 +815,15 @@ impl<'a> LayoutBox<'a> {
     fn calculate_block_position(&mut self, containing: &mut Dimensions) {
         let zero = Length(0.0, Px);
         let style = self.get_style_node();
+        //println!("caculating block position {:#?} border {:#?}",style, style.lookup("border-width-top","border-width",&zero));
         let margin = EdgeSizes {
             top: self.length_to_px(&style.lookup("margin-top", "margin", &zero)),
             bottom: self.length_to_px(&style.lookup("margin-bottom","margin",&zero)),
             ..(self.dimensions.margin)
         };
         let border = EdgeSizes {
-            top: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
-            bottom: self.length_to_px(&style.lookup("border-bottom","border-width",&zero)),
+            top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
+            bottom: self.length_to_px(&style.lookup("border-width-bottom","border-width",&zero)),
             ..(self.dimensions.border)
         };
         let padding = EdgeSizes {
