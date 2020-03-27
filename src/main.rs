@@ -127,7 +127,7 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
                                 let scale = Scale::uniform(text.font_size * scale_factor as f32);
-                                let font = gb.lookup_font(text);
+                                let font = gb.lookup_font(&text.font_family, text.font_weight, &text.font_style);
                                 let section = Section {
                                     text: &*text.text,
                                     scale,
@@ -184,6 +184,7 @@ fn main() -> Result<(),BrowserError>{
     let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
     let mut font_cache =  FontCache {
         brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
+        families: Default::default(),
         fonts: Default::default()
     };
     font_cache.install_font(Font::from_bytes(open_sans_light)?,

@@ -130,7 +130,7 @@ pub fn draw_render_box<R:Resources,F:Factory<R>>(root:&RenderBox, dt:&mut DrawTa
 
 pub struct FontCache {
     pub brush: Brush,
-    // families:HashMap<String,Url>,
+    pub families:HashMap<String,String>,
     // names:HashMap<String,Url>,
     pub fonts:HashMap<String,FontId>,
     // default_font: Option<Font>,
@@ -147,11 +147,15 @@ impl FontCache {
         };
         let key = self.make_key(family,weight,style);
         self.fonts.insert(key,fid);
+        self.families.insert(String::from(family), String::from(family));
     }
-    pub fn lookup_font(&mut self, text:&RenderTextBox) -> &FontId {
+    pub fn lookup_font(&mut self, fam:&str,wt:i32,sty:&str) -> &FontId {
         // println!("looking up font {} {} {}", text.font_family, text.font_weight, text.font_style);
-        let key = self.make_key(&text.font_family, text.font_weight, &text.font_style);
+        let key = self.make_key(fam,wt,sty);
         return self.fonts.get(&*key).unwrap();
+    }
+    pub fn has_font_family(&self, family:&str) -> bool {
+        self.families.contains_key(family)
     }
 }
 

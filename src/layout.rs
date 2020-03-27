@@ -417,7 +417,7 @@ impl<'a> LayoutBox<'a> {
             children: children,
         }
     }
-/*
+
     fn find_font_family(&self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.get_style_node().lookup("font-family",
                                                               "font-family",
@@ -446,7 +446,7 @@ impl<'a> LayoutBox<'a> {
             _ => String::from("sans-serif"),
         }
     }
-*/
+
     fn get_type(&self) -> String {
         match self.box_type {
             BoxType::AnonymousBlock(styled)
@@ -552,7 +552,7 @@ impl<'a> LayoutBox<'a> {
                             NodeType::Text(str) => str,
                             _ => panic!("can't do inline block layout if child isn't text"),
                         };
-                        let w: f32 = calculate_word_length(text, looper.font_cache, font_size);
+                        let w: f32 = calculate_word_length(text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
                         println!("calculated width is {}",w);
                         looper.current_end += w;
                         let mut containing_block = Dimensions {
@@ -635,11 +635,10 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
-                    // let font_family = self.find_font_family(looper.font_cache);
-                    let font_family = "sans-serif".to_string();
+                    let font_family = self.find_font_family(looper.font_cache);
+                     // println!("using font family {}", font_family);
                     let font_weight = looper.style_node.lookup_font_weight(400);
                     let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
-                     println!("font size is {}",font_size);
                     let font_style = looper.style_node.lookup_string("font-style", "normal");
                     let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
                     let line_height = font_size*2.0;
@@ -651,10 +650,9 @@ impl<'a> LayoutBox<'a> {
 
                     let mut curr_text = String::new();
                     for word in txt.split_whitespace() {
-                        // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
                         let mut word2 = String::from(" ");
                         word2.push_str(word);
-                        let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size);
+                        let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size, &font_family, font_weight, &font_style);
                         //if it's too long then we need to wrap
                         if looper.current_end + w > looper.extents.width {
                             //add current text to the current line
@@ -860,8 +858,9 @@ impl<'a> LayoutBox<'a> {
 
 }
 
-fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32) -> f32 {
+fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> f32 {
     let scale = Scale::uniform(font_size * 2.0 as f32);
+    fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
         scale,
@@ -1136,6 +1135,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let mut root_box = build_layout_tree(&styled, &doc);
     let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
+        families: Default::default(),
         fonts: Default::default()
     };
     font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100, "normal");
