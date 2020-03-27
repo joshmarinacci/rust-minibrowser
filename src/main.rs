@@ -141,8 +141,7 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                // make_box(shape, &text.rect, &Color::from_hex("#ff0000"))
-                                // draw_text(dt, font, &text.rect, &text.text, &color_to_source(&text.color.as_ref().unwrap()), text.font_size);
+                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor)
                             }
                         }
                         RenderInlineBoxType::Image(img) => {

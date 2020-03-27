@@ -1175,6 +1175,16 @@ fn test_insets() {
         br#"body { display:block; margin: 50px; padding: 50px; border-width: 50px; } "#
     );
     println!("it all ran! {:#?}",render_box);
+    match render_box {
+        RenderBox::Block(bx) => {
+            assert_eq!(bx.margin.left,50.0);
+            assert_eq!(bx.padding.left,50.0);
+            assert_eq!(bx.border_width.left,50.0);
+        }
+        _ => {
+            panic!("this should have been a block box");
+        }
+    }
     // assert_eq!(render_box.calculate_insets().left,100);
 
 }
