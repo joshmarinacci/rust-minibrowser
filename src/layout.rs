@@ -418,21 +418,23 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn find_font_family(&self, font_cache:&mut FontCache) -> String {
-        let font_family_values = self.get_style_node().lookup("font-family",
-                                                              "font-family",
-                                                              &Value::Keyword(String::from("sans-serif")));
+    fn find_font_family(&self, looper:&mut Looper) -> String {
+        let font_family_values = looper.style_node.lookup(
+            "font-family",
+            "font-family",
+            &Value::Keyword(String::from("sans-serif")));
+        // println!("font family values: {:#?} {:#?}",font_family_values, looper.style_node);
         match font_family_values {
             Value::ArrayValue(vals ) => {
                 for val in vals.iter() {
                     match val {
                         Value::StringLiteral(str) => {
-                            if font_cache.has_font_family(str) {
+                            if looper.font_cache.has_font_family(str) {
                                 return String::from(str);
                             }
                         }
                         Value::Keyword(str) => {
-                            if font_cache.has_font_family(str) {
+                            if looper.font_cache.has_font_family(str) {
                                 return String::from(str);
                             }
                         }
@@ -462,6 +464,7 @@ impl<'a> LayoutBox<'a> {
 
     fn layout_anonymous_2(&mut self, dim:&mut Dimensions, font_cache:&mut FontCache, doc:&Document) -> RenderAnonymousBox {
         // println!("parent is {:#?}",self.get_type());
+        // println!("parent style node is {:#?}",self.get_style_node());
         let mut looper = Looper {
             lines: vec![],
             current: RenderLineBox {
@@ -635,7 +638,7 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
-                    let font_family = self.find_font_family(looper.font_cache);
+                    let font_family = self.find_font_family(looper);
                      // println!("using font family {}", font_family);
                     let font_weight = looper.style_node.lookup_font_weight(400);
                     let font_size = looper.style_node.lookup_length_px("font-size", 10.0);

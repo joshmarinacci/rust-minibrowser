@@ -150,7 +150,7 @@ impl FontCache {
         self.families.insert(String::from(family), String::from(family));
     }
     pub fn lookup_font(&mut self, fam:&str,wt:i32,sty:&str) -> &FontId {
-        // println!("looking up font {} {} {}", text.font_family, text.font_weight, text.font_style);
+        // println!("looking up font {} {} {}", fam, wt, sty);
         let key = self.make_key(fam,wt,sty);
         return self.fonts.get(&*key).unwrap();
     }
