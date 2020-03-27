@@ -181,13 +181,19 @@ fn main() -> Result<(),BrowserError>{
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+    let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
     let mut font_cache =  FontCache {
         brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
         fonts: Default::default()
     };
-    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100);
-    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400);
-    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700);
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,
+                            "sans-serif",100, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,
+                            "sans-serif",400, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,
+                            "sans-serif",700, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_italic)?,
+                            "sans-serif",400,"italic");
 
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {

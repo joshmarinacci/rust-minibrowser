@@ -1117,32 +1117,11 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
-    // let fonts = vec![
-    //     Font::from_bytes(open_sans_light).unwrap(),
-    //     Font::from_bytes(open_sans_reg).unwrap(),
-    //     Font::from_bytes(open_sans_bold).unwrap(),
-    // ];
-    //
-    // let sec = Section {
-    //     text,
-    //     scale,
-    //     ..Section::default()
-    // };
-    // let brush = GBB::using_fonts(fonts).build();
-    // let gc:GlyphCruncher = brush;
-    // let glyph_bounds = brush.glyph_bounds(sec);
-    // let gb2 = GlyphBrush::new(display,fonts).glyph_bounds(sec);
-    // let mut font_cache =  FontCache {
-    //     brush: GlyphBrush::new(display,fonts);
-    // };
     let doc = load_doc_from_bytestring(html);
     let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
     let styled = style_tree(&doc.root_node,&stylesheet);
-    // let builder:GBB<RandomXxHashBuilder64> = GBB::using_fonts(fonts.clone());
-    // let foo:GB<RandomXxHashBuilder64> = builder.build();
-    // let TEST_FONT: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf");
     let mut glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
-        glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();//using_font_bytes(TEST_FONT).build();
+        glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut viewport = Dimensions {
         content: Rect {
             x: 0.0,
@@ -1155,19 +1134,13 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
         margin: Default::default()
     };
     let mut root_box = build_layout_tree(&styled, &doc);
-    // let mut ctx = Ctx {
-    //     styled:&styled,
-    //     doc:&doc,
-    //     viewport: viewport.clone(),
-    //     brush:Brush::Style1(GBB::using_fonts(fonts).build())
-    // };
     let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
         fonts: Default::default()
     };
-    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100);
-    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400);
-    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700);
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700, "normal");
     let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
     return Ok(render_box);
 }

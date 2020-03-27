@@ -137,19 +137,20 @@ pub struct FontCache {
 }
 
 impl FontCache {
-    pub fn make_key(&self, family:&str, weight:i32) -> String{
-        return format!("{}-{}",family,weight);
+    pub fn make_key(&self, family:&str, weight:i32, style:&str) -> String{
+        return format!("{}-{}-{}",family,weight,style);
     }
-    pub fn install_font(&mut self, font:Font<'static>, family:&str, weight:i32) {
+    pub fn install_font(&mut self, font:Font<'static>, family:&str, weight:i32, style:&str) {
         let fid = match &mut self.brush {
             Brush::Style1(b) => b.add_font(font),
             Brush::Style2(b) => b.add_font(font),
         };
-        let key = self.make_key(family,weight);
+        let key = self.make_key(family,weight,style);
         self.fonts.insert(key,fid);
     }
     pub fn lookup_font(&mut self, text:&RenderTextBox) -> &FontId {
-        let key = self.make_key(&text.font_family, text.font_weight);
+        // println!("looking up font {} {} {}", text.font_family, text.font_weight, text.font_style);
+        let key = self.make_key(&text.font_family, text.font_weight, &text.font_style);
         return self.fonts.get(&*key).unwrap();
     }
 }
