@@ -1,11 +1,14 @@
 use crate::css::{Color, Value, Stylesheet, RuleType};
-use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox, Brush};
+use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox, Brush, RenderTextBox};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
 use url::Url;
 use crate::net::relative_filepath_to_url;
 use glium_glyph::GlyphBrush;
+use glium_glyph::glyph_brush::rusttype::{Font};
+use glium_glyph::glyph_brush::FontId;
+
 
 #[allow(dead_code)]
 pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
@@ -124,12 +127,31 @@ pub fn draw_render_box<R:Resources,F:Factory<R>>(root:&RenderBox, dt:&mut DrawTa
 */
 
 
+
 pub struct FontCache {
     pub brush: Brush,
     // families:HashMap<String,Url>,
     // names:HashMap<String,Url>,
-    // fonts:HashMap<String,Font>,
+    pub fonts:HashMap<String,FontId>,
     // default_font: Option<Font>,
+}
+
+impl FontCache {
+    pub fn make_key(&self, family:&str, weight:i32) -> String{
+        return format!("{}-{}",family,weight);
+    }
+    pub fn install_font(&mut self, font:Font<'static>, family:&str, weight:i32) {
+        let fid = match &mut self.brush {
+            Brush::Style1(b) => b.add_font(font),
+            Brush::Style2(b) => b.add_font(font),
+        };
+        let key = self.make_key(family,weight);
+        self.fonts.insert(key,fid);
+    }
+    pub fn lookup_font(&mut self, text:&RenderTextBox) -> &FontId {
+        let key = self.make_key(&text.font_family, text.font_weight);
+        return self.fonts.get(&*key).unwrap();
+    }
 }
 
 fn extract_url(value:&Value, url:&Url) -> Option<Url> {

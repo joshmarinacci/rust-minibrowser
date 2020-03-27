@@ -81,18 +81,18 @@ impl StyledNode<'_> {
             _ => default.clone(),
         }
     }
-    pub fn lookup_font_weight(&self, default:f32) -> f32{
+    pub fn lookup_font_weight(&self, default:i32) -> i32{
         match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
             Keyword(str) => match str.as_str() {
-                "normal" => 400.0,
-                "bold" => 700.0,
+                "normal" => 400,
+                "bold" => 700,
                 "inherit" => {
                     println!("!!!inherited font weight. this should already be taken care of!!!");
                     default
                 }
                 _ => default,
             },
-            Value::Number(v) => v,
+            Value::Number(v) => v as i32,
             _ => default,
         }
     }

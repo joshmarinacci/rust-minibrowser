@@ -127,9 +127,11 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
                                 let scale = Scale::uniform(text.font_size * scale_factor as f32);
+                                let font = gb.lookup_font(text);
                                 let section = Section {
                                     text: &*text.text,
                                     scale,
+                                    font_id:*font,
                                     screen_position: (text.rect.x*scale_factor, text.rect.y*scale_factor),
                                     bounds: (text.rect.width*scale_factor, text.rect.height*scale_factor),
                                     color: [
@@ -179,16 +181,13 @@ fn main() -> Result<(),BrowserError>{
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
-    let fonts = vec![
-        Font::from_bytes(open_sans_light).unwrap(),
-        Font::from_bytes(open_sans_reg).unwrap(),
-        Font::from_bytes(open_sans_bold).unwrap(),
-    ];
     let mut font_cache =  FontCache {
-        brush: Brush::Style1(GlyphBrush::new(&display, fonts)),
-            // .initial_cache_size((1024, 1024))
-            // .build(factory.clone())
+        brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
+        fonts: Default::default()
     };
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100);
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400);
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700);
 
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {

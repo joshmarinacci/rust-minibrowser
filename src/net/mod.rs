@@ -43,6 +43,9 @@ impl From<pom::Error> for BrowserError {
 impl From<()> for BrowserError {
     fn from(_: ()) -> Self { unimplemented!()  }
 }
+impl From<glium_glyph::glyph_brush::rusttype::Error> for BrowserError {
+    fn from(err:glium_glyph::glyph_brush::rusttype::Error) -> Self { unimplemented!()  }
+}
 
 
 pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserError>{

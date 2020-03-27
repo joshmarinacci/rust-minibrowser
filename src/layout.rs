@@ -7,7 +7,7 @@ use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use crate::dom::NodeType::{Text, Element};
-use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
+use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, BrowserError};
 use std::mem;
 use crate::style::Display::{TableRowGroup, TableRow};
 use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}, GlyphBrush};
@@ -210,7 +210,7 @@ pub struct RenderTextBox {
     pub font_size:f32,
     pub font_family:String,
     pub link:Option<String>,
-    pub font_weight:f32,
+    pub font_weight:i32,
     pub font_style:String,
     pub valign:String,
 }
@@ -542,7 +542,7 @@ impl<'a> LayoutBox<'a> {
                     "button" => {
                         // let font_family = self.find_font_family(looper.font_cache);
                         let font_family = "sans-serif";
-                        let font_weight = self.get_style_node().lookup_font_weight(400.0);
+                        let font_weight = self.get_style_node().lookup_font_weight(400);
                         let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
                         println!("button font size is {}",font_size);
@@ -637,7 +637,7 @@ impl<'a> LayoutBox<'a> {
                  NodeType::Text(txt) => {
                     // let font_family = self.find_font_family(looper.font_cache);
                     let font_family = "sans-serif".to_string();
-                    let font_weight = looper.style_node.lookup_font_weight(400.0);
+                    let font_weight = looper.style_node.lookup_font_weight(400);
                     let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
                      println!("font size is {}",font_size);
                     let font_style = looper.style_node.lookup_string("font-style", "normal");
@@ -1112,17 +1112,17 @@ impl Brush {
     }
 }
 
-fn standard_init(html:&[u8],css:&[u8]) -> RenderBox {
+fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
 
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
-    let fonts = vec![
-        Font::from_bytes(open_sans_light).unwrap(),
-        Font::from_bytes(open_sans_reg).unwrap(),
-        Font::from_bytes(open_sans_bold).unwrap(),
-    ];
-
+    // let fonts = vec![
+    //     Font::from_bytes(open_sans_light).unwrap(),
+    //     Font::from_bytes(open_sans_reg).unwrap(),
+    //     Font::from_bytes(open_sans_bold).unwrap(),
+    // ];
+    //
     // let sec = Section {
     //     text,
     //     scale,
@@ -1140,9 +1140,9 @@ fn standard_init(html:&[u8],css:&[u8]) -> RenderBox {
     let styled = style_tree(&doc.root_node,&stylesheet);
     // let builder:GBB<RandomXxHashBuilder64> = GBB::using_fonts(fonts.clone());
     // let foo:GB<RandomXxHashBuilder64> = builder.build();
-    let TEST_FONT: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf");
+    // let TEST_FONT: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf");
     let mut glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
-        glium_glyph::glyph_brush::GlyphBrushBuilder::using_font_bytes(TEST_FONT).build();
+        glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();//using_font_bytes(TEST_FONT).build();
     let mut viewport = Dimensions {
         content: Rect {
             x: 0.0,
@@ -1161,11 +1161,15 @@ fn standard_init(html:&[u8],css:&[u8]) -> RenderBox {
     //     viewport: viewport.clone(),
     //     brush:Brush::Style1(GBB::using_fonts(fonts).build())
     // };
-    let mut fc = FontCache {
+    let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
+        fonts: Default::default()
     };
-    let render_box = root_box.layout(&mut viewport, &mut fc, &doc);
-    return render_box;
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100);
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400);
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700);
+    let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
+    return Ok(render_box);
 }
 
 #[test]
@@ -1173,7 +1177,7 @@ fn test_insets() {
     let render_box = standard_init(
         br#"<body></body>"#,
         br#"body { display:block; margin: 50px; padding: 50px; border-width: 50px; } "#
-    );
+    ).unwrap();
     println!("it all ran! {:#?}",render_box);
     match render_box {
         RenderBox::Block(bx) => {
@@ -1187,4 +1191,36 @@ fn test_insets() {
     }
     // assert_eq!(render_box.calculate_insets().left,100);
 
+}
+
+#[test]
+fn test_font_weight() {
+    let render_box = standard_init(
+        br#"<body>text</body>"#,
+        br#"body { display:block; font-weight: bold; } "#
+    ).unwrap();
+    println!("it all ran! {:#?}",render_box);
+}
+
+#[test]
+fn test_blue_text() {
+    let render_box = standard_init(
+        br#"<body><a>link</a></body>"#,
+        br#" a { color: blue; } body { display: block; color: red; }"#
+    ).unwrap();
+    println!("it all ran! {:#?}",render_box);
+/*
+    match render_box {
+        RenderBox::Block(bx) => {
+            // bx.children[0].children
+            assert_eq!(bx.margin.left,50.0);
+            assert_eq!(bx.padding.left,50.0);
+            assert_eq!(bx.border_width.left,50.0);
+        }
+        _ => {
+            panic!("this should have been a block box");
+        }
+    }
+    // assert_eq!(render_box.calculate_insets().left,100);
+*/
 }
