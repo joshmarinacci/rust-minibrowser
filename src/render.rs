@@ -1,5 +1,5 @@
 use crate::css::{Color, Value, Stylesheet, RuleType};
-use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox};
+use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox, Brush};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
@@ -125,7 +125,7 @@ pub fn draw_render_box<R:Resources,F:Factory<R>>(root:&RenderBox, dt:&mut DrawTa
 
 
 pub struct FontCache {
-    pub brush: GlyphBrush<'static, 'static>,
+    pub brush: Brush,
     // families:HashMap<String,Url>,
     // names:HashMap<String,Url>,
     // fonts:HashMap<String,Font>,

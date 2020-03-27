@@ -6,7 +6,7 @@ use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
 use rust_minibrowser::layout;
 
 use rust_minibrowser::style::{style_tree, expand_styles};
-use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes};
+use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes, Brush};
 use rust_minibrowser::render::{FontCache};
 use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
 use url::Url;
@@ -186,7 +186,7 @@ fn main() -> Result<(),BrowserError>{
         Font::from_bytes(open_sans_bold).unwrap(),
     ];
     let mut font_cache =  FontCache {
-        brush: GlyphBrush::new(&display, fonts),
+        brush: Brush::Style1(GlyphBrush::new(&display, fonts)),
             // .initial_cache_size((1024, 1024))
             // .build(factory.clone())
     };

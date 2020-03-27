@@ -10,8 +10,9 @@ use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net};
 use std::mem;
 use crate::style::Display::{TableRowGroup, TableRow};
-use glium_glyph::glyph_brush::{Section, rusttype::Scale};
+use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}, GlyphBrush};
 use glium_glyph::glyph_brush::GlyphCruncher;
+use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
@@ -1081,3 +1082,99 @@ fn test_table_layout() {
     println!("it all ran! {:#?}",render_box);
 }
 */
+
+pub enum Brush {
+    Style1(glium_glyph::GlyphBrush<'static, 'static>),
+    Style2(glium_glyph::glyph_brush::GlyphBrush<'static, Font<'static>>),
+}
+impl Brush {
+    fn glyph_bounds(&mut self, sec:Section) -> Option<GBRect<f32>> {
+        match self {
+            Brush::Style1(b) => b.glyph_bounds(sec),
+            Brush::Style2(b) => b.glyph_bounds(sec),
+        }
+    }
+    pub fn queue(&mut self, sec:Section) {
+        match self {
+            Brush::Style1(b) => b.queue(sec),
+            Brush::Style2(b) => b.queue(sec),
+        }
+    }
+    pub fn draw_queued_with_transform(&mut self, mat:[[f32;4];4],
+                                      facade:&glium::Display,
+                                      frame:&mut glium::Frame) {
+        match self {
+            Brush::Style1(b) => b.draw_queued_with_transform(mat,facade,frame),
+            Brush::Style2(b) => {
+                panic!("cant actuually draw with style two")
+            },
+        }
+    }
+}
+
+fn standard_init(html:&[u8],css:&[u8]) -> RenderBox {
+
+    let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
+    let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+    let fonts = vec![
+        Font::from_bytes(open_sans_light).unwrap(),
+        Font::from_bytes(open_sans_reg).unwrap(),
+        Font::from_bytes(open_sans_bold).unwrap(),
+    ];
+
+    // let sec = Section {
+    //     text,
+    //     scale,
+    //     ..Section::default()
+    // };
+    // let brush = GBB::using_fonts(fonts).build();
+    // let gc:GlyphCruncher = brush;
+    // let glyph_bounds = brush.glyph_bounds(sec);
+    // let gb2 = GlyphBrush::new(display,fonts).glyph_bounds(sec);
+    // let mut font_cache =  FontCache {
+    //     brush: GlyphBrush::new(display,fonts);
+    // };
+    let doc = load_doc_from_bytestring(html);
+    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
+    let styled = style_tree(&doc.root_node,&stylesheet);
+    // let builder:GBB<RandomXxHashBuilder64> = GBB::using_fonts(fonts.clone());
+    // let foo:GB<RandomXxHashBuilder64> = builder.build();
+    let TEST_FONT: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf");
+    let mut glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
+        glium_glyph::glyph_brush::GlyphBrushBuilder::using_font_bytes(TEST_FONT).build();
+    let mut viewport = Dimensions {
+        content: Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 500.0,
+            height: 0.0,
+        },
+        padding: Default::default(),
+        border: Default::default(),
+        margin: Default::default()
+    };
+    let mut root_box = build_layout_tree(&styled, &doc);
+    // let mut ctx = Ctx {
+    //     styled:&styled,
+    //     doc:&doc,
+    //     viewport: viewport.clone(),
+    //     brush:Brush::Style1(GBB::using_fonts(fonts).build())
+    // };
+    let mut fc = FontCache {
+        brush: Brush::Style2(glyph_brush),
+    };
+    let render_box = root_box.layout(&mut viewport, &mut fc, &doc);
+    return render_box;
+}
+
+#[test]
+fn test_insets() {
+    let render_box = standard_init(
+        br#"<body></body>"#,
+        br#"body { display:block; margin: 50px; padding: 50px; border-width: 50px; } "#
+    );
+    println!("it all ran! {:#?}",render_box);
+    // assert_eq!(render_box.calculate_insets().left,100);
+
+}
