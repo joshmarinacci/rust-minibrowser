@@ -313,13 +313,14 @@ impl<'a> LayoutBox<'a> {
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
         }
     }
-    fn debug_calculate_element_name(&mut self) -> String{
+    fn debug_calculate_element_name(&self) -> String{
         match self.box_type {
             BlockNode(sn)
             | TableNode(sn)
             | TableRowGroupNode(sn)
             | TableRowNode(sn)
             | TableCellNode(sn)
+            | InlineNode(sn)
             => match &sn.node.node_type {
                 NodeType::Element(data) => data.tag_name.clone(),
                 _ => "non-element".to_string(),
@@ -621,7 +622,8 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_inline(&self, looper:&mut Looper) {
+    fn do_inline(&self, looper:&mut Looper<'a>) {
+        // println!("doing inline {:#?}", &self.debug_calculate_element_name());
         let link:Option<String> = match &looper.style_node.node.node_type {
             Text(_) => None,
             NodeType::Comment(_) => None,
@@ -638,6 +640,7 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
+                     // println!("processing text '{}'", txt);
                     let font_family = self.find_font_family(looper);
                      // println!("using font family {}", font_family);
                     let font_weight = looper.style_node.lookup_font_weight(400);
@@ -647,8 +650,9 @@ impl<'a> LayoutBox<'a> {
                     let line_height = font_size*2.0;
                     // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
                     let color = looper.style_node.lookup_color("color", &BLACK);
-                    // println!("text has fam={:#?} color={:#?} fs={}", font_family, color, font_size, );
-                    // println!("node={:#?}",self.get_style_node());
+                    // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
+                    //          font_family, color, font_size, font_weight, font_style );
+                    // println!("styles={:#?}",looper.style_node);
                     // println!("parent={:#?}", parent.get_style_node());
 
                     let mut curr_text = String::new();
@@ -711,9 +715,13 @@ impl<'a> LayoutBox<'a> {
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
+                    // println!("recursing");
+                    let old = looper.style_node;
+                    looper.style_node = snode;
                     for ch in self.children.iter() {
                         ch.do_inline(looper);
                     }
+                    looper.style_node =  old;
                 }
                 _ => {}
             }

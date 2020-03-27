@@ -183,6 +183,7 @@ fn main() -> Result<(),BrowserError>{
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
     let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
     let monospace:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Regular.ttf");
+    let monospace_bold:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Bold.ttf");
     let mut font_cache =  FontCache {
         brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
         families: Default::default(),
@@ -198,6 +199,8 @@ fn main() -> Result<(),BrowserError>{
                             "sans-serif",400,"italic");
     font_cache.install_font(Font::from_bytes(monospace)?,
                             "monospace",400,"normal");
+    font_cache.install_font(Font::from_bytes(monospace_bold)?,
+                            "monospace",700,"normal");
 
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {
