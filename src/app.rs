@@ -6,6 +6,7 @@ use crate::net::{BrowserError, load_doc_from_net, load_stylesheets_with_fallback
 use crate::style::{expand_styles, style_tree};
 use crate::layout;
 use std::env;
+use glium_glyph::glyph_brush::rusttype::Font;
 
 pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dimensions) -> Result<(Document, RenderBox),BrowserError> {
     let mut doc = load_doc_from_net(&url)?;
@@ -21,6 +22,29 @@ pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dim
     // println!("render root is {:#?}",render_root);
     Ok((doc,render_root))
 }
+
+pub fn install_standard_fonts(font_cache:&mut FontCache) -> Result<(),BrowserError> {
+    let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
+    let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+    let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
+    let monospace:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Regular.ttf");
+    let monospace_bold:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Bold.ttf");
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,
+                            "sans-serif",100, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,
+                            "sans-serif",400, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,
+                            "sans-serif",700, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_italic)?,
+                            "sans-serif",400,"italic");
+    font_cache.install_font(Font::from_bytes(monospace)?,
+                            "monospace",400,"normal");
+    font_cache.install_font(Font::from_bytes(monospace_bold)?,
+                            "monospace",700,"normal");
+    Ok(())
+}
+
 /*
 pub fn init_fonts() -> FontCache {
     let mut font_cache = FontCache::new();

@@ -12,7 +12,7 @@ use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, r
 use url::Url;
 
 
-use rust_minibrowser::app::{parse_args, navigate_to_doc};
+use rust_minibrowser::app::{parse_args, navigate_to_doc, install_standard_fonts};
 
 use cgmath::{Matrix4, Rad, Transform, Vector3};
 use glium::glutin::{Api,
@@ -178,29 +178,12 @@ fn main() -> Result<(),BrowserError>{
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
     //load a font
-    let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
-    let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
-    let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
-    let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
-    let monospace:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Regular.ttf");
-    let monospace_bold:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Bold.ttf");
     let mut font_cache =  FontCache {
         brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
         families: Default::default(),
         fonts: Default::default()
     };
-    font_cache.install_font(Font::from_bytes(open_sans_light)?,
-                            "sans-serif",100, "normal");
-    font_cache.install_font(Font::from_bytes(open_sans_reg)?,
-                            "sans-serif",400, "normal");
-    font_cache.install_font(Font::from_bytes(open_sans_bold)?,
-                            "sans-serif",700, "normal");
-    font_cache.install_font(Font::from_bytes(open_sans_italic)?,
-                            "sans-serif",400,"italic");
-    font_cache.install_font(Font::from_bytes(monospace)?,
-                            "monospace",400,"normal");
-    font_cache.install_font(Font::from_bytes(monospace_bold)?,
-                            "monospace",700,"normal");
+    install_standard_fonts(&mut font_cache);
 
     let start_page = parse_args().unwrap();
     let mut containing_block = Dimensions {
