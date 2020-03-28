@@ -28,6 +28,8 @@ use glium::glutin::{Api,
                     event::KeyboardInput,
                     event::Event,
                     ContextBuilder,
+                    dpi::PhysicalPosition,
+                    event::ElementState,
 };
 use glium::glutin;
 use glium::Surface;
@@ -226,6 +228,7 @@ fn main() -> Result<(),BrowserError>{
     let zero:f32 = 0.0;
     let mut prev_w = screen_dims.0 as f32/2.0;
     let mut prev_h = screen_dims.1 as f32/2.0;
+    let mut last_mouse:PhysicalPosition<f64> = PhysicalPosition{ x: 0.0, y: 0.0 };
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -248,6 +251,31 @@ fn main() -> Result<(),BrowserError>{
                         PixelDelta(lp) => yoff = zero.max( yoff - lp.y as f32),
                     }
                 },
+
+                WindowEvent::CursorMoved {
+                    device_id, position, modifiers
+                } => {
+                    last_mouse = position;
+                }
+                WindowEvent::MouseInput {
+                    device_id, state, button, modifiers
+                } => {
+                    // println!("mouse click {:#?}", button);
+                    if let ElementState::Pressed = state {
+                        if let Left = button {
+                            let res = render_root.find_box_containing((last_mouse.x / 2.0) as f32, (last_mouse.y / 2.0) as f32);
+                            if let QueryResult::Text(bx) = res {
+                                if let Some(href) = &bx.link {
+                                    println!("following the link {:#?}", href);
+                                    let url = calculate_url_from_doc(&doc, href).unwrap();
+                                    let res = navigate_to_doc(&url, &mut font_cache, containing_block).unwrap();
+                                    doc = res.0;
+                                    render_root = res.1;
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => (),
             },
             _ => (),
