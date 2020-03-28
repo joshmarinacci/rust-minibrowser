@@ -144,21 +144,19 @@ table {
     table-layout: fixed;
     display: table;
 }
-tbody {
+tbody, thead, tfoot {
     border-width: 1px;
     border-color: black;
     padding: 5px;
     display: table-row-group;
-    background-color: red;
 }
 tr {
     border-width: 1px;
     border-color: black;
-    background-color: yellow;
     display: table-row;
     padding: 5px;
 }
-td {
+td, th {
     border-width: 1px;
     border-color: black;
     display: table-cell;
