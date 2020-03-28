@@ -50,12 +50,12 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position, color);
 
-pub fn transform(x:f32, y:f32, w:f32, h:f32) -> (f32,f32){
-    return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
+pub fn transform(x:f32, y:f32) -> (f32,f32){
+    return (x,y);
 }
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32, sw:f32, sh:f32) {
-    let (x1,y1) = transform(rect.x*sf,rect.y*sf, sw, sh);
-    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf, sw, sh);
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32) {
+    let (x1,y1) = transform(rect.x*sf,rect.y*sf);
+    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf);
     make_box2(shape, x1, y1, x2, y2, color);
 }
 
@@ -69,7 +69,7 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
-pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32, sw:f32, sh:f32) {
+pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32) {
     // println!("making border {:#?} {:#?}",border_width,color);
     //left
     make_box(shapes, &Rect {
@@ -77,14 +77,14 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: border_width.left,
         height: rect.height
-    }, color, sf, sw,sh);
+    }, color, sf);
     //right
     make_box(shapes, &Rect {
         x: rect.x + rect.width - border_width.right,
         y: rect.y,
         width: border_width.right,
         height: rect.height
-    }, color, sf, sw,sh);
+    }, color, sf);
 
     //top
     make_box(shapes, &Rect {
@@ -92,29 +92,29 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: rect.width,
         height: border_width.top
-    }, color, sf, sw, sh);
+    }, color, sf);
     //bottom
     make_box(shapes, &Rect {
         x: rect.x,
         y: rect.y+rect.height - border_width.bottom,
         width: rect.width,
         height: border_width.bottom
-    }, color, sf, sw, sh);
+    }, color, sf);
 }
 
-pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>, sw:f32, sh:f32) {
+pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>) {
     match bx {
         RenderBox::Block(rbx) => {
             // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
             if let Some(color) = &rbx.background_color {
-                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor, sw, sh);
+                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor);
             }
             if rbx.border_color.is_some() {
                 let color = rbx.border_color.as_ref().unwrap();
-                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor, sw, sh);
+                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor);
             }
             for ch in rbx.children.iter() {
-                draw_render_box(ch, gb, width, height, scale_factor, shapes, sw, sh);
+                draw_render_box(ch, gb, width, height, scale_factor, shapes);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -141,17 +141,17 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor, sw, sh);
+                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor);
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
-                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor, sw, sh)
+                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor)
                         }
                         RenderInlineBoxType::Error(err) => {
-                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor, sw,sh)
+                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor)
                         }
                         RenderInlineBoxType::Block(block) => {
-                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor, sw, sh)
+                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor)
                         }
                     }
                 }
@@ -271,7 +271,7 @@ fn main() -> Result<(),BrowserError>{
 
         let mut shape:Vec<Vertex> = Vec::new();
 
-        draw_render_box(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape, prev_w, prev_h);
+        draw_render_box(&render_root, &mut font_cache, new_w, new_h, 2.0, &mut shape);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 
@@ -282,8 +282,9 @@ fn main() -> Result<(),BrowserError>{
         let w = w as f32;
         let h = h as f32;
 
-        let box_translate = Matrix4::from_translation(Vector3{x:0.0, y:yoff/h, z:0.0});
-        let box_trans: [[f32; 4]; 4] = box_translate.into();
+        let box_translate = Matrix4::from_translation(Vector3{x: - 1.0, y:yoff/h + 1.0, z:0.0});
+        let box_scale = Matrix4::from_nonuniform_scale(2.0/w,-2.0/h,1.0);
+        let box_trans: [[f32; 4]; 4] = (box_translate * box_scale).into();
         let uniforms = uniform! { matrix: box_trans  };
         target.draw(&vertex_buffer, &indices, &program, &uniforms,&Default::default()).unwrap();
 
@@ -312,9 +313,6 @@ fn main() -> Result<(),BrowserError>{
                     let res = navigate_to_doc(&calculate_url_from_doc(&doc,href).unwrap(), &mut font_cache, containing_block).unwrap();
                     doc = res.0;
                     render_root = res.1;
-                }
-            }
 
-        }
 */
 
