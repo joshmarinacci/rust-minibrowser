@@ -50,14 +50,12 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position, color);
 
-pub fn transform(x:f32, y:f32) -> (f32,f32){
-    let w = WIDTH as f32;
-    let h = HEIGHT as f32;
+pub fn transform(x:f32, y:f32, w:f32, h:f32) -> (f32,f32){
     return (x/w - 0.5 - 0.25 - 0.25, -y/h + 0.5 + 0.25 + 0.25);
 }
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32) {
-    let (x1,y1) = transform(rect.x*sf,rect.y*sf);
-    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf);
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32, sw:f32, sh:f32) {
+    let (x1,y1) = transform(rect.x*sf,rect.y*sf, sw, sh);
+    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf, sw, sh);
     make_box2(shape, x1, y1, x2, y2, color);
 }
 
@@ -71,7 +69,7 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
-pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32) {
+pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32, sw:f32, sh:f32) {
     // println!("making border {:#?} {:#?}",border_width,color);
     //left
     make_box(shapes, &Rect {
@@ -79,14 +77,14 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: border_width.left,
         height: rect.height
-    }, color, sf);
+    }, color, sf, sw,sh);
     //right
     make_box(shapes, &Rect {
         x: rect.x + rect.width - border_width.right,
         y: rect.y,
         width: border_width.right,
         height: rect.height
-    }, color, sf);
+    }, color, sf, sw,sh);
 
     //top
     make_box(shapes, &Rect {
@@ -94,29 +92,29 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: rect.width,
         height: border_width.top
-    }, color, sf);
+    }, color, sf, sw, sh);
     //bottom
     make_box(shapes, &Rect {
         x: rect.x,
         y: rect.y+rect.height - border_width.bottom,
         width: rect.width,
         height: border_width.bottom
-    }, color, sf);
+    }, color, sf, sw, sh);
 }
 
-pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>) {
+pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>, sw:f32, sh:f32) {
     match bx {
         RenderBox::Block(rbx) => {
             // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
             if let Some(color) = &rbx.background_color {
-                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor);
+                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor, sw, sh);
             }
             if rbx.border_color.is_some() {
                 let color = rbx.border_color.as_ref().unwrap();
-                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor);
+                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor, sw, sh);
             }
             for ch in rbx.children.iter() {
-                draw_render_box(ch, gb, width, height, scale_factor, shapes);
+                draw_render_box(ch, gb, width, height, scale_factor, shapes, sw, sh);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -147,13 +145,13 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
-                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor)
+                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor, sw, sh)
                         }
                         RenderInlineBoxType::Error(err) => {
-                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor)
+                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor, sw,sh)
                         }
                         RenderInlineBoxType::Block(block) => {
-                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor)
+                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor, sw, sh)
                         }
                     }
                 }
@@ -186,11 +184,12 @@ fn main() -> Result<(),BrowserError>{
     install_standard_fonts(&mut font_cache);
 
     let start_page = parse_args().unwrap();
+    let screen_dims = display.get_framebuffer_dimensions();
     let mut containing_block = Dimensions {
         content: Rect {
             x: 0.0,
             y: 0.0,
-            width: WIDTH as f32,
+            width: screen_dims.0 as f32 / 2.0,
             height: 0.0,
         },
         padding: Default::default(),
@@ -198,7 +197,6 @@ fn main() -> Result<(),BrowserError>{
         margin: Default::default()
     };
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-    let screen_dims = display.get_framebuffer_dimensions();
 
 
     let vertex_shader_src = r#"
@@ -231,6 +229,8 @@ fn main() -> Result<(),BrowserError>{
 
     let mut yoff:f32 = 0.0;
     let zero:f32 = 0.0;
+    let mut prev_w = screen_dims.0 as f32/2.0;
+    let mut prev_h = screen_dims.1 as f32/2.0;
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -258,9 +258,20 @@ fn main() -> Result<(),BrowserError>{
             _ => (),
         }
         let screen_dims = display.get_framebuffer_dimensions();
+        let mut new_w = screen_dims.0 as f32/2.0;
+        let mut new_h = screen_dims.1 as f32/2.0;
+        if prev_w != new_w || prev_h != new_h {
+            containing_block.content.width = new_w;
+            let (mut doc2, mut render_root2) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
+            doc = doc2;
+            render_root = render_root2;
+        }
+        prev_w = new_w;
+        prev_h = new_h;
+
         let mut shape:Vec<Vertex> = Vec::new();
 
-        draw_render_box(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape);
+        draw_render_box(&render_root, &mut font_cache, screen_dims.0 as f32, screen_dims.1 as f32, 2.0, &mut shape, prev_w, prev_h);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 

@@ -14,6 +14,8 @@ use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}, GlyphBrush};
 use glium_glyph::glyph_brush::GlyphCruncher;
 use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
 
+const FUDGE:f32 = 2.0;
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Dimensions {
     pub content: Rect,
@@ -647,7 +649,7 @@ impl<'a> LayoutBox<'a> {
                     let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
                     let font_style = looper.style_node.lookup_string("font-style", "normal");
                     let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
-                    let line_height = font_size*2.0;
+                    let line_height = font_size;
                     // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
                     let color = looper.style_node.lookup_color("color", &BLACK);
                     // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
@@ -870,7 +872,7 @@ impl<'a> LayoutBox<'a> {
 }
 
 fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> f32 {
-    let scale = Scale::uniform(font_size * 2.0 as f32);
+    let scale = Scale::uniform(font_size  as f32);
     fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
@@ -879,7 +881,7 @@ fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_famil
     };
     let glyph_bounds = fc.brush.glyph_bounds(sec);
     match &glyph_bounds {
-        Some(rect) => rect.max.x as f32,
+        Some(rect) => rect.max.x as f32 + FUDGE,
         None => 0.0,
     }
 }
