@@ -127,7 +127,7 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                 let scale = Scale::uniform(text.font_size * scale_factor as f32);
                                 let font = gb.lookup_font(&text.font_family, text.font_weight, &text.font_style);
                                 let section = Section {
-                                    text: &*text.text,
+                                    text: &text.text.trim(),
                                     scale,
                                     font_id:*font,
                                     screen_position: (text.rect.x*scale_factor, text.rect.y*scale_factor),
@@ -141,7 +141,7 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor)
+                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor, sw, sh);
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
