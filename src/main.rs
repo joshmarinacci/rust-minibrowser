@@ -14,7 +14,7 @@ use url::Url;
 
 use rust_minibrowser::app::{parse_args, navigate_to_doc, install_standard_fonts};
 
-use cgmath::{Matrix4, Rad, Transform, Vector3};
+use cgmath::{Matrix4, Rad, Transform, Vector3, SquareMatrix};
 use glium::glutin::{Api,
                     GlProfile,
                     GlRequest,
@@ -278,49 +278,24 @@ fn main() -> Result<(),BrowserError>{
         let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-        //draw boxes
-        let t = (yoff/800.0) as f32;
-        let uniforms = uniform! {
-            matrix: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [ 0.0 , t, 0.0, 1.0f32],
-            ]
-        };
-        target.draw(&vertex_buffer, &indices, &program, &uniforms,
-                    &Default::default()).unwrap();
+        let (w,h) = display.get_framebuffer_dimensions();
+        let w = w as f32;
+        let h = h as f32;
+
+        let box_translate = Matrix4::from_translation(Vector3{x:0.0, y:yoff/h, z:0.0});
+        let box_trans: [[f32; 4]; 4] = box_translate.into();
+        let uniforms = uniform! { matrix: box_trans  };
+        target.draw(&vertex_buffer, &indices, &program, &uniforms,&Default::default()).unwrap();
+
         //draw fonts
-        let dims = display.get_framebuffer_dimensions();
-        let transform = [
-            [2.0 / (dims.0 as f32), 0.0, 0.0, 0.0],
-            [0.0, 2.0 / (dims.1 as f32), 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [-1.0, -1.0 - t, 0.0, 1.0],
-        ];
+        let scale = Matrix4::from_nonuniform_scale(2.0/(w),  2.0/(h), 1.0);
+        let translate = Matrix4::from_translation(Vector3{ x: -1.0,  y: -1.0 - yoff/h,  z:0.0 });
+        let transform: [[f32; 4]; 4] = (translate * scale).into();
         font_cache.brush.draw_queued_with_transform(transform, &display, &mut target);
         target.finish().unwrap();
     })
 }
 /*
-
-        let (w,h) = window.get_size();
-        if w != prev_w || h != prev_h {
-            println!("resized to {}x{}",w,h);
-            dt = DrawTarget::new(w as i32, h as i32);
-            viewport.width = w as f32;
-            viewport.height = h as f32;
-            containing_block.content.width = w as f32;
-            let res = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-            doc = res.0;
-            render_root = res.1;
-        }
-        prev_w = w;
-        prev_h = h;
-        scroll_viewport(&window, &mut viewport);
-        let ts = Transform::row_major(1.0, 0.0, 0.0, 1.0, viewport.x, -viewport.y);
-        dt.set_transform(&ts);
-
         let right_down = window.get_mouse_down(MouseButton::Right);
         if right_down && !prev_right_down {
             let (x,y) = window.get_mouse_pos(MouseMode::Clamp).unwrap();
@@ -341,7 +316,5 @@ fn main() -> Result<(),BrowserError>{
             }
 
         }
-    }
-}
 */
 
