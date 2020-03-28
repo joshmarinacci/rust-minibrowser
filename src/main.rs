@@ -50,13 +50,8 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position, color);
 
-pub fn transform(x:f32, y:f32) -> (f32,f32){
-    return (x,y);
-}
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color, sf:f32) {
-    let (x1,y1) = transform(rect.x*sf,rect.y*sf);
-    let (x2,y2) = transform((rect.x+rect.width)*sf,(rect.y+rect.height)*sf);
-    make_box2(shape, x1, y1, x2, y2, color);
+pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color) {
+    make_box2(shape, rect.x, rect.y, rect.x+rect.width, rect.y+rect.height, color);
 }
 
 pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Color) {
@@ -69,7 +64,7 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
 
-pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color, sf:f32) {
+pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color) {
     // println!("making border {:#?} {:#?}",border_width,color);
     //left
     make_box(shapes, &Rect {
@@ -77,14 +72,14 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: border_width.left,
         height: rect.height
-    }, color, sf);
+    }, color);
     //right
     make_box(shapes, &Rect {
         x: rect.x + rect.width - border_width.right,
         y: rect.y,
         width: border_width.right,
         height: rect.height
-    }, color, sf);
+    }, color);
 
     //top
     make_box(shapes, &Rect {
@@ -92,29 +87,29 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
         y: rect.y,
         width: rect.width,
         height: border_width.top
-    }, color, sf);
+    }, color);
     //bottom
     make_box(shapes, &Rect {
         x: rect.x,
         y: rect.y+rect.height - border_width.bottom,
         width: rect.width,
         height: border_width.bottom
-    }, color, sf);
+    }, color);
 }
 
-pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, scale_factor:f32, shapes:&mut Vec<Vertex>) {
+pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, shapes:&mut Vec<Vertex>, text_scale:f32) {
     match bx {
         RenderBox::Block(rbx) => {
             // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
             if let Some(color) = &rbx.background_color {
-                make_box(shapes, &rbx.content_area_as_rect(), color, scale_factor);
+                make_box(shapes, &rbx.content_area_as_rect(), color);
             }
             if rbx.border_color.is_some() {
                 let color = rbx.border_color.as_ref().unwrap();
-                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color, scale_factor);
+                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color);
             }
             for ch in rbx.children.iter() {
-                draw_render_box(ch, gb, width, height, scale_factor, shapes);
+                draw_render_box(ch, gb, width, height, shapes, text_scale);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -124,14 +119,14 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                         RenderInlineBoxType::Text(text) => {
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
-                                let scale = Scale::uniform(text.font_size * scale_factor as f32);
+                                let scale = Scale::uniform(text.font_size* text_scale);
                                 let font = gb.lookup_font(&text.font_family, text.font_weight, &text.font_style);
                                 let section = Section {
                                     text: &text.text.trim(),
                                     scale,
                                     font_id:*font,
-                                    screen_position: (text.rect.x*scale_factor, text.rect.y*scale_factor),
-                                    bounds: (text.rect.width*scale_factor, text.rect.height*scale_factor),
+                                    screen_position: (text.rect.x* text_scale, text.rect.y* text_scale),
+                                    bounds: (text.rect.width* text_scale, text.rect.height* text_scale),
                                     color: [
                                         (color.r as f32)/255.0,
                                         (color.g as f32)/255.0,
@@ -145,13 +140,13 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                             }
                         }
                         RenderInlineBoxType::Image(img) => {
-                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"),scale_factor)
+                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"))
                         }
                         RenderInlineBoxType::Error(err) => {
-                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"),scale_factor)
+                            make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"))
                         }
                         RenderInlineBoxType::Block(block) => {
-                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"),scale_factor)
+                            make_box(shapes, &block.rect, &Color::from_hex("#0000ff"))
                         }
                     }
                 }
@@ -271,7 +266,7 @@ fn main() -> Result<(),BrowserError>{
 
         let mut shape:Vec<Vertex> = Vec::new();
 
-        draw_render_box(&render_root, &mut font_cache, new_w, new_h, 2.0, &mut shape);
+        draw_render_box(&render_root, &mut font_cache, new_w, new_h, &mut shape, 2.0);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 
@@ -283,13 +278,13 @@ fn main() -> Result<(),BrowserError>{
         let h = h as f32;
 
         let box_translate = Matrix4::from_translation(Vector3{x: - 1.0, y:yoff/h + 1.0, z:0.0});
-        let box_scale = Matrix4::from_nonuniform_scale(2.0/w,-2.0/h,1.0);
+        let box_scale = Matrix4::from_nonuniform_scale(2.0*2.0/w,-2.0*2.0/h,1.0);
         let box_trans: [[f32; 4]; 4] = (box_translate * box_scale).into();
         let uniforms = uniform! { matrix: box_trans  };
         target.draw(&vertex_buffer, &indices, &program, &uniforms,&Default::default()).unwrap();
 
         //draw fonts
-        let scale = Matrix4::from_nonuniform_scale(2.0/(w),  2.0/(h), 1.0);
+        let scale = Matrix4::from_nonuniform_scale(2.0/w,  2.0/h, 1.0);
         let translate = Matrix4::from_translation(Vector3{ x: -1.0,  y: -1.0 - yoff/h,  z:0.0 });
         let transform: [[f32; 4]; 4] = (translate * scale).into();
         font_cache.brush.draw_queued_with_transform(transform, &display, &mut target);
