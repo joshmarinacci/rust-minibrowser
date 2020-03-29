@@ -307,6 +307,7 @@ fn main() -> Result<(),BrowserError>{
     let mut image_cache:HashMap<String,Rc<Texture2d>> = HashMap::new();
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
+        *control_flow = ControlFlow::Wait;
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
