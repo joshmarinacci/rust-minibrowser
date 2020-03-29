@@ -190,10 +190,10 @@ pub fn load_image(doc:&Document, href:&str) -> Result<LoadedImage, BrowserError>
     let url = doc.base_url.join(href)?;
     match url.scheme() {
         "file" => {
-            Ok(load_image_from_filepath(url.path())?)
+            Ok(load_image_from_filepath(url.path().to_string())?)
         },
         _ => {
-            Ok(load_image_from_net(&url)?)
+            Ok(load_image_from_net(&url.clone())?)
         },
     }
 }

@@ -31,7 +31,7 @@ use glium::glutin::{Api,
                     dpi::PhysicalPosition,
                     event::ElementState,
 };
-use glium::glutin;
+use glium::{glutin, Display};
 use glium::Surface;
 use glium_glyph::GlyphBrush;
 use glium_glyph::glyph_brush::{Section,
@@ -40,6 +40,10 @@ use glium_glyph::glyph_brush::{Section,
                                    Scale
                                }};
 use rust_minibrowser::css::Color;
+use rust_minibrowser::image::LoadedImage;
+use std::collections::HashMap;
+use glium::texture::{Texture2d, RawImage2d};
+use std::rc::Rc;
 
 const WIDTH:i32 = 800;
 const HEIGHT:i32 = 800;
@@ -51,6 +55,18 @@ pub struct Vertex {
 }
 
 implement_vertex!(Vertex, position, color);
+
+#[derive(Copy, Clone)]
+pub struct ImageVertex {
+    position: [f32; 2],
+    tex_coords: [f32; 2],       // <- this is new
+}
+implement_vertex!(ImageVertex, position, tex_coords);        // don't forget to add `tex_coords` here
+
+struct ImageRect {
+    vertices:Vec<ImageVertex>,
+    texture:Rc<Texture2d>,
+}
 
 pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color) {
     make_box2(shape, rect.x, rect.y, rect.x+rect.width, rect.y+rect.height, color);
@@ -65,6 +81,26 @@ pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Col
     shape.push(Vertex { position: [x1, y2], color:color.to_array() });
     shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
 }
+
+fn make_image_box(images:&mut Vec<ImageRect>, rect:&Rect, tex:&Rc<Texture2d>) {
+    make_image_box2(images, rect.x, rect.y, rect.x+rect.width, rect.y+rect.height, tex);
+}
+fn make_image_box2(images:&mut Vec<ImageRect>, x1:f32, y1:f32, x2:f32, y2:f32, tex:&Rc<Texture2d>) {
+
+    let vertex1 = ImageVertex { position: [x1, y1], tex_coords: [0.0, 0.0] };
+    let vertex2 = ImageVertex { position: [x2, y1], tex_coords: [1.0, 0.0] };
+    let vertex3 = ImageVertex { position: [x2, y2], tex_coords: [1.0, 1.0] };
+
+    let vertex4 = ImageVertex { position: [x2, y2], tex_coords: [1.0, 1.0] };
+    let vertex5 = ImageVertex { position: [x1, y2], tex_coords: [0.0, 1.0] };
+    let vertex6 = ImageVertex { position: [x1, y1], tex_coords: [0.0, 0.0] };
+    let ir = ImageRect {
+        vertices:vec![vertex1, vertex2, vertex3, vertex4, vertex5, vertex6],
+        texture:Rc::clone(tex),
+    };
+    images.push(ir)
+}
+
 
 pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color) {
     // println!("making border {:#?} {:#?}",border_width,color);
@@ -99,7 +135,7 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
     }, color);
 }
 
-pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, shapes:&mut Vec<Vertex>, text_scale:f32) {
+fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc<Texture2d>>, width:f32, height:f32, shapes:&mut Vec<Vertex>, images:&mut Vec<ImageRect>, text_scale:f32, display:&Display) {
     match bx {
         RenderBox::Block(rbx) => {
             // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
@@ -111,7 +147,7 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                 make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color);
             }
             for ch in rbx.children.iter() {
-                draw_render_box(ch, gb, width, height, shapes, text_scale);
+                draw_render_box(ch, gb, img,width, height, shapes, images, text_scale, display);
             }
         }
         RenderBox::Anonymous(bx) => {
@@ -141,8 +177,18 @@ pub fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, width:f32, height:f32, 
                                 // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor);
                             }
                         }
-                        RenderInlineBoxType::Image(img) => {
-                            make_box(shapes, &img.rect, &Color::from_hex("#00ff00"))
+                        RenderInlineBoxType::Image(image) => {
+                            if !img.contains_key(&*image.image.path) {
+                                println!("must install the image");
+                                let size = image.image.image2d.dimensions();
+                                let data = image.image.image2d.clone().into_raw();
+                                let tex_data:RawImage2d<u8> = RawImage2d::from_raw_rgba(data, size);
+                                let texture = glium::texture::Texture2d::new(display, tex_data).unwrap();
+                                img.insert(image.image.path.clone(),Rc::new(texture));
+                            }
+                            let tex_ref:&Rc<Texture2d> = img.get(image.image.path.as_str()).unwrap();
+                            make_image_box(images, &image.rect, &tex_ref);
+                            make_box(shapes, &image.rect, &Color::from_hex("#ff00ff"))
                         }
                         RenderInlineBoxType::Error(err) => {
                             make_box(shapes, &err.rect, &Color::from_hex("#ff00ff"))
@@ -196,7 +242,7 @@ fn main() -> Result<(),BrowserError>{
     let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
 
 
-    let vertex_shader_src = r#"
+    let rect_vertex_shader_src = r#"
         #version 140
 
         in vec2 position;
@@ -210,7 +256,7 @@ fn main() -> Result<(),BrowserError>{
         }
     "#;
 
-    let fragment_shader_src = r#"
+    let rect_fragment_shader_src = r#"
         #version 140
 
         out vec4 color;
@@ -222,13 +268,43 @@ fn main() -> Result<(),BrowserError>{
         }
     "#;
 
-    let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
+    let rect_program = glium::Program::from_source(&display, rect_vertex_shader_src, rect_fragment_shader_src, None).unwrap();
+
+    let tex_vertex_shader_src = r#"
+        #version 140
+
+        in vec2 position;
+        in vec2 tex_coords;
+        out vec2 v_tex_coords;
+
+        uniform mat4 matrix;
+
+        void main() {
+            v_tex_coords = tex_coords;
+            gl_Position = matrix * vec4(position, 0.0, 1.0);
+        }
+    "#;
+    let tex_fragment_shader_src = r#"
+        #version 140
+
+        in vec2 v_tex_coords;
+        out vec4 color;
+
+        uniform sampler2D tex;
+
+        void main() {
+            color = texture(tex, v_tex_coords);
+        }
+    "#;
+    let tex_program = glium::Program::from_source(&display, tex_vertex_shader_src, tex_fragment_shader_src, None).unwrap();
+
 
     let mut yoff:f32 = 0.0;
     let zero:f32 = 0.0;
     let mut prev_w = screen_dims.0 as f32/2.0;
     let mut prev_h = screen_dims.1 as f32/2.0;
     let mut last_mouse:PhysicalPosition<f64> = PhysicalPosition{ x: 0.0, y: 0.0 };
+    let mut image_cache:HashMap<String,Rc<Texture2d>> = HashMap::new();
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         match event {
@@ -293,8 +369,10 @@ fn main() -> Result<(),BrowserError>{
         prev_h = new_h;
 
         let mut shape:Vec<Vertex> = Vec::new();
+        let mut images:Vec<ImageRect> = Vec::new();
 
-        draw_render_box(&render_root, &mut font_cache, new_w, new_h, &mut shape, 2.0);
+        draw_render_box(&render_root, &mut font_cache, &mut image_cache,
+                        new_w, new_h, &mut shape,  &mut images,2.0, &display);
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 
@@ -309,7 +387,14 @@ fn main() -> Result<(),BrowserError>{
         let box_scale = Matrix4::from_nonuniform_scale(2.0*2.0/w,-2.0*2.0/h,1.0);
         let box_trans: [[f32; 4]; 4] = (box_translate * box_scale).into();
         let uniforms = uniform! { matrix: box_trans  };
-        target.draw(&vertex_buffer, &indices, &program, &uniforms,&Default::default()).unwrap();
+        target.draw(&vertex_buffer, &indices, &rect_program, &uniforms, &Default::default()).unwrap();
+
+        for image in images {
+            let tex:&Texture2d = &image.texture;
+            let image_uniforms = uniform! { matrix: box_trans, tex: tex };
+            let img_vertex_buffer = glium::VertexBuffer::new(&display, &image.vertices).unwrap();
+            target.draw(&img_vertex_buffer, &indices, &tex_program, &image_uniforms, &Default::default()).unwrap();
+        }
 
         //draw fonts
         let scale = Matrix4::from_nonuniform_scale(2.0/w,  2.0/h, 1.0);
