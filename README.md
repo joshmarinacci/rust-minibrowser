@@ -9,7 +9,7 @@ we don't care about:
 * error handling
 * javascript
 
-currently the projct is less than 2000 lines of Rust code, and at least a third of the code is unit tests.
+currently the project is less than 10k lines of Rust code, and probably a quarter of the code is unit tests.
 
 The other point of this project is to teach myself Rust.
 
@@ -49,14 +49,15 @@ This project is a simplified version of what goes on in real browsers.
 
 # LOC & dependencies
 
-The source is currently 2300 lines, which is mostly Rust code. About a third of that is unit tests.  While the app written from scratch it does have some third party dependencies.
+The source is currently 6000 lines, which is mostly Rust (4199) code. About a quarter of that is unit tests.  While the app written from scratch it does have some third party dependencies.
 
-* raqote for drawing rectangles and text
-* font-kit for loading and rendering fonts
-* minifb for opening an window and getting mouse and keyboard input from the native OS
 * serde_json for parsing JSON config files
 * pom: parser lib used to write the CSS & HTML parsers
 * reqwest: for making network requests to HTTP servers
 * image: for parsing JPG and PNG images
-
+* url: for parsing URLs
+* lazy_static: for lazy init of the list of css colors
+* cgmath for matrix math
+* glium for graphics
+* glium-glyph for text rendering
 
