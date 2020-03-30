@@ -757,8 +757,8 @@ impl<'a> LayoutBox<'a> {
                      match whitespace {
                          Keyword(str) => {
                              match &*str {
-                                 "pre" => return self.do_pre_layout(looper,txt,&link);
-                                 _ => return self.do_normal_inline_layout(looper,txt,&link);
+                                 "pre" => return self.do_pre_layout(looper,txt,&link),
+                                 _ => return self.do_normal_inline_layout(looper,txt,&link),
                              }
                          },
                          _ => {
