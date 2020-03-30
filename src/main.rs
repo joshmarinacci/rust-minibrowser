@@ -2,7 +2,7 @@
 extern crate glium;
 extern crate glium_glyph;
 
-use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes, Brush};
+use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes, Brush, ListMarker};
 use rust_minibrowser::render::{FontCache};
 use rust_minibrowser::net::{calculate_url_from_doc, BrowserError};
 
@@ -136,6 +136,25 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
             }
             for ch in rbx.children.iter() {
                 draw_render_box(ch, gb, img,width, height, shapes, images, text_scale, display);
+            }
+            if let ListMarker::Disc = rbx.marker {
+                let font = gb.lookup_font(&rbx.font_family, rbx.font_weight, &rbx.font_style);
+                let color = rbx.color.as_ref().unwrap().clone();
+                let section = Section{
+                    text: "•",
+                    scale: Scale::uniform(rbx.font_size*text_scale),
+                    font_id:*font,
+                    screen_position: (rbx.rect.x* text_scale - 20.0, rbx.rect.y* text_scale),
+                    bounds: (rbx.rect.width * text_scale, rbx.rect.height * text_scale),
+                    color: [
+                        (color.r as f32)/255.0,
+                        (color.g as f32)/255.0,
+                        (color.b as f32)/255.0,
+                        (color.a as f32)/255.0,
+                    ],
+                    ..Section::default()
+                };
+                gb.brush.queue(section);
             }
         }
         RenderBox::Anonymous(bx) => {

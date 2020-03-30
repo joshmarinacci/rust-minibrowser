@@ -43,6 +43,13 @@ pub struct Rect {
     pub height: f32,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum ListMarker {
+    Disc,
+    Decimal,
+    None,
+}
+
 impl Rect {
     pub fn with_inset(self, val:f32) -> Rect {
         Rect {
@@ -90,6 +97,7 @@ pub enum BoxType<'a> {
     TableRowGroupNode(&'a StyledNode<'a>),
     TableRowNode(&'a StyledNode<'a>),
     TableCellNode(&'a StyledNode<'a>),
+    ListItemNode(&'a StyledNode<'a>),
 }
 
 #[derive(Debug)]
@@ -136,6 +144,12 @@ pub struct RenderBlockBox {
     pub border_width: EdgeSizes,
     pub valign:String,
     pub children: Vec<RenderBox>,
+    pub marker:ListMarker,
+    pub color:Option<Color>,
+    pub font_size:f32,
+    pub font_family:String,
+    pub font_weight:i32,
+    pub font_style:String,
 }
 
 impl RenderBlockBox {
@@ -174,6 +188,7 @@ impl RenderAnonymousBox {
         QueryResult::None()
     }
 }
+
 #[derive(Debug)]
 pub struct RenderLineBox {
     pub(crate) rect:Rect,
@@ -241,6 +256,7 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
         Display::Block => BlockNode(style_node),
         Display::Inline => InlineNode(style_node),
         Display::InlineBlock => InlineBlockNode(style_node),
+        Display::ListItem => BoxType::ListItemNode(style_node),
         Display::Table => TableNode(style_node),
         Display::TableRowGroup => TableRowGroupNode(style_node),
         Display::TableRow => TableRowNode(style_node),
@@ -252,6 +268,7 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
     for child in &style_node.children {
         match child.display() {
             Display::Block =>  root.children.push(build_layout_tree(&child, doc)),
+            Display::ListItem =>  root.children.push(build_layout_tree(&child, doc)),
             Display::Inline => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::InlineBlock => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::Table => root.children.push(build_layout_tree(&child,doc)),
@@ -281,6 +298,7 @@ impl<'a> LayoutBox<'a> {
             | TableCellNode(node)
             | InlineNode(node)
             | InlineBlockNode(node)
+            | BoxType::ListItemNode(node)
             | AnonymousBlock(node) => node
         }
     }
@@ -289,6 +307,7 @@ impl<'a> LayoutBox<'a> {
         match self.box_type {
             InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
             BlockNode(node)
+            | BoxType::ListItemNode(node)
             | TableNode(node)
             | TableRowGroupNode(node)
             | TableRowNode(node) => {
@@ -312,6 +331,7 @@ impl<'a> LayoutBox<'a> {
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
+            BoxType::ListItemNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
         }
     }
     fn debug_calculate_element_name(&self) -> String{
@@ -352,6 +372,19 @@ impl<'a> LayoutBox<'a> {
             },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
+            marker: if style.lookup_string("display","block") == "list-item" {
+                match &*style.lookup_string("list-style-type", "none") {
+                    "disc" => ListMarker::Disc,
+                    _ => ListMarker::None,
+                }
+            } else {
+                ListMarker::None
+            },
+            color: Some(style.lookup_color("color", &BLACK)),
+            font_family: style.lookup_font_family_recursive(font_cache),
+            font_weight : style.lookup_font_weight(400),
+            font_style : style.lookup_string("font-style", "normal"),
+            font_size: style.lookup_length_px("font-size", 10.0),
         }
     }
 
@@ -413,6 +446,12 @@ impl<'a> LayoutBox<'a> {
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
             children: children,
+            marker: ListMarker::None,
+            color: Some(style.lookup_color("color", &BLACK)),
+            font_family: style.lookup_font_family_recursive(font_cache),
+            font_weight : style.lookup_font_weight(400),
+            font_style : style.lookup_string("font-style", "normal"),
+            font_size: style.lookup_length_px("font-size", 10.0),
         }
     }
 
@@ -450,6 +489,7 @@ impl<'a> LayoutBox<'a> {
     fn get_type(&self) -> String {
         match self.box_type {
             BoxType::AnonymousBlock(styled)
+            | BoxType::ListItemNode(styled)
             | BoxType::BlockNode(styled)
             | BoxType::TableNode(styled)
             | BoxType::TableRowGroupNode(styled)
@@ -1285,4 +1325,27 @@ code {
 }"#,
     ).unwrap();
     println!("pre code demo is {:#?}",render_box);
+}
+
+#[test]
+fn test_unordered_listitem() {
+    let render_box = standard_init(
+        br#"<ul>
+    <li>item one</li>
+    <li>item two</li>
+</ul>"#,
+        br#"        ul {
+        display:block;
+            padding-left: 40px;
+            border: 1px solid black;
+            list-style-type: disc;
+        }
+        li {
+            display: list-item;
+            border: 1px solid red;
+        }
+"#,
+    ).unwrap();
+    println!("ul render is {:#?}",render_box);
+
 }

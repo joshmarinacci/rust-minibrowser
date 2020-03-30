@@ -7,6 +7,7 @@ use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
 use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, load_stylesheets_with_fallback};
 use std::fs::File;
 use std::io::BufReader;
+use crate::render::FontCache;
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -44,6 +45,7 @@ pub enum Display {
     TableRowGroup,
     TableRow,
     TableCell,
+    ListItem,
     None,
 }
 
@@ -96,6 +98,37 @@ impl StyledNode<'_> {
             _ => default,
         }
     }
+    pub fn lookup_font_family_recursive(&self,font_cache:&mut FontCache) -> String {
+        let font_family_values = self.lookup(
+            "font-family",
+            "font-family",
+            &Value::Keyword(String::from("sans-serif")));
+        println!("font family values: {:#?} {:#?}",font_family_values, self);
+        match font_family_values {
+            Value::ArrayValue(vals ) => {
+                for val in vals.iter() {
+                    match val {
+                        Value::StringLiteral(str) => {
+                            if font_cache.has_font_family(str) {
+                                return String::from(str);
+                            }
+                        }
+                        Value::Keyword(str) => {
+                            if font_cache.has_font_family(str) {
+                                return String::from(str);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                println!("no valid font found in stack: {:#?}",vals);
+                String::from("sans-serif")
+            }
+            Value::Keyword(str) => str,
+            _ => String::from("sans-serif"),
+        }
+    }
+
     pub fn lookup_length_px(&self, name:&str, default:f32) -> f32 {
         match self.value(name) {
             Some(Length(v,_unit)) => v,
@@ -115,6 +148,7 @@ impl StyledNode<'_> {
                 "table-row-group" => Display::TableRowGroup,
                 "table-row" => Display::TableRow,
                 "table-cell" => Display::TableCell,
+                "list-item" => Display::ListItem,
                 _ => {
                     println!("WARNING: unsupported display keyword {}",s);
                     Display::Inline
