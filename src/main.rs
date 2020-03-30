@@ -2,45 +2,33 @@
 extern crate glium;
 extern crate glium_glyph;
 
-use rust_minibrowser::dom::{Document, strip_empty_nodes, expand_entities};
-use rust_minibrowser::layout;
-
-use rust_minibrowser::style::{style_tree, expand_styles};
 use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes, Brush};
 use rust_minibrowser::render::{FontCache};
-use rust_minibrowser::net::{load_doc_from_net, load_stylesheets_with_fallback, relative_filepath_to_url, calculate_url_from_doc, BrowserError};
-use url::Url;
+use rust_minibrowser::net::{calculate_url_from_doc, BrowserError};
 
 
 use rust_minibrowser::app::{parse_args, navigate_to_doc, install_standard_fonts};
 
-use cgmath::{Matrix4, Rad, Transform, Vector3, SquareMatrix};
-use glium::glutin::{Api,
-                    GlProfile,
-                    GlRequest,
-                    window::WindowBuilder,
-                    event_loop::ControlFlow,
-                    event_loop::EventLoop,
-                    event::WindowEvent,
-                    event::MouseScrollDelta::{PixelDelta, LineDelta},
-                    event::StartCause,
-                    event::VirtualKeyCode,
-                    event::KeyboardInput,
-                    event::Event,
-                    ContextBuilder,
-                    dpi::PhysicalPosition,
-                    event::ElementState,
+use cgmath::{Matrix4, Vector3};
+use glium::glutin::{
+    event_loop::ControlFlow,
+    event::WindowEvent,
+    event::MouseScrollDelta::{PixelDelta, LineDelta},
+    event::VirtualKeyCode,
+    event::KeyboardInput,
+    event::Event,
+    dpi::PhysicalPosition,
+    event::ElementState,
+    event::MouseButton,
 };
 use glium::{glutin, Display};
 use glium::Surface;
 use glium_glyph::GlyphBrush;
 use glium_glyph::glyph_brush::{Section,
                                rusttype::{
-                                   Font,
                                    Scale
                                }};
 use rust_minibrowser::css::Color;
-use rust_minibrowser::image::LoadedImage;
 use std::collections::HashMap;
 use glium::texture::{Texture2d, RawImage2d};
 use std::rc::Rc;
@@ -324,7 +312,7 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 } => {
                     match delta {
-                        LineDelta(x, y) => yoff = zero.max(yoff - y * 30.0),
+                        LineDelta(_x, y) => yoff = zero.max(yoff - y * 30.0),
                         PixelDelta(lp) => yoff = zero.max( yoff - lp.y as f32),
                     }
                 },
@@ -339,7 +327,7 @@ fn main() -> Result<(),BrowserError>{
                 } => {
                     // println!("mouse click {:#?}", button);
                     if let ElementState::Pressed = state {
-                        if let Left = button {
+                        if let MouseButton::Left = button {
                             let res = render_root.find_box_containing((last_mouse.x / 2.0) as f32, (last_mouse.y / 2.0) as f32);
                             if let QueryResult::Text(bx) = res {
                                 if let Some(href) = &bx.link {
@@ -358,11 +346,11 @@ fn main() -> Result<(),BrowserError>{
             _ => (),
         }
         let screen_dims = display.get_framebuffer_dimensions();
-        let mut new_w = screen_dims.0 as f32/2.0;
-        let mut new_h = screen_dims.1 as f32/2.0;
+        let new_w = screen_dims.0 as f32/2.0;
+        let new_h = screen_dims.1 as f32/2.0;
         if prev_w != new_w || prev_h != new_h {
             containing_block.content.width = new_w;
-            let (mut doc2, mut render_root2) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
+            let (doc2, render_root2) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
             doc = doc2;
             render_root = render_root2;
         }

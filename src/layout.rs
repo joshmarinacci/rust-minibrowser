@@ -9,8 +9,7 @@ use crate::image::{LoadedImage};
 use crate::dom::NodeType::{Text, Element};
 use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, BrowserError};
 use std::mem;
-use crate::style::Display::{TableRowGroup, TableRow};
-use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}, GlyphBrush};
+use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}};
 use glium_glyph::glyph_brush::GlyphCruncher;
 use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
 
@@ -367,15 +366,12 @@ impl<'a> LayoutBox<'a> {
         //count the number of table cell children
         let mut count = 0;
         for child in self.children.iter() {
-            match child.box_type {
-                BoxType::TableCellNode(_) => count+=1,
-                _ => {}
+            if let BoxType::TableCellNode(_) = child.box_type {
+                count+= 1
             }
         }
         let child_width = self.dimensions.content.width / count as f32;
-        let self_height = self.dimensions.content.height;
-        let mut index = 0;
-        for child in self.children.iter_mut() {
+        for (index,child) in self.children.iter_mut().enumerate() {
             match child.box_type {
                 BoxType::TableCellNode(_) => {
                     let mut cb = Dimensions {
@@ -399,7 +395,6 @@ impl<'a> LayoutBox<'a> {
                     println!("table_row can't have child of {:#?}",child.get_type());
                 }
             };
-            index += 1;
         };
         let zero = Length(0.0, Px);
         let style = self.get_style_node();
@@ -517,7 +512,7 @@ impl<'a> LayoutBox<'a> {
         // for line in looper.lines.iter() {
         //     println!("  line {:#?}",line.rect);
         // }
-        return RenderAnonymousBox {
+        RenderAnonymousBox {
             rect: looper.extents,
             children: looper.lines,
         }
@@ -624,7 +619,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&String, link:&Option<String>) {
+    fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
         let color = looper.style_node.lookup_color("color", &BLACK);
         let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
         // println!("font size is {:#?} ",font_size, color);
@@ -660,7 +655,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_normal_inline_layout(&self, looper:&mut Looper<'a>, txt:&String, link:&Option<String>) {
+    fn do_normal_inline_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
         // println!("processing text '{}'", txt);
         let font_family = self.find_font_family(looper);
         // println!("using font family {}", font_family);
@@ -742,7 +737,7 @@ impl<'a> LayoutBox<'a> {
             NodeType::Cdata(_) => None,
             Element(ed) => {
                 if ed.tag_name == "a" {
-                    ed.attributes.get("href").map(|s|String::from(s))
+                    ed.attributes.get("href").map(String::from)
                 } else {
                     None
                 }
@@ -868,7 +863,7 @@ impl<'a> LayoutBox<'a> {
             Length(v, Unit::Px) => *v,
             Length(v, Unit::Em) => (*v)*font_size,
             Length(v, Unit::Rem) => (*v)*font_size,
-            Length(v, Unit::Per) => {
+            Length(_v, Unit::Per) => {
                 println!("WARNING: percentage in length_to_px. should have be converted to pixels already");
                 0.0
             }
@@ -988,7 +983,7 @@ impl Looper<'_> {
     }
     fn adjust_current_line_vertical(&mut self) {
         for ch in self.current.children.iter_mut() {
-            let (mut rect,mut string) =  match ch {
+            let (mut rect, string) =  match ch {
                 RenderInlineBoxType::Text(bx)    => (&mut bx.rect,&bx.valign),
                 RenderInlineBoxType::Error(bx)  => (&mut bx.rect,&bx.valign),
                 RenderInlineBoxType::Image(bx) => (&mut bx.rect,&bx.valign),
@@ -1178,7 +1173,7 @@ impl Brush {
                                       frame:&mut glium::Frame) {
         match self {
             Brush::Style1(b) => b.draw_queued_with_transform(mat,facade,frame),
-            Brush::Style2(b) => {
+            Brush::Style2(_b) => {
                 panic!("cant actuually draw with style two")
             },
         }
@@ -1194,7 +1189,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
     let styled = style_tree(&doc.root_node,&stylesheet);
     // println!("styled nodes {:#?}",styled);
-    let mut glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
+    let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
         glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut viewport = Dimensions {
         content: Rect {
@@ -1217,7 +1212,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700, "normal");
     let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
-    return Ok(render_box);
+    Ok(render_box)
 }
 
 #[test]

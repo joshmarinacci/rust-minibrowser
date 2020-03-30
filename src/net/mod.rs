@@ -44,7 +44,7 @@ impl From<()> for BrowserError {
     fn from(_: ()) -> Self { unimplemented!()  }
 }
 impl From<glium_glyph::glyph_brush::rusttype::Error> for BrowserError {
-    fn from(err:glium_glyph::glyph_brush::rusttype::Error) -> Self { unimplemented!()  }
+    fn from(_err:glium_glyph::glyph_brush::rusttype::Error) -> Self { unimplemented!()  }
 }
 
 
@@ -71,7 +71,7 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
     }
 
     if let Some(node) = style_node {
-        if node.children.len() > 0 {
+        if !node.children.is_empty() {
             if let NodeType::Text(text) = &node.children[0].node_type {
                 let mut ss2 = parse_stylesheet(text)?;
                 // println!("parsed inline styles {:#?}", ss2);
@@ -83,11 +83,8 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
                             if let Some(Value::FunCall(fcv)) = &ar.value {
                                 // println!("the url is {:#?}", fcv.arguments);
                                 if let Value::StringLiteral(str) = &fcv.arguments[0] {
-                                    let mut ss3 = load_stylesheet_from_net(&Url::parse(str).unwrap())?;
-                                    // println!("got the resulting stylesheet {:#?}", ss3);
+                                    load_stylesheet_from_net(&Url::parse(str).unwrap())?;
                                     println!("parsed the remote stylesheet {:#?}", fcv.arguments);
-                                    //ss2.parent = Some(Box::new(ss3));
-                                    // return Ok(ss2);
                                 }
                             }
                         }

@@ -87,32 +87,13 @@ fn text(data:String) -> Node {
 fn space<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
 }
-fn v2s(v:&Vec<u8>) -> String {
+fn v2s(v:&[u8]) -> String {
     str::from_utf8(v).unwrap().to_string()
 }
 
 fn alphanum_string<'a>() -> Parser<'a, u8, String> {
     let r = is_a(alphanum).repeat(1..);
     r.map(|str| String::from_utf8(str).unwrap())
-}
-
-fn element_name<'a>() -> Parser<'a,u8,String> {
-    alphanum_string()
-}
-#[test]
-fn test_element_name() {
-    let input = br#"div"#;
-    let result = element_name().parse(input);
-    println!("{:?}", result);
-    assert_eq!(String::from("div"), result.unwrap());
-}
-
-#[test]
-fn test_element_name_with_number() {
-    let input = br#"h3"#;
-    let result = element_name().parse(input);
-    println!("{:?}", result);
-    assert_eq!(String::from("h3"), result.unwrap());
 }
 
 fn single_quote_attribute_value<'a>() -> Parser<'a, u8, String> {
@@ -477,7 +458,7 @@ fn cdata<'a>() -> Parser<'a, u8, Node> {
         = seq(b"<![CDATA[")
         + (!seq(b"]]>") * take(1)).repeat(0..)
         + seq(b"]]>");
-    p.map(|((a,c),b)| {
+    p.map(|((_a,c),_b)| {
         let mut s:Vec<u8> = Vec::new();
         for cc in c {
             s.push(cc[0]);
@@ -714,15 +695,7 @@ pub fn strip_empty_nodes(doc:&mut Document) {
 fn strip_empty_nodes_helper(node:&mut Node) {
     node.children.retain(|ch| {
         match &ch.node_type {
-            NodeType::Text(str) => {
-                // println!("got a text node -{}-",str.trim());
-                if str.trim().len() == 0 {
-                    // println!("empty node. must prune it");
-                    false
-                } else {
-                    true
-                }
-            }
+            NodeType::Text(str) => !str.trim().is_empty(),
             _ => true
         }
     });
@@ -785,15 +758,12 @@ pub fn expand_entities(doc:&mut Document) {
 }
 fn expand_entities_helper(node:&mut Node) {
     for ch in node.children.iter_mut() {
-        match &ch.node_type {
-            NodeType::Text(str) => {
-                let mut str2 = String::from(str);
-                str2 = str2.replace("&lt;","<");
-                str2 = str2.replace("&gt;",">");
-                str2 = str2.replace("&amp;","&");
-                ch.node_type = NodeType::Text(str2);
-            }
-            _ => {}
+        if let NodeType::Text(str) = &ch.node_type {
+            let mut str2 = String::from(str);
+            str2 = str2.replace("&lt;","<");
+            str2 = str2.replace("&gt;",">");
+            str2 = str2.replace("&amp;","&");
+            ch.node_type = NodeType::Text(str2);
         }
         expand_entities_helper(ch);
     }

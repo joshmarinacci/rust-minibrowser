@@ -49,7 +49,7 @@ This project is a simplified version of what goes on in real browsers.
 
 # LOC & dependencies
 
-The source is currently 6000 lines, which is mostly Rust (4199) code. About a quarter of that is unit tests.  While the app written from scratch it does have some third party dependencies.
+The source is currently 6000 lines, which is mostly Rust (4180) code. About a quarter of that is unit tests.  While the app written from scratch it does have some third party dependencies.
 
 * serde_json for parsing JSON config files
 * pom: parser lib used to write the CSS & HTML parsers

@@ -1,14 +1,9 @@
 extern crate image;
-use image::{GenericImageView};
-// use raqote::{Image, DrawTarget,  DrawOptions};
-use std::fmt::{Debug, Formatter, Error};
+use std::fmt::{Formatter};
 use std::fmt;
 use self::image::{ImageError, RgbaImage};
 use self::image::io::Reader;
 use std::io::Cursor;
-use crate::net::load_image_from_net;
-use url::Url;
-use glium::texture::{RawImage2d};
 
 pub struct LoadedImage {
     pub path:String,
@@ -30,7 +25,7 @@ impl fmt::Debug for LoadedImage {
 
 fn img_to_loaded_image(img:RgbaImage, path:String) -> Result<LoadedImage, ImageError> {
     let (w,h) = img.dimensions();
-    let mut loaded = LoadedImage {
+    let loaded = LoadedImage {
         path: path,
         width: w as i32,
         height: h as i32,
@@ -40,11 +35,11 @@ fn img_to_loaded_image(img:RgbaImage, path:String) -> Result<LoadedImage, ImageE
 }
 pub fn load_image_from_filepath(path:String) -> Result<LoadedImage, ImageError> {
     let img = image::open(path.clone())?.into_rgba();
-    img_to_loaded_image(img, path.to_string())
+    img_to_loaded_image(img, path)
 }
 
 pub fn load_image_from_buffer(buf:Vec<u8>) -> Result<LoadedImage, ImageError>{
     let reader = Reader::new(Cursor::new(buf)).with_guessed_format().expect("cursor io never fails");
     let img = reader.decode()?;
-    return img_to_loaded_image(img.into_rgba(),"none".to_string());
+    img_to_loaded_image(img.into_rgba(),"none".to_string())
 }

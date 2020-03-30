@@ -103,7 +103,7 @@ impl Color {
         }
     }
     pub fn to_array(&self) -> [f32;4]{
-        return [(self.r as f32)/255.0, (self.g as f32)/255.0, (self.b as f32)/255.0, (self.a as f32)/255.0]
+        [(self.r as f32)/255.0, (self.g as f32)/255.0, (self.b as f32)/255.0, (self.a as f32)/255.0]
     }
 }
 
@@ -138,26 +138,6 @@ fn space1<'a>() -> Parser<'a, u8, ()> {
     one_of(b" \t\r\n").repeat(1..).discard()
 }
 
-fn integer_string<'a>() -> Parser<'a, u8, String> {
-    let rule = one_of(b"01234567").repeat(0..);
-    rule.convert(|s|String::from_utf8(s))
-}
-fn integer<'a>() -> Parser<'a, u8, i32> {
-    let rule = integer_string();
-    rule.convert(|s|i32::from_str(&s))
-}
-#[test]
-fn test_integer() {
-    assert_eq!(integer().parse(b"42"), Ok(42));
-}
-fn float<'a>() -> Parser<'a, u8, f32> {
-    let rule = integer_string() - sym(b'.') + integer_string();
-    rule.convert(|(i1,i2)| f32::from_str(&format!("{}.{}",i1,i2)))
-}
-#[test]
-fn test_float() {
-    assert_eq!(float().parse(b"42.42"), Ok(42.42));
-}
 fn number<'a>() -> Parser<'a, u8, f64> {
     let integer = one_of(b"123456789") - one_of(b"0123456789").repeat(0..) | sym(b'0');
     let frac = sym(b'.') + one_of(b"0123456789").repeat(1..);
@@ -178,7 +158,7 @@ fn single_quote_string<'a>() -> Parser<'a, u8, String> {
     (sym(b'\'') * none_of(b"'").repeat(0..) - sym(b'\'')).map(|v|v2s(&v))
 }
 
-fn v2s(v:&Vec<u8>) -> String {
+fn v2s(v:&[u8]) -> String {
     str::from_utf8(v).unwrap().to_string()
 }
 
@@ -208,7 +188,7 @@ fn star_string<'a>() -> Parser<'a, u8, Selector> {
 }
 fn class_string<'a>() -> Parser<'a,u8,Selector> {
     let r = sym(b'.') + is_a(alphanum).repeat(1..);
-    r.map(|(dot,str)| {
+    r.map(|(_dot,str)| {
         Selector::Simple(SimpleSelector{
             tag_name: None,
             id: None,
@@ -374,7 +354,7 @@ fn format_follower<'a>() -> Parser<'a, u8, Value> {
         - sym(b'(')
         + (string_literal() | url())
         - sym(b')');
-    p.map(|(a,b)|Value::FunCall(FunCallValue{
+    p.map(|(_a,b)|Value::FunCall(FunCallValue{
         name: "format".to_string(),
         arguments: vec![b]
     }))
@@ -390,7 +370,7 @@ fn url_funcall<'a>() -> Parser<'a, u8, Value> {
         - space()
         + format_follower().opt()
         ;
-    p.map(|((a,url),format)| Value::FunCall(FunCallValue{
+    p.map(|((_a,url),_format)| Value::FunCall(FunCallValue{
         name: "url".to_string(),
         arguments: vec![url]
     }))
@@ -550,10 +530,7 @@ fn hex4<'a>() -> Parser<'a,u8,i32> {
 }
 
 fn unicode_codepoint<'a>() -> Parser<'a, u8, Value> {
-    // U+0100
-    (space() * seq(b"U+") * hex4()).map(|c|Value::UnicodeCodepoint(c))
-    // let n = i32::from_str_radix(&str[1..], 16).unwrap();
-
+    (space() * seq(b"U+") * hex4()).map(Value::UnicodeCodepoint)
 }
 #[test]
 fn test_unicode_codepoint() {
@@ -703,7 +680,7 @@ fn comment<'a>() -> Parser<'a, u8, RuleType> {
         - seq(b"/*")
         + (!seq(b"*/") * take(1)).repeat(0..)
         + seq(b"*/");
-    p.map(|((a,c),b)| {
+    p.map(|((_a,c),_b)| {
         let mut s:Vec<u8> = Vec::new();
         for cc in c {
             s.push(cc[0]);
@@ -840,7 +817,7 @@ fn import_rule<'a>() -> Parser<'a, u8, RuleType> {
             - sym(b')')
             - sym(b';')
         ;
-    p.map(|( (a,name), url)| {
+    p.map(|( (_a,name), url)| {
         RuleType::AtRule(AtRule {
             name,
             value: Some(Value::FunCall(FunCallValue{

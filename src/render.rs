@@ -1,5 +1,4 @@
 use crate::css::{Color, Value, Stylesheet, RuleType};
-use crate::layout::{Rect, RenderBox, RenderInlineBoxType, RenderBlockBox, Brush, RenderTextBox};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
@@ -8,6 +7,7 @@ use crate::net::relative_filepath_to_url;
 use glium_glyph::GlyphBrush;
 use glium_glyph::glyph_brush::rusttype::{Font};
 use glium_glyph::glyph_brush::FontId;
+use crate::layout::Brush;
 
 
 #[allow(dead_code)]
@@ -152,7 +152,7 @@ impl FontCache {
     pub fn lookup_font(&mut self, fam:&str,wt:i32,sty:&str) -> &FontId {
         // println!("looking up font {} {} {}", fam, wt, sty);
         let key = self.make_key(fam,wt,sty);
-        return self.fonts.get(&*key).unwrap();
+        self.fonts.get(&*key).unwrap()
     }
     pub fn has_font_family(&self, family:&str) -> bool {
         self.families.contains_key(family)
@@ -242,13 +242,6 @@ impl FontCache {
             panic!("no default font set!");
         }
     }
-    // fn load_font(&mut self, name:&str) {
-    //     println!("trying to load the font: '{}'",name);
-    //     let pth = self.names.get(name).unwrap().to_file_path().unwrap();
-    //     let mut file = File::open(pth).unwrap();
-    //     let font = Font::from_file(&mut file, 0).unwrap();
-    //     self.fonts.insert(String::from(name), font);
-    // }
     pub fn scan_for_fontface_rules(&mut self, stylesheet:&Stylesheet) {
         for rule in stylesheet.rules.iter() {
             if let RuleType::AtRule(at_rule) = rule {
@@ -290,21 +283,4 @@ impl FontCache {
 
     }
 }
-*/
-/*
-static TEST_FONT_FILE_PATH: &str =
-    "tests/tufte/et-book/et-book-roman-line-figures/et-book-roman-line-figures.ttf";
-#[test]
-fn test_font_loading() {
-    let pth = Path::new(TEST_FONT_FILE_PATH);
-    let mut file = File::open(pth).unwrap();
-    let _font = Font::from_file(&mut file, 0).unwrap();
-    let mut fc = FontCache::new();
-    let name = String::from("sans-serif");
-    fc.install_font(&name, 400.0, "normal",&relative_filepath_to_url(TEST_FONT_FILE_PATH).unwrap());
-    println!("{:#?}",fc.get_font("sans-serif", 400.0, "normal"));
-    // println!("{:#?}",fc);
-    //assert_eq!(font.postscript_name().unwrap(), TEST_FONT_POSTSCRIPT_NAME);
-}
-
 */

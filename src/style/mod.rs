@@ -156,7 +156,7 @@ fn matches(elem: &ElementData, selector: &Selector, ancestors:&mut Vec::<(&Node,
                     parent_match = matches(ed, &*sel.ancestor, ancestors);
                 }
             }
-            return child_match && parent_match;
+            child_match && parent_match
         }
     }
 }
@@ -254,7 +254,7 @@ fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&N
             }
         }
     }
-    return dec.value.clone();
+    dec.value.clone()
 }
 
 pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
@@ -509,22 +509,19 @@ fn expand_array_decl(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
 
 pub fn expand_styles(ss:&mut Stylesheet) {
     for rule in ss.rules.iter_mut() {
-        match rule {
-            RuleType::Rule(rule) => {
-                let mut new_decs = vec![];
-                for dec in rule.declarations.iter_mut() {
-                    // println!("decl = {:#?}",dec);
-                    match dec.name.as_str() {
-                        "margin" => expand_array_decl(&mut new_decs, dec),
-                        "padding" => expand_array_decl(&mut new_decs, dec),
-                        "border-width" => expand_array_decl(&mut new_decs, dec),
-                        "border" => expand_border_shorthand(&mut new_decs, dec),
-                        _ => new_decs.push(dec.clone()),
-                    }
+        if let RuleType::Rule(rule) = rule {
+            let mut new_decs = vec![];
+            for dec in rule.declarations.iter_mut() {
+                // println!("decl = {:#?}",dec);
+                match dec.name.as_str() {
+                    "margin" => expand_array_decl(&mut new_decs, dec),
+                    "padding" => expand_array_decl(&mut new_decs, dec),
+                    "border-width" => expand_array_decl(&mut new_decs, dec),
+                    "border" => expand_border_shorthand(&mut new_decs, dec),
+                    _ => new_decs.push(dec.clone()),
                 }
-                rule.declarations = new_decs;
             }
-            _ => {}
+            rule.declarations = new_decs;
         }
     }
 }
