@@ -324,7 +324,7 @@ fn main() -> Result<(),BrowserError>{
                     ..
                 } => {
                     match delta {
-                        LineDelta(x, y) => yoff = zero.max(yoff - y * 10.0),
+                        LineDelta(x, y) => yoff = zero.max(yoff - y * 30.0),
                         PixelDelta(lp) => yoff = zero.max( yoff - lp.y as f32),
                     }
                 },

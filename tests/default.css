@@ -20,7 +20,7 @@
     letter-spacing: normal;
     word-spacing: normal;
     text-transform: none;
-    white-space: normal;
+    white-space: inherit;
     font-family: sans-serif;
     font-size: 18px;
     border-width: 0;

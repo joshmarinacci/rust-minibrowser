@@ -624,6 +624,116 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
+    fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&String, link:&Option<String>) {
+        let color = looper.style_node.lookup_color("color", &BLACK);
+        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        // println!("font size is {:#?} ",font_size, color);
+        let font_family = self.find_font_family(looper);
+        let font_weight = looper.style_node.lookup_font_weight(400);
+        let font_style = looper.style_node.lookup_string("font-style", "normal");
+        let valign = looper.style_node.lookup_string("vertical-align", "baseline");
+        for line in txt.split_terminator('\n') {
+            let bounds = calculate_text_bounds(line, looper.font_cache, font_size, &font_family, font_weight, &font_style);
+            if let Some(bounds) = bounds {
+                let bx = RenderInlineBoxType::Text(RenderTextBox {
+                    rect: Rect {
+                        x: looper.current_start + bounds.min.x,
+                        y: looper.current_bottom + bounds.min.y,
+                        width: looper.extents.width,
+                        height: font_size
+                    },
+                    text: line.to_string(),
+                    color: Some(color.clone()),
+                    font_size,
+                    font_family: font_family.clone(),
+                    link: link.clone(),
+                    font_weight,
+                    font_style:font_style.clone(),
+                    valign:valign.clone(),
+                });
+                looper.add_box_to_current_line(bx);
+                looper.current_bottom += looper.current.rect.height;
+                looper.extents.height += looper.current.rect.height;
+                looper.adjust_current_line_vertical();
+                looper.start_new_line();
+            }
+        }
+    }
+
+    fn do_normal_inline_layout(&self, looper:&mut Looper<'a>, txt:&String, link:&Option<String>) {
+        // println!("processing text '{}'", txt);
+        let font_family = self.find_font_family(looper);
+        // println!("using font family {}", font_family);
+        let font_weight = looper.style_node.lookup_font_weight(400);
+        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        let font_style = looper.style_node.lookup_string("font-style", "normal");
+        let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
+        let line_height = font_size;
+        // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
+        let color = looper.style_node.lookup_color("color", &BLACK);
+        // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
+        //          font_family, color, font_size, font_weight, font_style );
+        // println!("styles={:#?}",looper.style_node);
+        // println!("parent={:#?}", parent.get_style_node());
+        let mut curr_text = String::new();
+        for word in txt.split_whitespace() {
+            let mut word2 = String::from(" ");
+            word2.push_str(word);
+            let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size, &font_family, font_weight, &font_style);
+            //if it's too long then we need to wrap
+            if looper.current_end + w > looper.extents.width {
+                //add current text to the current line
+                // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
+                let bx = RenderInlineBoxType::Text(RenderTextBox{
+                    rect: Rect{
+                        x: looper.current_start,
+                        y: looper.current_bottom,
+                        width: looper.current_end - looper.current_start,
+                        height: line_height
+                    },
+                    text: curr_text,
+                    color: Some(color.clone()),
+                    font_size,
+                    font_family: font_family.clone(),
+                    font_style: font_style.clone(),
+                    link: link.clone(),
+                    font_weight,
+                    valign: vertical_align.clone(),
+                });
+                looper.add_box_to_current_line(bx);
+                //make new current text with the current word
+                curr_text = String::new();
+                curr_text.push_str(&word2);
+                curr_text.push_str(" ");
+                looper.current_bottom += looper.current.rect.height;
+                looper.extents.height += looper.current.rect.height;
+                looper.adjust_current_line_vertical();
+                looper.start_new_line();
+                looper.current_end += w;
+            } else {
+                looper.current_end += w;
+                curr_text.push_str(&word2);
+            }
+        }
+        let bx = RenderInlineBoxType::Text(RenderTextBox{
+            rect: Rect {
+                x: looper.current_start,
+                y: looper.current_bottom,
+                width: looper.current_end - looper.current_start,
+                height: line_height,
+            },
+            text: curr_text,
+            color: Some(color.clone()),
+            font_size,
+            font_family,
+            link: link.clone(),
+            font_weight,
+            font_style,
+            valign: vertical_align.clone(),
+        });
+        looper.add_box_to_current_line(bx);
+    }
+
     fn do_inline(&self, looper:&mut Looper<'a>) {
         // println!("doing inline {:#?}", &self.debug_calculate_element_name());
         let link:Option<String> = match &looper.style_node.node.node_type {
@@ -642,78 +752,19 @@ impl<'a> LayoutBox<'a> {
         if let BoxType::InlineNode(snode) = self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
-                     // println!("processing text '{}'", txt);
-                    let font_family = self.find_font_family(looper);
-                     // println!("using font family {}", font_family);
-                    let font_weight = looper.style_node.lookup_font_weight(400);
-                    let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
-                    let font_style = looper.style_node.lookup_string("font-style", "normal");
-                    let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
-                    let line_height = font_size;
-                    // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
-                    let color = looper.style_node.lookup_color("color", &BLACK);
-                    // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
-                    //          font_family, color, font_size, font_weight, font_style );
-                    // println!("styles={:#?}",looper.style_node);
-                    // println!("parent={:#?}", parent.get_style_node());
-
-                    let mut curr_text = String::new();
-                    for word in txt.split_whitespace() {
-                        let mut word2 = String::from(" ");
-                        word2.push_str(word);
-                        let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size, &font_family, font_weight, &font_style);
-                        //if it's too long then we need to wrap
-                        if looper.current_end + w > looper.extents.width {
-                            //add current text to the current line
-                            // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
-                            let bx = RenderInlineBoxType::Text(RenderTextBox{
-                                rect: Rect{
-                                    x: looper.current_start,
-                                    y: looper.current_bottom,
-                                    width: looper.current_end - looper.current_start,
-                                    height: line_height
-                                },
-                                text: curr_text,
-                                color: Some(color.clone()),
-                                font_size,
-                                font_family: font_family.clone(),
-                                font_style: font_style.clone(),
-                                link: link.clone(),
-                                font_weight,
-                                valign: vertical_align.clone(),
-                            });
-                            looper.add_box_to_current_line(bx);
-                            //make new current text with the current word
-                            curr_text = String::new();
-                            curr_text.push_str(&word2);
-                            curr_text.push_str(" ");
-                            looper.current_bottom += looper.current.rect.height;
-                            looper.extents.height += looper.current.rect.height;
-                            looper.adjust_current_line_vertical();
-                            looper.start_new_line();
-                            looper.current_end += w;
-                        } else {
-                            looper.current_end += w;
-                            curr_text.push_str(&word2);
-                        }
-                    }
-                    let bx = RenderInlineBoxType::Text(RenderTextBox{
-                        rect: Rect {
-                            x: looper.current_start,
-                            y: looper.current_bottom,
-                            width: looper.current_end - looper.current_start,
-                            height: line_height,
-                        },
-                        text: curr_text,
-                        color: Some(color.clone()),
-                        font_size,
-                        font_family,
-                        link: link.clone(),
-                        font_weight,
-                        font_style,
-                        valign: vertical_align.clone(),
-                    });
-                    looper.add_box_to_current_line(bx);
+                     let whitespace = looper.style_node.lookup_keyword("white-space", &Keyword(String::from("normal")));
+                     println!("laying out using whitespace {:#?}", whitespace);
+                     match whitespace {
+                         Keyword(str) => {
+                             match &*str {
+                                 "pre" => return self.do_pre_layout(looper,txt,&link);
+                                 _ => return self.do_normal_inline_layout(looper,txt,&link);
+                             }
+                         },
+                         _ => {
+                             println!("invalid whitespace type");
+                         }
+                     }
                 }
                 //     if child is element
                 NodeType::Element(_ed) => {
@@ -884,6 +935,16 @@ fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_famil
         Some(rect) => rect.max.x as f32 + FUDGE,
         None => 0.0,
     }
+}
+fn calculate_text_bounds(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> Option<GBRect<f32>> {
+    let scale = Scale::uniform(font_size  as f32);
+    fc.lookup_font(font_family,font_weight, font_style);
+    let sec = Section {
+        text,
+        scale,
+        ..Section::default()
+    };
+    fc.brush.glyph_bounds(sec)
 }
 
 struct Looper<'a> {
@@ -1132,6 +1193,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let doc = load_doc_from_bytestring(html);
     let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
     let styled = style_tree(&doc.root_node,&stylesheet);
+    // println!("styled nodes {:#?}",styled);
     let mut glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
         glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut viewport = Dimensions {
@@ -1209,4 +1271,23 @@ fn test_blue_text() {
     }
     // assert_eq!(render_box.calculate_insets().left,100);
 */
+}
+#[test]
+fn test_pre_code_text() {
+    let render_box = standard_init(
+        br#"<pre><code>for i in node.children().iter() {
+    println!("this is some rust code");
+}
+</code></pre>
+"#,
+br#"pre {
+    display:block;
+    white-space: pre;
+}
+code {
+    font-size: 20px;
+    white-space: inherit;
+}"#,
+    ).unwrap();
+    println!("pre code demo is {:#?}",render_box);
 }
