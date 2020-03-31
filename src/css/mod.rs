@@ -2,7 +2,7 @@ extern crate pom;
 use pom::parser::{Parser,is_a,one_of,sym, none_of,seq};
 use pom::char_class::alpha;
 use std::str::{self, FromStr};
-use self::pom::char_class::{alphanum};
+use self::pom::char_class::{alphanum, digit};
 use std::fs::File;
 use std::io::Read;
 use crate::net::BrowserError;
@@ -48,6 +48,7 @@ pub struct SimpleSelector {
     pub tag_name: Option<String>,
     pub id: Option<String>,
     pub class: Vec<String>,
+    pub pseudo_class: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -167,45 +168,30 @@ pub fn star(term:u8) -> bool {
     term == b'*'
 }
 
-fn alphanum_string<'a>() -> Parser<'a, u8, SimpleSelector> {
-    let r = is_a(alphanum).repeat(1..);
-    r.map(|str| {
-        SimpleSelector{
-            tag_name: Some(v2s(&str)),
-            id: None,
-            class: vec![]
-        }
-    })
+fn alphanum_string<'a>() -> Parser<'a, u8, String> {
+    is_a(alphanum).repeat(1..).map(|str|v2s(&str))
 }
-fn star_string<'a>() -> Parser<'a, u8, SimpleSelector> {
+fn star_string<'a>() -> Parser<'a, u8, String> {
     let r = sym(b'*');
-    r.map(|str|{
-        SimpleSelector{
-            tag_name: Some(char::from(str).to_string()),
-            id: None,
-            class: vec![]
-        }
-    })
+    r.map(|str|v2s(&[str]))
 }
-fn class_string<'a>() -> Parser<'a,u8,SimpleSelector> {
-    let r = sym(b'.') + is_a(alphanum).repeat(1..);
-    r.map(|(_dot,str)| {
-        SimpleSelector{
-            tag_name: None,
-            id: None,
-            class: vec![v2s(&str)]
-        }
-    })
+fn element_name_string<'a>() -> Parser<'a,u8,String> {
+    star_string() | alphanum_string()
 }
-fn element_class_string<'a>() -> Parser<'a, u8, SimpleSelector> {
-    let p = alphanum_string() + class_string();
-    p.map(|(a,c)| {
-        SimpleSelector{
-            tag_name: a.tag_name,
-            id: None,
-            class: c.class,
-        }
-    })
+fn dash(term:u8) -> bool {
+    term == b'-'
+}
+fn alphanumdash(term:u8) -> bool {
+    alpha(term) || digit(term) || dash(term)
+}
+fn class_string<'a>() -> Parser<'a,u8,String> {
+    (sym(b'.') + is_a(alphanumdash).repeat(1..)).map(|(_,str)| v2s(&str))
+}
+fn id_string<'a>() -> Parser<'a,u8,String> {
+    (sym(b'#') + is_a(alphanum).repeat(1..)).map(|(_,str)| v2s(&str))
+}
+fn pseudo_class_string<'a>() -> Parser<'a,u8,String> {
+    (sym(b':') + is_a(alphanumdash).repeat(1..)).map(|(_,str)| v2s(&str))
 }
 fn child_combinator<'a>() -> Parser<'a, u8, AncestorSelector> {
     let r = simple_selector() - space1() - sym(b'>') - space1() + call(selector);
@@ -239,7 +225,38 @@ fn test_string_literal() {
 }
 
 fn simple_selector<'a>() -> Parser<'a, u8, Selector> {
-    (element_class_string() | class_string() | star_string() | alphanum_string() ).map(|a|Selector::Simple(a))
+    let p = (
+        element_name_string().opt()
+        + id_string().opt()
+        + class_string().opt()
+        + pseudo_class_string().opt()
+        );
+    p.convert(|(((a,i),c),b)| {
+        // println!("simple selectors {:#?} {:#?} {:#?} {:#?}",a,i,c,b);
+        if a.is_none() && i.is_none() && c.is_none() && b.is_none() {
+            return Result::Err("warning, nothing matched")
+        }
+        let mut sel = SimpleSelector{
+            tag_name: None,
+            id: None,
+            class: vec![],
+            pseudo_class: vec![]
+        };
+        if let Some(element_name) = a {
+            sel.tag_name = Some(element_name);
+        }
+        if let Some(id_name) = i {
+            sel.id = Some(id_name);
+        }
+        if let Some(class_string) = c {
+            sel.class.push(class_string)
+        }
+        if let Some(pseudo_class_string) = b {
+            sel.pseudo_class.push(pseudo_class_string);
+        }
+        Result::Ok(Selector::Simple(sel))
+    }
+    )
 }
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
@@ -257,24 +274,28 @@ fn test_selectors() {
                    tag_name: Some("div".to_string()),
                    id: None,
                    class: vec![],
+                   pseudo_class: vec![]
                })));
     assert_eq!(selector().parse(b"h3"),
                Ok(Selector::Simple(SimpleSelector {
                    tag_name: Some("h3".to_string()),
                    id: None,
                    class: vec![],
+                   pseudo_class: vec![]
                })));
     assert_eq!(selector().parse(b".cool"),
                Ok(Selector::Simple(SimpleSelector {
                    tag_name: None,
                    id: None,
                    class: vec![String::from("cool")],
+                   pseudo_class: vec![]
                })));
     assert_eq!(selector().parse(b"div.cool"),
                Ok(Selector::Simple(SimpleSelector {
                    tag_name: Some(String::from("div")),
                    id: None,
                    class: vec![String::from("cool")],
+                   pseudo_class: vec![]
                })));
 }
 #[test]
@@ -285,11 +306,13 @@ fn test_ancestor_selector() {
                        tag_name:Some(String::from("a")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    child:Box::new(Selector::Simple(SimpleSelector{
                        tag_name:Some(String::from("b")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    immediate:false,
                })));
@@ -299,11 +322,13 @@ fn test_ancestor_selector() {
                        tag_name:Some(String::from("a")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    child:Box::new(Selector::Simple(SimpleSelector{
                        tag_name:Some(String::from("b")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    immediate:true,
                })));
@@ -313,11 +338,13 @@ fn test_ancestor_selector() {
                        tag_name:Some(String::from("div")),
                        id: None,
                        class: vec![String::from("epigraph")],
+                       pseudo_class: vec![]
                    })),
                    child:Box::new(Selector::Simple(SimpleSelector{
                        tag_name:Some(String::from("blockquote")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    immediate:true,
                })));
@@ -327,17 +354,20 @@ fn test_ancestor_selector() {
                        tag_name:Some(String::from("a")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    child:Box::new(Selector::Ancestor(AncestorSelector{
                        ancestor: Box::new(Selector::Simple(SimpleSelector{
                            tag_name:Some(String::from("b")),
                            id: None,
                            class: vec![],
+                           pseudo_class: vec![]
                        })),
                        child: Box::new(Selector::Simple(SimpleSelector{
                            tag_name:Some(String::from("c")),
                            id: None,
                            class: vec![],
+                           pseudo_class: vec![]
                        })),
                        immediate: true
                    })),
@@ -349,17 +379,20 @@ fn test_ancestor_selector() {
                        tag_name:Some(String::from("a")),
                        id: None,
                        class: vec![],
+                       pseudo_class: vec![]
                    })),
                    child:Box::new(Selector::Ancestor(AncestorSelector{
                        ancestor: Box::new(Selector::Simple(SimpleSelector{
                            tag_name:Some(String::from("b")),
                            id: None,
                            class: vec![],
+                           pseudo_class: vec![]
                        })),
                        child: Box::new(Selector::Simple(SimpleSelector{
                            tag_name:Some(String::from("c")),
                            id: None,
                            class: vec![],
+                           pseudo_class: vec![]
                        })),
                        immediate: false
                    })),
@@ -376,7 +409,45 @@ fn test_all_selector() {
         tag_name:Some("*".to_string()),
         id: None,
         class: vec![],
+        pseudo_class: vec![]
     }), result.unwrap())
+}
+
+#[test]
+fn test_pseudo_selector() {
+    assert_eq!(selector().parse(b":link"), Ok(Selector::Simple(SimpleSelector {
+        tag_name: None,
+        id: None,
+        class: vec![],
+        pseudo_class: vec![String::from("link")]
+    })));
+
+    assert_eq!(rule().parse(b"a:link, a:visited { }"),
+               Ok(RuleType::Rule(Rule{
+                   selectors: vec![
+                       Selector::Simple(SimpleSelector{
+                           tag_name: Some(String::from("a")),
+                           id: None,
+                           class: vec![],
+                           pseudo_class: vec![String::from("link")]
+                       }),
+                       Selector::Simple(SimpleSelector{
+                           tag_name: Some(String::from("a")),
+                           id: None,
+                           class: vec![],
+                           pseudo_class: vec![String::from("visited")]
+                       })
+                   ],
+                   declarations: vec![]
+               })
+
+               ));
+    assert_eq!(selector().parse(b".no-tufte-underline:link"), Ok(Selector::Simple(SimpleSelector{
+        tag_name: None,
+        id: None,
+        class: vec![String::from("no-tufte-underline")],
+        pseudo_class: vec![String::from("link")]
+    })))
 }
 
 fn identifier<'a>() -> Parser<'a, u8, String> {
@@ -798,12 +869,14 @@ fn test_multipart_selector() {
                 ancestor: Box::new(Selector::Simple(SimpleSelector{
                     tag_name: Some(String::from("div")),
                     id: None,
-                    class: vec![String::from("epigraph")]
+                    class: vec![String::from("epigraph")],
+                    pseudo_class: vec![]
                 })),
                 child: Box::new(Selector::Simple(SimpleSelector{
                     tag_name: Some(String::from("blockquote")),
                     id: None,
-                    class: vec![]
+                    class: vec![],
+                    pseudo_class: vec![]
                 })),
                 immediate: true
             }),
@@ -812,19 +885,22 @@ fn test_multipart_selector() {
                     ancestor: Box::new(Selector::Simple(SimpleSelector{
                         tag_name: Some(String::from("div")),
                         id: None,
-                        class: vec![String::from("epigraph")]
+                        class: vec![String::from("epigraph")],
+                        pseudo_class: vec![]
                     })),
                     child: Box::new(Selector::Ancestor(
                         AncestorSelector {
                             ancestor: Box::new(Selector::Simple(SimpleSelector{
                                 tag_name: Some(String::from("blockquote")),
                                 id: None,
-                                class: vec![]
+                                class: vec![],
+                                pseudo_class: vec![]
                             })),
                             child: Box::new(Selector::Simple(SimpleSelector{
                                 tag_name: Some(String::from("p")),
                                 id: None,
-                                class: vec![]
+                                class: vec![],
+                                pseudo_class: vec![]
                             })),
                             immediate: true
                         }
@@ -915,11 +991,13 @@ fn test_file_load() {
                         tag_name: Some(String::from("body")),
                         id: None,
                         class: vec![],
+                        pseudo_class: vec![]
                     }),
                     Selector::Simple(SimpleSelector{
                         tag_name: Some(String::from("div")),
                         id: None,
                         class: vec![],
+                        pseudo_class: vec![]
                     })
                 ],
                 declarations: vec![
@@ -947,7 +1025,8 @@ fn test_file_load() {
                     Selector::Simple(SimpleSelector{
                         tag_name: None,
                         id: None,
-                        class: vec![String::from("cool")]
+                        class: vec![String::from("cool")],
+                        pseudo_class: vec![]
                     })
                 ],
                 declarations: vec![
@@ -1231,12 +1310,14 @@ fn test_multiple_selectors() {
             Selector::Simple(SimpleSelector{
                 tag_name: Some(String::from("a")),
                 id: None,
-                class: vec![]
+                class: vec![],
+                pseudo_class: vec![]
             }),
             Selector::Simple(SimpleSelector{
                 tag_name: Some(String::from("b")),
                 id: None,
-                class: vec![]
+                class: vec![],
+                pseudo_class: vec![]
             })
         ],
         declarations: vec![
