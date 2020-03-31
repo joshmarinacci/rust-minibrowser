@@ -54,6 +54,7 @@ pub struct SimpleSelector {
 pub struct AncestorSelector {
     pub ancestor: Box<Selector>,
     pub child: Box<Selector>,
+    pub immediate: bool,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct Declaration {
@@ -206,12 +207,24 @@ fn element_class_string<'a>() -> Parser<'a, u8, SimpleSelector> {
         }
     })
 }
+fn child_combinator<'a>() -> Parser<'a, u8, AncestorSelector> {
+    let r = simple_selector() - space1() - sym(b'>') - space1() + call(selector);
+    r.map(|(a,b)| AncestorSelector{
+        ancestor: Box::new(a),
+        child: Box::new(b),
+        immediate:true,
+    })
+}
+fn descendant_combinator<'a>() -> Parser<'a, u8, AncestorSelector> {
+    let r = simple_selector() - space1() + call(selector);
+    r.map(|(a,b)| AncestorSelector{
+        ancestor: Box::new(a),
+        child: Box::new(b),
+        immediate:false,
+    })
+}
 fn ancestor<'a>() -> Parser<'a,u8,Selector> {
-    let r = alphanum_string() - space1() + alphanum_string();
-    r.map(|(a,b)| Selector::Ancestor(AncestorSelector{
-        ancestor: Box::new(Selector::Simple(a)),
-        child: Box::new(Selector::Simple(b)),
-    }))
+    (child_combinator() | descendant_combinator()).map(|c|Selector::Ancestor(c))
 }
 
 
@@ -278,6 +291,79 @@ fn test_ancestor_selector() {
                        id: None,
                        class: vec![],
                    })),
+                   immediate:false,
+               })));
+    assert_eq!(selector().parse(b"a > b"),
+               Ok(Selector::Ancestor(AncestorSelector{
+                   ancestor:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("a")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   child:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("b")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   immediate:true,
+               })));
+    assert_eq!(selector().parse(b"div.epigraph > blockquote"),
+               Ok(Selector::Ancestor(AncestorSelector{
+                   ancestor:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("div")),
+                       id: None,
+                       class: vec![String::from("epigraph")],
+                   })),
+                   child:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("blockquote")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   immediate:true,
+               })));
+    assert_eq!(selector().parse(b"a > b > c"),
+               Ok(Selector::Ancestor(AncestorSelector{
+                   ancestor:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("a")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   child:Box::new(Selector::Ancestor(AncestorSelector{
+                       ancestor: Box::new(Selector::Simple(SimpleSelector{
+                           tag_name:Some(String::from("b")),
+                           id: None,
+                           class: vec![],
+                       })),
+                       child: Box::new(Selector::Simple(SimpleSelector{
+                           tag_name:Some(String::from("c")),
+                           id: None,
+                           class: vec![],
+                       })),
+                       immediate: true
+                   })),
+                   immediate:true,
+               })));
+    assert_eq!(selector().parse(b"a b c"),
+               Ok(Selector::Ancestor(AncestorSelector{
+                   ancestor:Box::new(Selector::Simple(SimpleSelector{
+                       tag_name:Some(String::from("a")),
+                       id: None,
+                       class: vec![],
+                   })),
+                   child:Box::new(Selector::Ancestor(AncestorSelector{
+                       ancestor: Box::new(Selector::Simple(SimpleSelector{
+                           tag_name:Some(String::from("b")),
+                           id: None,
+                           class: vec![],
+                       })),
+                       child: Box::new(Selector::Simple(SimpleSelector{
+                           tag_name:Some(String::from("c")),
+                           id: None,
+                           class: vec![],
+                       })),
+                       immediate: false
+                   })),
+                   immediate:false,
                })));
 }
 
@@ -691,6 +777,65 @@ fn rule<'a>() -> Parser<'a, u8, RuleType> {
         selectors: sel,
         declarations,
     }))
+}
+
+#[test]
+fn test_multipart_selector() {
+    let input = br#"
+    div.epigraph > blockquote,
+    div.epigraph > blockquote > p {
+        font-style: italic;
+    }
+    "#;
+//    div.epigraph > blockquote > p {
+    assert_eq!(rule().parse(input),Ok(RuleType::Rule(Rule{
+        selectors: vec![Selector::Ancestor(
+            AncestorSelector {
+                ancestor: Box::new(Selector::Simple(SimpleSelector{
+                    tag_name: Some(String::from("div")),
+                    id: None,
+                    class: vec![String::from("epigraph")]
+                })),
+                child: Box::new(Selector::Simple(SimpleSelector{
+                    tag_name: Some(String::from("blockquote")),
+                    id: None,
+                    class: vec![]
+                })),
+                immediate: true
+            }),
+            Selector::Ancestor(
+                AncestorSelector {
+                    ancestor: Box::new(Selector::Simple(SimpleSelector{
+                        tag_name: Some(String::from("div")),
+                        id: None,
+                        class: vec![String::from("epigraph")]
+                    })),
+                    child: Box::new(Selector::Ancestor(
+                        AncestorSelector {
+                            ancestor: Box::new(Selector::Simple(SimpleSelector{
+                                tag_name: Some(String::from("blockquote")),
+                                id: None,
+                                class: vec![]
+                            })),
+                            child: Box::new(Selector::Simple(SimpleSelector{
+                                tag_name: Some(String::from("p")),
+                                id: None,
+                                class: vec![]
+                            })),
+                            immediate: true
+                        }
+                    )),
+                    immediate: true
+                }
+            )
+        ],
+        declarations: vec![
+            Declaration{
+                name: "font-style".to_string(),
+                value: Value::Keyword("italic".to_string())
+            }
+        ]
+    })))
 }
 
 fn comment<'a>() -> Parser<'a, u8, RuleType> {
