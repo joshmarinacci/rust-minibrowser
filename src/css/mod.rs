@@ -382,12 +382,16 @@ fn test_all_selector() {
 fn identifier<'a>() -> Parser<'a, u8, String> {
     let r
         = space()
+        * sym(b'-').opt()
         + is_a(alpha)
         + (is_a(alphanum) | sym(b'-')).repeat(0..)
         ;
-    r.map(|((_,uu),v)| {
+    r.map(|((dash,uu),v)| {
         let mut vv = vec![uu];
         vv.extend(&v);
+        if let Some(dash) = dash {
+            vv.insert(0,dash)
+        }
         v2s(&vv)
     })
 }

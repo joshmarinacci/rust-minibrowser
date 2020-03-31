@@ -171,7 +171,7 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                     scale,
                                     font_id:*font,
                                     screen_position: (text.rect.x* text_scale, text.rect.y* text_scale),
-                                    bounds: (text.rect.width* text_scale, text.rect.height* text_scale),
+                                    bounds: (text.rect.width* text_scale + 20.0, text.rect.height* text_scale),
                                     color: [
                                         (color.r as f32)/255.0,
                                         (color.g as f32)/255.0,
