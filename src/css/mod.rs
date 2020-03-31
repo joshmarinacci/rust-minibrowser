@@ -495,8 +495,9 @@ fn simple_number<'a>() -> Parser<'a, u8, Value> {
 }
 fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
-    * one_of(b"0123456789ABCDEFabcdef").repeat(6..7);
-    p.map(|mut c| {
+        + (  one_of(b"0123456789ABCDEFabcdef").repeat(6..7)
+            | one_of(b"0123456789ABCDEFabcdef").repeat(3..4));
+    p.map(|(a,mut c)| {
         c.insert(0,b'#');
         Value::HexColor(v2s(&c).to_lowercase())
     })
@@ -508,6 +509,7 @@ fn test_hexcolor() {
     let result = hexcolor().parse(input);
     println!("{:?}", result);
     assert_eq!( Value::HexColor("#4455FF".to_lowercase()), result.unwrap());
+    assert_eq!( Ok(Value::HexColor("#333".to_lowercase())), hexcolor().parse(br"#333"));
 }
 
 
@@ -905,7 +907,7 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
         - space()
              // - sym(b'}')
              // ).opt()
-        // - sym(b';')
+        - sym(b';').opt()
 
         ;
     p.map(|((((_,name),kw),value), rule)|{
@@ -953,7 +955,37 @@ fn test_atrules() {
             value: None,
             rules: vec![]
         }))
-    )
+    );
+
+
+    assert_eq!(
+        stylesheet().parse(br#"@charset "UTF-8";
+/*foo*/
+@font-face {
+}
+"#),
+    Ok(Stylesheet {
+        rules: vec![
+            RuleType::AtRule(AtRule{
+                name: "charset".to_string(),
+                value: Some(Value::StringLiteral(String::from("UTF-8"))),
+                rules: vec![]
+            }),
+            RuleType::Comment(String::from("foo")),
+            RuleType::AtRule(AtRule{
+                name: "font-face".to_string(),
+                value: None,
+                rules: vec![
+                    RuleType::Rule(Rule{
+                        selectors: vec![],
+                        declarations: vec![]
+                    })
+                ]
+            })
+        ],
+        parent: None,
+        base_url: Url::parse("https://www.mozilla.com/").unwrap()
+    }));
 
 
 }
@@ -1240,4 +1272,13 @@ fn test_gfonts() {
 "#;
 
     println!("{:#?}",stylesheet().parse(input));
+}
+
+#[test]
+fn test_tufte_css() {
+    let mut file = File::open("tests/tufte/tufte.css").unwrap();
+    let mut content:Vec<u8>= Vec::new();
+    file.read_to_end(&mut content);
+    let parsed = stylesheet().parse(content.as_slice()).unwrap();
+    println!("parsed the stylesheet {:#?}",parsed);
 }

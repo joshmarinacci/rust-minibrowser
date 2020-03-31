@@ -208,10 +208,11 @@ impl FontCache {
         for rule in stylesheet.rules.iter() {
             if let RuleType::AtRule(at_rule) = rule {
                 if at_rule.name == "font-face" {
+                    println!("found a font face rule");
                     // println!("we have an at rule {:#?}",at_rule);
                     for rule in at_rule.rules.iter() {
                         if let RuleType::Rule(rule) = &rule {
-                            println!("Processing real rules {:#?}",rule);
+                            // println!("Processing real rules {:#?}",rule);
                             let mut src: Option<Url> = Option::None;
                             let mut font_family: Option<String> = Option::None;
                             let mut font_weight: Option<i32> = Option::None;
