@@ -166,41 +166,51 @@ pub fn star(term:u8) -> bool {
     term == b'*'
 }
 
-fn alphanum_string<'a>() -> Parser<'a, u8, Selector> {
+fn alphanum_string<'a>() -> Parser<'a, u8, SimpleSelector> {
     let r = is_a(alphanum).repeat(1..);
     r.map(|str| {
-        Selector::Simple(SimpleSelector{
+        SimpleSelector{
             tag_name: Some(v2s(&str)),
             id: None,
             class: vec![]
-        })
+        }
     })
 }
-fn star_string<'a>() -> Parser<'a, u8, Selector> {
+fn star_string<'a>() -> Parser<'a, u8, SimpleSelector> {
     let r = sym(b'*');
     r.map(|str|{
-        Selector::Simple(SimpleSelector{
+        SimpleSelector{
             tag_name: Some(char::from(str).to_string()),
             id: None,
             class: vec![]
-        })
+        }
     })
 }
-fn class_string<'a>() -> Parser<'a,u8,Selector> {
+fn class_string<'a>() -> Parser<'a,u8,SimpleSelector> {
     let r = sym(b'.') + is_a(alphanum).repeat(1..);
     r.map(|(_dot,str)| {
-        Selector::Simple(SimpleSelector{
+        SimpleSelector{
             tag_name: None,
             id: None,
             class: vec![v2s(&str)]
-        })
+        }
+    })
+}
+fn element_class_string<'a>() -> Parser<'a, u8, SimpleSelector> {
+    let p = alphanum_string() + class_string();
+    p.map(|(a,c)| {
+        SimpleSelector{
+            tag_name: a.tag_name,
+            id: None,
+            class: c.class,
+        }
     })
 }
 fn ancestor<'a>() -> Parser<'a,u8,Selector> {
     let r = alphanum_string() - space1() + alphanum_string();
     r.map(|(a,b)| Selector::Ancestor(AncestorSelector{
-        ancestor: Box::new(a),
-        child: Box::new(b),
+        ancestor: Box::new(Selector::Simple(a)),
+        child: Box::new(Selector::Simple(b)),
     }))
 }
 
@@ -215,11 +225,13 @@ fn test_string_literal() {
                Ok(Value::StringLiteral(String::from("foo"))));
 }
 
-
+fn simple_selector<'a>() -> Parser<'a, u8, Selector> {
+    (element_class_string() | class_string() | star_string() | alphanum_string() ).map(|a|Selector::Simple(a))
+}
 fn selector<'a>() -> Parser<'a, u8, Selector>{
     let r
         = space()
-        + (ancestor() | class_string() | star_string() | alphanum_string())
+        + (ancestor() | simple_selector())
         - space()
     ;
     r.map(|(_, selector)| selector)
@@ -242,6 +254,12 @@ fn test_selectors() {
     assert_eq!(selector().parse(b".cool"),
                Ok(Selector::Simple(SimpleSelector {
                    tag_name: None,
+                   id: None,
+                   class: vec![String::from("cool")],
+               })));
+    assert_eq!(selector().parse(b"div.cool"),
+               Ok(Selector::Simple(SimpleSelector {
+                   tag_name: Some(String::from("div")),
                    id: None,
                    class: vec![String::from("cool")],
                })));
