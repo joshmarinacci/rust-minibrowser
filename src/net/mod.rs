@@ -66,8 +66,10 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
             let href = ed.attributes.get("href");
             if rel.is_some() && rel.unwrap() == "stylesheet" && href.is_some() {
                 let href = href.unwrap();
-                let more_ss = load_stylesheet_from_net(&calculate_url_from_doc(doc,href)?);
-                println!("more ss is {:#?}",more_ss);
+                let mut ss2 = load_stylesheet_from_net(&calculate_url_from_doc(doc, href)?)?;
+                println!("loaded  stylesheet at {:#?}",href);
+                ss2.parent = Some(Box::new(ss1));
+                return Ok(ss2);
             }
         }
     }

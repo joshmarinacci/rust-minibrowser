@@ -788,7 +788,7 @@ impl<'a> LayoutBox<'a> {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
                      let whitespace = looper.style_node.lookup_keyword("white-space", &Keyword(String::from("normal")));
-                     println!("laying out using whitespace {:#?}", whitespace);
+                     // println!("laying out using whitespace {:#?}", whitespace);
                      match whitespace {
                          Keyword(str) => {
                              match &*str {
@@ -883,8 +883,8 @@ impl<'a> LayoutBox<'a> {
                 margin_right = Length(underflow / 2.0, Px);
             }
         }
-        println!("final margin left is {:#?}",margin_left);
-        println!("width set to {:#?}",width);
+        // println!("final margin left is {:#?}",margin_left);
+        // println!("width set to {:#?}",width);
 
         self.dimensions.content.width = self.length_to_px(&width);
         self.dimensions.padding.left = self.length_to_px(&padding_left);

@@ -887,7 +887,7 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
         - space()
              // - sym(b'}')
              // ).opt()
-        // - sym(b';')
+        - sym(b';').opt()
 
         ;
     p.map(|((((_,name),kw),value), rule)|{
@@ -935,7 +935,37 @@ fn test_atrules() {
             value: None,
             rules: vec![]
         }))
-    )
+    );
+
+
+    assert_eq!(
+        stylesheet().parse(br#"@charset "UTF-8";
+/*foo*/
+@font-face {
+}
+"#),
+    Ok(Stylesheet {
+        rules: vec![
+            RuleType::AtRule(AtRule{
+                name: "charset".to_string(),
+                value: Some(Value::StringLiteral(String::from("UTF-8"))),
+                rules: vec![]
+            }),
+            RuleType::Comment(String::from("foo")),
+            RuleType::AtRule(AtRule{
+                name: "font-face".to_string(),
+                value: None,
+                rules: vec![
+                    RuleType::Rule(Rule{
+                        selectors: vec![],
+                        declarations: vec![]
+                    })
+                ]
+            })
+        ],
+        parent: None,
+        base_url: Url::parse("https://www.mozilla.com/").unwrap()
+    }));
 
 
 }
