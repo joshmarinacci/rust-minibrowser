@@ -876,7 +876,8 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
         - sym(b'@')
         + identifier()
         - space()
-        // + keyword().opt()
+        + keyword().opt()
+        - space()
         + string_literal().opt()
         //+ funcall().opt()
         // + (
@@ -889,7 +890,8 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
         // - sym(b';')
 
         ;
-    p.map(|(((_,name),value), rule)|{
+    p.map(|((((_,name),kw),value), rule)|{
+        //we are ignoring the keyword currently
         if let Some(rt) = rule {
             RuleType::AtRule(AtRule { name, value, rules:vec![rt]})
         } else {
@@ -899,7 +901,7 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
 }
 
 #[test]
-fn test_atrule() {
+fn test_atrules() {
     assert_eq!(
         at_rule().parse(br#"@charset "UTF-8";"#),
         Ok(RuleType::AtRule(AtRule{
@@ -908,6 +910,34 @@ fn test_atrule() {
             rules: vec![]
         })),
     );
+    assert_eq!(
+        at_rule().parse(br#"@page { size: letter; margin: 1in;  }"#),
+        Ok(RuleType::AtRule(AtRule{
+            name: String::from("page"),
+            value: None,
+            rules: vec![RuleType::Rule(Rule {
+                selectors: vec![],
+                declarations: vec![
+                    Declaration { name: String::from("size"),
+                        value:Value::Keyword(String::from("letter"))},
+                    Declaration {
+                        name: String::from("margin"),
+                        value: Value::ArrayValue(vec![Value::Number(1.0), Keyword(String::from("in"))]),
+                    }
+                ]
+            })]
+        })),
+    );
+    assert_eq!(
+        at_rule().parse(br#"@media screen { body { margin: 3em; }}"#),
+        Ok(RuleType::AtRule(AtRule{
+            name: String::from("media"),
+            value: None,
+            rules: vec![]
+        }))
+    )
+
+
 }
 
 #[test]
