@@ -647,12 +647,8 @@ fn test_funcall_value() {
 }
 
 fn simple_number<'a>() -> Parser<'a, u8, Value> {
-    let p = one_of(b"0123456789").repeat(1..);
-    p.map(|v|{
-        let s = v2s(&v);
-        let vv = i32::from_str_radix(&s,10).unwrap() as f32;
-        Value::Number(vv)
-    })
+    let p = number();
+    p.map(|v| Value::Number(v as f32))
 }
 fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
@@ -1470,6 +1466,17 @@ fn test_font_weight() {
         Ok(Declaration{
             name: String::from("font-weight"),
             value: Value::Number(400.0),
+        }),
+    );
+}
+
+#[test]
+fn test_unitless_number() {
+    assert_eq!(
+        declaration().parse(br#"line-height: 1.6;"#),
+        Ok(Declaration{
+            name: String::from("line-height"),
+            value: Value::Number(1.6),
         }),
     );
 }
