@@ -8,7 +8,9 @@ use std::env::current_dir;
 use std::io::{Error, Read};
 use url::{Url, ParseError};
 use std::fs::File;
+use glium_glyph::glyph_brush::rusttype::{Font};
 use crate::dom::NodeType::Element;
+use glium_glyph::glyph_brush;
 
 #[derive(Debug)]
 pub enum BrowserError {
@@ -74,6 +76,7 @@ pub fn load_stylesheets_with_fallback(doc:&Document) -> Result<Stylesheet,Browse
         if !node.children.is_empty() {
             if let NodeType::Text(text) = &node.children[0].node_type {
                 let mut ss2 = parse_stylesheet(text)?;
+                ss2.base_url = doc.base_url.clone();
                 // println!("parsed inline styles {:#?}", ss2);
                 ss2.parent = Some(Box::new(ss1));
                 for rule in ss2.rules.iter() {
@@ -151,6 +154,24 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
             let mut ss = parse_stylesheet_from_buffer(buf)?;
             ss.base_url = url.clone();
             Ok(ss)
+        }
+    }
+}
+
+pub fn load_font_from_net(url:Url) -> Result<Font<'static>, BrowserError> {
+    match url.scheme() {
+        "file" => {
+            let path = url.to_file_path()?;
+            let mut file = File::open(path)?;
+            let mut content:Vec<u8>= Vec::new();
+            file.read_to_end(&mut content).ok();
+            Ok(Font::from_bytes(content).unwrap())
+        }
+        _ => {
+            let mut resp = reqwest::blocking::get(url.as_str())?;
+            let mut buf: Vec<u8> = vec![];
+            resp.copy_to(&mut buf)?;
+            Ok(Font::from_bytes(buf).unwrap())
         }
     }
 }

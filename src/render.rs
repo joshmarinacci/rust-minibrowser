@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::fs::File;
 use url::Url;
-use crate::net::relative_filepath_to_url;
+use crate::net::{relative_filepath_to_url, load_font_from_net};
 use glium_glyph::GlyphBrush;
-use glium_glyph::glyph_brush::rusttype::{Font};
+use glium_glyph::glyph_brush::rusttype::{Font,Error};
 use glium_glyph::glyph_brush::FontId;
 use crate::layout::Brush;
 
@@ -159,11 +159,14 @@ impl FontCache {
     }
 }
 
-fn extract_url(value:&Value, url:&Url) -> Option<Url> {
+fn find_truetype_url(value:&Value, url:&Url) -> Option<Url> {
     match value {
         Value::FunCall(fcv) => {
             match &fcv.arguments[0] {
                 Value::StringLiteral(str) => {
+                    if !str.to_lowercase().ends_with(".ttf") {
+                        return None
+                    }
                     if let Ok(url) = url.join(str.as_str()) {
                         Some(url)
                     } else {
@@ -173,114 +176,75 @@ fn extract_url(value:&Value, url:&Url) -> Option<Url> {
                 },
                 _ => None,
             }
+        },
+        Value::ArrayValue(vals) => {
+            for val in vals.iter() {
+                let res  = find_truetype_url(val,url);
+                if res.is_some() {
+                    return res
+                }
+            }
+            None
         }
         _ => None,
     }
 }
-fn extract_font_weight(value:&Value) -> Option<f32> {
+fn extract_font_weight(value:&Value) -> Option<i32> {
     match value {
         Value::Keyword(str) => {
             match str.as_str() {
-                "normal" => Some(400.0),
-                "bold" => Some(700.0),
+                "normal" => Some(400),
+                "bold" => Some(700),
                 _ => None,
             }
         },
-        Value::Number(val) => Some(*val),
+        Value::Number(val) => Some((*val) as i32),
         _ => None,
     }
 }
-/*
+
 impl FontCache {
-    pub fn new() -> Self {
-        Self {
-            families: HashMap::new(),
-            names: HashMap::new(),
-            fonts: HashMap::new(),
-            default_font: None,
-        }
-    }
-    fn make_key(&self, name:&str, weight:f32, style:&str) -> String {
-        format!("{}-{}-{}",name,weight,style)
-    }
-    pub fn has_font_family(&self, name:&str) -> bool {
-        self.families.contains_key(name)
-    }
-    pub fn install_default_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
-        let key = self.make_key(name,weight,style);
-        println!("installing the default font {} at url {}",key,url);
-
-        let pth = url.to_file_path().unwrap();
-        let mut file = File::open(pth).unwrap();
-        let font = Font::from_file(&mut file, 0).unwrap();
-        self.default_font = Some(font);
-    }
-    pub fn install_font(&mut self, name:&str, weight:f32, style:&str, url:&Url) {
-        let key = self.make_key(name,weight,style);
-        println!("installing the font {} at url {}",key,url);
-
-        let pth = url.to_file_path().unwrap();
-        let mut file = File::open(pth).unwrap();
-        let font = Font::from_file(&mut file, 0).unwrap();
-        self.families.insert(name.to_string(),url.clone());
-        self.names.insert(key.clone(),url.clone());
-        self.fonts.insert(key, font);
-    }
-    pub fn install_font_font(&mut self, name:&str, weight:f32, style:&str, font:Font) {
-        let key = self.make_key(name,weight,style);
-        println!("installing the font {}, {} from {:#?}",name,key,font);
-        self.fonts.insert(key,font);
-    }
-    pub fn get_font(&mut self, name:&str, weight:f32, style:&str) -> &Font {
-        let key = self.make_key(name,weight,style);
-        // println!("fetching the font {}",key);
-        if let Some(font) = self.fonts.get(&key) {
-            return font;
-        } else if let Some(font) = &self.default_font {
-            return font
-        } else {
-            panic!("no default font set!");
-        }
-    }
-    pub fn scan_for_fontface_rules(&mut self, stylesheet:&Stylesheet) {
+    pub fn scan_for_fontface_rules(&mut self, stylesheet: &Stylesheet) {
         for rule in stylesheet.rules.iter() {
             if let RuleType::AtRule(at_rule) = rule {
-                    if at_rule.name == "font-face" {
-                        // println!("we have an at rule {:#?}",at_rule);
-                        for rule in at_rule.rules.iter() {
-                            if let RuleType::Rule(rule) = &rule {
-                                // println!("Processing real rules {:#?}",rule);
-                                let mut src:Option<Url> = Option::None;
-                                let mut font_family:Option<String> = Option::None;
-                                let mut font_weight:Option<f32> = Option::None;
-                                for dec in rule.declarations.iter() {
-                                    if dec.name == "src" {
-                                        src = extract_url(&dec.value, &stylesheet.base_url);
-                                    }
-                                    if dec.name == "font-weight" {
-                                        font_weight = extract_font_weight(&dec.value);
-                                    }
-                                    if dec.name == "font-family" {
-                                        match &dec.value {
-                                            Value::StringLiteral(str) => font_family = Some(str.clone()),
-                                            _ => font_family = None,
-                                        }
+                if at_rule.name == "font-face" {
+                    // println!("we have an at rule {:#?}",at_rule);
+                    for rule in at_rule.rules.iter() {
+                        if let RuleType::Rule(rule) = &rule {
+                            println!("Processing real rules {:#?}",rule);
+                            let mut src: Option<Url> = Option::None;
+                            let mut font_family: Option<String> = Option::None;
+                            let mut font_weight: Option<i32> = Option::None;
+                            for dec in rule.declarations.iter() {
+                                if dec.name == "src" {
+                                    src = find_truetype_url(&dec.value, &stylesheet.base_url);
+                                }
+                                if dec.name == "font-weight" {
+                                    font_weight = extract_font_weight(&dec.value);
+                                }
+                                if dec.name == "font-style" {
+
+                                }
+                                if dec.name == "font-family" {
+                                    match &dec.value {
+                                        Value::StringLiteral(str) => font_family = Some(str.clone()),
+                                        _ => font_family = None,
                                     }
                                 }
-                                // println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
-                                if font_family.is_some() && src.is_some() && font_weight.is_some() {
-                                    self.install_font(&font_family.unwrap(),
-                                                            font_weight.unwrap(),
-                                                            "normal",
-                                                            &src.unwrap()
-                                    )
-                                }
+                            }
+                            println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
+                            if font_family.is_some() && src.is_some() && font_weight.is_some() {
+                                let url = src.unwrap();
+                                let font = load_font_from_net(url);
+                                let font = font.unwrap();
+                                self.install_font(font, &*font_family.unwrap(),
+                                                  font_weight.unwrap(),
+                                                  "normal")
                             }
                         }
                     }
                 }
+            }
         }
-
     }
 }
-*/

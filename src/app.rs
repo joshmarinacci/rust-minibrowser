@@ -14,8 +14,9 @@ pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dim
     expand_entities(&mut doc);
     let mut stylesheet = load_stylesheets_with_fallback(&doc)?;
     expand_styles(&mut stylesheet);
-    // font_cache.scan_for_fontface_rules(&stylesheet);
+    font_cache.scan_for_fontface_rules(&stylesheet);
     let styled = style_tree(&doc.root_node,&stylesheet);
+    // println!("font_cache looks like {:#?}",font_cache.families);
     let mut bbox = layout::build_layout_tree(&styled, &doc);
     // println!("doing layout with bounds {:#?}", containing_block);
     let render_root = bbox.layout(&mut containing_block.clone(), font_cache, &doc);

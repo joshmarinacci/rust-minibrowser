@@ -103,7 +103,7 @@ impl StyledNode<'_> {
             "font-family",
             "font-family",
             &Value::Keyword(String::from("sans-serif")));
-        println!("font family values: {:#?} {:#?}",font_family_values, self);
+        // println!("font family values: {:#?} {:#?}",font_family_values, self);
         match font_family_values {
             Value::ArrayValue(vals ) => {
                 for val in vals.iter() {
