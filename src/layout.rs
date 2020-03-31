@@ -829,6 +829,7 @@ impl<'a> LayoutBox<'a> {
         let auto = Keyword("auto".to_string());
         let mut width = style.value("width").unwrap_or_else(||auto.clone());
         // println!("width set to {:#?}",width);
+        //width percentage
         if let Length(per, Unit::Per) = width {
             // println!("its a percentage width {} {}",per,containing.content.width);
             width = Length(containing.content.width*(per/100.0), Px);
@@ -882,21 +883,28 @@ impl<'a> LayoutBox<'a> {
                 margin_right = Length(underflow / 2.0, Px);
             }
         }
-        // println!("width set to {:#?}",width);
+        println!("final margin left is {:#?}",margin_left);
+        println!("width set to {:#?}",width);
 
         self.dimensions.content.width = self.length_to_px(&width);
         self.dimensions.padding.left = self.length_to_px(&padding_left);
         self.dimensions.padding.right = self.length_to_px(&padding_right);
         self.dimensions.border.left = self.length_to_px(&border_left);
         self.dimensions.border.right = self.length_to_px(&border_right);
-        self.dimensions.margin.left = self.length_to_px(&margin_left);
-        self.dimensions.margin.right = self.length_to_px(&margin_right);
+        self.dimensions.margin.left = self.length_to_px_size(&margin_left, &width);
+        self.dimensions.margin.right = self.length_to_px_size(&margin_right,&width);
         // println!("final width is width= {} padding = {} margin: {}",
         //          self.dimensions.content.width,
         //          self.dimensions.padding.left,
         //          self.dimensions.margin.left);
     }
 
+    fn length_to_px_size(&self, value:&Value, dimension:&Value) -> f32 {
+        match value {
+            Length(v, Unit::Per) => self.length_to_px(dimension)*v/100.0,
+            _ => self.length_to_px(value),
+        }
+    }
     fn length_to_px(&self, value:&Value) -> f32{
         let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
         match value {
@@ -1347,5 +1355,43 @@ fn test_unordered_listitem() {
 "#,
     ).unwrap();
     println!("ul render is {:#?}",render_box);
+
+}
+
+#[test]
+fn test_margin_em() {
+    let render_box = standard_init(
+        br#"<div>foo</div>"#,
+        br#"div {
+            display:block;
+            margin-left: 2.5em;
+            font-size: 20px;
+        }"#,
+    ).unwrap();
+    println!("ul render is {:#?}",render_box);
+    if let RenderBox::Block(rbx) = render_box {
+        assert_eq!(rbx.rect.x,50.0);
+        assert_eq!(rbx.rect.width,450.0);
+        assert_eq!(rbx.font_size,20.0);
+    }
+
+}
+
+#[test]
+fn test_margin_percentage() {
+    let render_box = standard_init(
+        br#"<div>foo</div>"#,
+        br#"div {
+            display:block;
+            margin-left: 50%;
+            font-size: 20px;
+        }"#,
+    ).unwrap();
+    println!("ul render is {:#?}",render_box);
+    if let RenderBox::Block(rbx) = render_box {
+        assert_eq!(rbx.rect.x,250.0);
+        assert_eq!(rbx.rect.width,500.0);
+        assert_eq!(rbx.font_size,20.0);
+    }
 
 }
