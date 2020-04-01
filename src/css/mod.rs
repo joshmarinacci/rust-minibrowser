@@ -190,8 +190,17 @@ fn class_string<'a>() -> Parser<'a,u8,String> {
 fn id_string<'a>() -> Parser<'a,u8,String> {
     (sym(b'#') + is_a(alphanum).repeat(1..)).map(|(_,str)| v2s(&str))
 }
+fn pseudo_class_call<'a>() -> Parser<'a,u8, String> {
+    //:string(stuff)
+    (sym(b'(')
+        * call(simple_selector)
+    - sym(b')')).map(|a|String::from("some-call"))
+}
 fn pseudo_class_string<'a>() -> Parser<'a,u8,String> {
-    (sym(b':') + is_a(alphanumdash).repeat(1..)).map(|(_,str)| v2s(&str))
+    (sym(b':')
+        * is_a(alphanumdash).repeat(1..)
+        + pseudo_class_call().opt()
+    ).map(|(str,call)| v2s(&str))
 }
 fn child_combinator<'a>() -> Parser<'a, u8, AncestorSelector> {
     let r = simple_selector() - space1() - sym(b'>') - space1() + call(selector);
@@ -447,7 +456,25 @@ fn test_pseudo_selector() {
         id: None,
         class: vec![String::from("no-tufte-underline")],
         pseudo_class: vec![String::from("link")]
-    })))
+    })));
+
+    assert_eq!(rule().parse(b"li:not(:first-child), b { }"),Ok(RuleType::Rule(Rule{
+        selectors: vec![
+            Selector::Simple(SimpleSelector {
+                tag_name: Some(String::from("li")),
+                id: None,
+                class: vec![],
+                pseudo_class: vec![String::from("not")]
+            }),
+            Selector::Simple(SimpleSelector {
+                tag_name: Some(String::from("b")),
+                id: None,
+                class: vec![],
+                pseudo_class: vec![]
+            }),
+        ],
+        declarations: vec![]
+    })));
 }
 
 fn identifier<'a>() -> Parser<'a, u8, String> {
