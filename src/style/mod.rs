@@ -561,7 +561,7 @@ pub fn expand_styles(ss:&mut Stylesheet) {
 }
 
 fn expand_border_shorthand(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
-    // println!("expanding border shorthand: {:#?}",dec);
+    println!("expanding border shorthand: {:#?}",dec);
     match &dec.value {
         Value::ArrayValue(vec) => {
             if vec.len() != 3 {
@@ -592,8 +592,26 @@ fn expand_border_shorthand(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
                 value: vec[2].clone()
             });
         }
+        Value::Number(v) => {
+            new_decs.push(Declaration{
+                name: String::from("border-width-top"),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration{
+                name: String::from("border-width-left"),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration{
+                name: String::from("border-width-right"),
+                value: dec.value.clone()
+            });
+            new_decs.push(Declaration{
+                name: String::from("border-width-bottom"),
+                value: dec.value.clone()
+            });
+        }
         _ => {
-            panic!("border shorthand must be an array value");
+            panic!("border shorthand must be an array value {:#?}",dec);
         }
     }
 }
