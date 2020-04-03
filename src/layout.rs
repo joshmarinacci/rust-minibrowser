@@ -384,7 +384,7 @@ impl<'a> LayoutBox<'a> {
             font_family: style.lookup_font_family_recursive(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
-            font_size: style.lookup_length_px("font-size", 10.0),
+            font_size: style.lookup_font_size(),
         }
     }
 
@@ -451,7 +451,7 @@ impl<'a> LayoutBox<'a> {
             font_family: style.lookup_font_family_recursive(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
-            font_size: style.lookup_length_px("font-size", 10.0),
+            font_size: style.lookup_font_size(),
         }
     }
 
@@ -584,7 +584,7 @@ impl<'a> LayoutBox<'a> {
                         // let font_family = self.find_font_family(looper.font_cache);
                         let font_family = "sans-serif";
                         let font_weight = self.get_style_node().lookup_font_weight(400);
-                        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
+                        let font_size = self.get_style_node().lookup_font_size();
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
                         println!("button font size is {}",font_size);
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
@@ -661,7 +661,7 @@ impl<'a> LayoutBox<'a> {
 
     fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
         let color = looper.style_node.lookup_color("color", &BLACK);
-        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        let font_size = looper.style_node.lookup_font_size();
         // println!("font size is {:#?} ",font_size, color);
         let font_family = self.find_font_family(looper);
         let font_weight = looper.style_node.lookup_font_weight(400);
@@ -700,7 +700,7 @@ impl<'a> LayoutBox<'a> {
         let font_family = self.find_font_family(looper);
         // println!("using font family {}", font_family);
         let font_weight = looper.style_node.lookup_font_weight(400);
-        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        let font_size = looper.style_node.lookup_font_size();
         let font_style = looper.style_node.lookup_string("font-style", "normal");
         let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
         let line_height = font_size;
@@ -906,7 +906,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn length_to_px(&self, value:&Value) -> f32{
-        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
+        let font_size = self.get_style_node().lookup_font_size();
         match value {
             Length(v, Unit::Px) => *v,
             Length(v, Unit::Em) => (*v)*font_size,
