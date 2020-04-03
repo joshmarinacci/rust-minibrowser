@@ -53,12 +53,7 @@ body {
     color: #111;
     max-width: 1400px;
     counter-reset: sidenote-counter;
-}
-/*
     font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
- */
-foo {
-    bar:baz;
 }
 
 h1 {

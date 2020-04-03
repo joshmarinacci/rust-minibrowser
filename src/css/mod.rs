@@ -157,7 +157,10 @@ fn string<'a>() -> Parser<'a, u8, String> {
     string.convert(String::from_utf8)
 }
 fn single_quote_string<'a>() -> Parser<'a, u8, String> {
-    (sym(b'\'') * none_of(b"'").repeat(0..) - sym(b'\'')).map(|v|v2s(&v))
+    (space() * sym(b'\'') * none_of(b"'").repeat(0..) - sym(b'\'')).map(|v|v2s(&v))
+}
+fn double_quote_string<'a>() -> Parser<'a, u8, String> {
+    (space() * sym(b'\"') * none_of(b"\"").repeat(0..) - sym(b'\"')).map(|v|v2s(&v))
 }
 
 fn v2s(v:&[u8]) -> String {
@@ -224,7 +227,7 @@ fn ancestor<'a>() -> Parser<'a,u8,Selector> {
 
 
 fn string_literal<'a>() -> Parser<'a, u8, Value> {
-    (single_quote_string() | string()).map(StringLiteral)
+    (single_quote_string() | double_quote_string()).map(StringLiteral)
 }
 
 #[test]
@@ -758,7 +761,6 @@ fn one_value<'a>() -> Parser<'a, u8, Value> {
 
 fn list_array_value<'a>() -> Parser<'a, u8, Value> {
     let p = list(one_value(), sym(b','));
-    // let p = (one_value() + (space() - sym(b',') + one_value()).repeat(0..));
         p.map(|a| {
             if a.len() == 1 {
                 a[0].clone()
@@ -788,7 +790,7 @@ fn array_value_4<'a>() -> Parser<'a, u8, Value> {
     })
 }
 #[test]
-fn test_list_array_values() {
+fn test_array_values() {
     assert_eq!(array_value_2().parse(b"3px 4px"),
                Ok(Value::ArrayValue(vec![Value::Length(3.0,Unit::Px), Value::Length(4.0,Unit::Px)])));
     assert_eq!(array_value_2().parse(b"3em 4.0rem"),
@@ -811,6 +813,21 @@ fn test_list_array_values() {
                                          Value::HexColor(String::from("#cccccc"))])));
 }
 
+#[test]
+fn test_list_array_values() {
+    assert_eq!(
+        list_array_value().parse(br#" et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif"#),
+        Ok(Value::ArrayValue(vec![
+            Value::Keyword(String::from("et-book")),
+            Value::Keyword(String::from("Palatino")),
+            Value::StringLiteral(String::from("Palatino Linotype")),
+            Value::StringLiteral(String::from("Palatino LT STD")),
+            Value::StringLiteral(String::from("Book Antiqua")),
+            Value::Keyword(String::from("Georgia")),
+            Value::Keyword(String::from("serif")),
+        ]))
+    );
+}
 
 fn value<'a>() -> Parser<'a, u8, Value> {
     call(array_value_4)
