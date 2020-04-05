@@ -195,7 +195,6 @@ fn matches(elem: &ElementData, selector: &Selector, ancestors:&mut Vec::<(&Node,
     }
 }
 
-
 fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> bool {
     //return false for mis-matches
     if selector.tag_name.iter().any(|name|  "*" != *name)
@@ -243,21 +242,6 @@ fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet, ancestors:
     rules
 }
 
-#[test]
-fn test_multifile_cascade() {
-    let stylesheet_parent = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css").unwrap()).unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/child.css").unwrap()).unwrap();
-    stylesheet.parent = Some(Box::new(stylesheet_parent));
-    let elem = ElementData {
-        tag_name: String::from("div"),
-        attributes: Default::default()
-    };
-    let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
-    let values = specified_values(&elem, &stylesheet, &mut a2);
-    println!("got the values {:#?}", values);
-    assert_eq!(values.get("background-color").unwrap(),&Value::Keyword(String::from("blue")));
-}
-
 // get all values set by all rules
 fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> PropertyMap {
     // println!("styling with ancestors {:#?}", ancestors.len());
@@ -295,7 +279,8 @@ pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<
     let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
     real_style_tree(root, stylesheet, &mut ansc)
 }
-pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> StyledNode<'a> {
+
+fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> StyledNode<'a> {
     let specified = match root.node_type {
         Element(ref elem) => specified_values(elem, stylesheet, ancestors),
         Text(_) => HashMap::new(),
@@ -312,171 +297,6 @@ pub fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors
     }
 }
 
-#[test]
-fn test_inherited_match() {
-    let doc_text = br#"
-    <html>
-        <b>cool<a>rad</a></b>
-    </html>
-    "#;
-    let css_text = br#"
-        * {
-            color: inherit;
-            font-weight: inherit;
-        }
-        html {
-            color: black;
-            font-weight: bold;
-        }
-        b {
-            foo:bar;
-        }
-        a {
-            color: blue;
-        }
-    "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
-    //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
-
-    //check html element
-    assert_eq!(snode.specified_values.get("color").unwrap(),
-               &Keyword(String::from("black")));
-
-    // check html b element
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
-               &Keyword(String::from("black")));
-    assert_eq!(snode.children[0].specified_values.get("font-weight").unwrap(),
-               &Keyword(String::from("bold")));
-    // check html b a element
-    assert_eq!(snode.children[0].children[1].specified_values.get("color").unwrap(),
-               &Keyword(String::from("blue")));
-    assert_eq!(snode.children[0].children[1].specified_values.get("font-weight").unwrap(),
-               &Keyword(String::from("bold")));
-
-    // check html b text element
-    // assert_eq!(snode.children[0].children[0].specified_values.get("color").unwrap(),
-    //            &Keyword(String::from("black")));
-    // println!("done")
-
-}
-
-#[test]
-fn test_em_to_px() {
-    let doc_text = br#" <html> <p>cool</p> </html> "#;
-    let css_text = br#"
-        * {
-            color: inherit;
-        }
-        html {
-            color: black;
-            margin: 1em;
-        }
-        p {
-            color: black;
-            margin: 1em;
-        }
-    "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
-    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
-
-    //check html element
-    assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
-}
-
-#[test]
-fn test_vertical_align() {
-    let doc_text = br#"<html>
-    <style type="text/css">
-        .top {
-            vertical-align: top;
-        }
-    </style>
-    <div class="top">top</div>
-    </html>"#;
-    let mut doc = load_doc_from_bytestring(doc_text);
-    strip_empty_nodes(&mut doc);
-    let stylesheet = load_stylesheets_with_fallback(&doc).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
-    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
-    let div = &snode.children[1];
-    let text = &div.children[0];
-    println!("specified values are {:#?}",text.value("color"));
-    assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
-}
-
-#[test]
-fn test_style_tree() {
-    let doc = load_doc_from_net(&relative_filepath_to_url("tests/test1.html").unwrap()).unwrap();
-    let stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/foo.css").unwrap()).unwrap();
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    println!("final snode is {:#?}",snode)
-}
-
-
-#[test]
-fn test_multi_selector_match() {
-    let doc_text = br#"
-    <html>
-        <b>cool</b><a>rad</a>
-    </html>
-    "#;
-    let css_text = br#"
-        * {
-            color: black;
-        }
-        a,b {
-            color:red;
-        }
-    "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
-    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
-
-    //check html element
-    assert_eq!(snode.specified_values.get("color").unwrap(),
-               &Keyword(String::from("black")));
-
-    // check html b element
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
-               &Keyword(String::from("red")));
-    // check html a element
-    assert_eq!(snode.children[1].specified_values.get("color").unwrap(),
-               &Keyword(String::from("red")));
-
-}
-
-#[test]
-fn test_ancestor_match() {
-    let doc_text = br#"
-    <b><a>rad</a></b>
-    "#;
-    let css_text = br#"
-        * {
-            color: black;
-        }
-        b a {
-            color:red;
-        }
-    "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
-    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
-
-    //check b
-    assert_eq!(snode.specified_values.get("color").unwrap(),
-               &Keyword(String::from("black")));
-
-    // check b a
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
-               &Keyword(String::from("red")));
-
-}
 fn expand_array_decl(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
     match &dec.value {
         Value::ArrayValue(arr) => {
@@ -617,6 +437,186 @@ fn expand_border_shorthand(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
 }
 
 #[test]
+fn test_multifile_cascade() {
+    let stylesheet_parent = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css").unwrap()).unwrap();
+    let mut stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/child.css").unwrap()).unwrap();
+    stylesheet.parent = Some(Box::new(stylesheet_parent));
+    let elem = ElementData {
+        tag_name: String::from("div"),
+        attributes: Default::default()
+    };
+    let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
+    let values = specified_values(&elem, &stylesheet, &mut a2);
+    println!("got the values {:#?}", values);
+    assert_eq!(values.get("background-color").unwrap(),&Value::Keyword(String::from("blue")));
+}
+
+#[test]
+fn test_inherited_match() {
+    let doc_text = br#"
+    <html>
+        <b>cool<a>rad</a></b>
+    </html>
+    "#;
+    let css_text = br#"
+        * {
+            color: inherit;
+            font-weight: inherit;
+        }
+        html {
+            color: black;
+            font-weight: bold;
+        }
+        b {
+            foo:bar;
+        }
+        a {
+            color: blue;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check html b element
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+    assert_eq!(snode.children[0].specified_values.get("font-weight").unwrap(),
+               &Keyword(String::from("bold")));
+    // check html b a element
+    assert_eq!(snode.children[0].children[1].specified_values.get("color").unwrap(),
+               &Keyword(String::from("blue")));
+    assert_eq!(snode.children[0].children[1].specified_values.get("font-weight").unwrap(),
+               &Keyword(String::from("bold")));
+
+    // check html b text element
+    // assert_eq!(snode.children[0].children[0].specified_values.get("color").unwrap(),
+    //            &Keyword(String::from("black")));
+    // println!("done")
+
+}
+
+#[test]
+fn test_em_to_px() {
+    let doc_text = br#" <html> <p>cool</p> </html> "#;
+    let css_text = br#"
+        * {
+            color: inherit;
+        }
+        html {
+            color: black;
+            margin: 1em;
+        }
+        p {
+            color: black;
+            margin: 1em;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
+}
+
+#[test]
+fn test_vertical_align() {
+    let doc_text = br#"<html>
+    <style type="text/css">
+        .top {
+            vertical-align: top;
+        }
+    </style>
+    <div class="top">top</div>
+    </html>"#;
+    let mut doc = load_doc_from_bytestring(doc_text);
+    strip_empty_nodes(&mut doc);
+    let stylesheet = load_stylesheets_with_fallback(&doc).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+    let div = &snode.children[1];
+    let text = &div.children[0];
+    println!("specified values are {:#?}",text.value("color"));
+    assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
+}
+
+#[test]
+fn test_style_tree() {
+    let doc = load_doc_from_net(&relative_filepath_to_url("tests/test1.html").unwrap()).unwrap();
+    let stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/foo.css").unwrap()).unwrap();
+    let snode = style_tree(&doc.root_node,&stylesheet);
+    println!("final snode is {:#?}",snode)
+}
+
+#[test]
+fn test_multi_selector_match() {
+    let doc_text = br#"
+    <html>
+        <b>cool</b><a>rad</a>
+    </html>
+    "#;
+    let css_text = br#"
+        * {
+            color: black;
+        }
+        a,b {
+            color:red;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+
+    //check html element
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check html b element
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+    // check html a element
+    assert_eq!(snode.children[1].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+
+}
+
+#[test]
+fn test_ancestor_match() {
+    let doc_text = br#"
+    <b><a>rad</a></b>
+    "#;
+    let css_text = br#"
+        * {
+            color: black;
+        }
+        b a {
+            color:red;
+        }
+    "#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let snode = style_tree(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+
+    //check b
+    assert_eq!(snode.specified_values.get("color").unwrap(),
+               &Keyword(String::from("black")));
+
+    // check b a
+    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+               &Keyword(String::from("red")));
+
+}
+
+#[test]
 fn test_property_expansion_1() {
     let doc_text = br#"<div></div>"#;
     let css_text = br#"
@@ -660,7 +660,6 @@ fn test_property_expansion_2() {
     assert_eq!(snode.lookup_length_px("margin-bottom",5.0),1.0);
     assert_eq!(snode.lookup_length_px("margin-left",5.0),2.0);
 }
-
 
 #[test]
 fn test_property_expansion_4() {
