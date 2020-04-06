@@ -1,6 +1,6 @@
 use crate::dom::{load_doc_from_buffer, getElementsByTagName, NodeType, Document, load_doc};
 use crate::css::{parse_stylesheet, Stylesheet, parse_stylesheet_from_buffer, RuleType, Value};
-use crate::style::style_tree;
+use crate::style::dom_tree_to_stylednodes;
 use crate::image::{load_image_from_buffer, LoadedImage, load_image_from_filepath};
 use image::ImageError;
 use std::path::PathBuf;
@@ -197,7 +197,7 @@ fn test_request() -> Result<(), BrowserError> {
             println!("got the text {}", text);
             let stylesheet = parse_stylesheet(text)?;
             println!("got the stylesheet {:#?}",stylesheet);
-            let styled = style_tree(&doc.root_node,&stylesheet);
+            let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
             println!("styled is {:#?}",styled);
         }
     }

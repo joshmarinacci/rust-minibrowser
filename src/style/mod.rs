@@ -8,6 +8,9 @@ use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_fr
 use std::fs::File;
 use std::io::BufReader;
 use crate::render::FontCache;
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
+use std::borrow::Borrow;
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -49,14 +52,60 @@ pub enum Display {
     None,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct StyledNode<'a> {
-    pub node: &'a Node,
+#[derive(Debug)]
+pub struct StyledNode {
+    pub node: Node,
+    pub children: RefCell<Vec<Rc<StyledNode>>>,
+    parent: RefCell<Weak<StyledNode>>,
     pub specified_values: PropertyMap,
-    pub children: Vec<StyledNode<'a>>,
 }
 
-impl StyledNode<'_> {
+#[derive(Debug)]
+pub struct StyledTree {
+    pub root: RefCell<Rc<StyledNode>>,
+}
+impl StyledTree {
+    pub fn new() -> Self {
+        StyledTree {
+            root: RefCell::new(Rc::new(StyledNode {
+                node: Node { node_type: NodeType::Comment(String::from("comment")), children: vec![] },
+                children: RefCell::new(vec![]),
+                parent: RefCell::new(Default::default()),
+                specified_values: Default::default()
+            }))
+        }
+    }
+    pub fn make(&self) -> Rc<StyledNode> {
+        Rc::new(StyledNode{
+            node: Node {
+                node_type: NodeType::Comment(String::from("comment")),
+                children: vec![]
+            },
+            children: RefCell::new(vec![]),
+            parent: RefCell::new(Weak::new()),
+            specified_values: Default::default()
+        })
+    }
+    pub fn make_with(&self, node:Node, specified:PropertyMap, children:RefCell<Vec<Rc<StyledNode>>>) -> Rc<StyledNode> {
+        Rc::new(StyledNode {
+            node: node,
+            children: children,
+            parent: RefCell::new(Default::default()),
+            specified_values: specified,
+        })
+    }
+    pub fn set_root(&self, node:Rc<StyledNode>) {
+        *self.root.borrow_mut() = node;
+    }
+    pub fn append(&self, parent:&Rc<StyledNode>, child:&Rc<StyledNode>) {
+        parent.children.borrow_mut().push(Rc::clone(child));
+        *child.parent.borrow_mut() = Rc::downgrade(parent);
+    }
+}
+
+
+
+impl StyledNode {
     pub fn value(&self, name: &str) -> Option<Value> {
         self.specified_values.get(name).cloned()
     }
@@ -275,12 +324,14 @@ fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&N
     dec.value.clone()
 }
 
-pub fn style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledNode<'a> {
+pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledTree {
+    let tree = StyledTree::new();
     let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
-    real_style_tree(root, stylesheet, &mut ansc)
+    tree.set_root(real_style_tree(&tree, root, stylesheet, &mut ansc));
+    return tree;
 }
 
-fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> StyledNode<'a> {
+fn real_style_tree<'a>(tree:&StyledTree, root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> Rc<StyledNode> {
     let specified = match root.node_type {
         Element(ref elem) => specified_values(elem, stylesheet, ancestors),
         Text(_) => HashMap::new(),
@@ -289,12 +340,11 @@ fn real_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mu
     };
     let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
     a2.push((root, &specified));
-    let ch2 = root.children.iter().map(|child| real_style_tree(child, stylesheet, &mut a2)).collect();
-    StyledNode {
-        node: root,
-        specified_values: specified,
-        children: ch2,
-    }
+    let ch2:Vec<Rc<StyledNode>> = root.children.iter()
+        .map(|child| {
+            real_style_tree(tree,child, stylesheet, &mut a2)
+        }).collect();
+    return tree.make_with((*root).clone(),specified,RefCell::new(ch2));
 }
 
 fn expand_array_decl(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
@@ -476,7 +526,9 @@ fn test_inherited_match() {
     "#;
     let doc = load_doc_from_bytestring(doc_text);
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
+    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
     //check html element
@@ -484,18 +536,18 @@ fn test_inherited_match() {
                &Keyword(String::from("black")));
 
     // check html b element
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+    assert_eq!(snode.children.borrow()[0].specified_values.get("color").unwrap(),
                &Keyword(String::from("black")));
-    assert_eq!(snode.children[0].specified_values.get("font-weight").unwrap(),
+    assert_eq!(snode.children.borrow()[0].specified_values.get("font-weight").unwrap(),
                &Keyword(String::from("bold")));
     // check html b a element
-    assert_eq!(snode.children[0].children[1].specified_values.get("color").unwrap(),
+    assert_eq!(snode.children.borrow()[0].children.borrow()[1].specified_values.get("color").unwrap(),
                &Keyword(String::from("blue")));
-    assert_eq!(snode.children[0].children[1].specified_values.get("font-weight").unwrap(),
+    assert_eq!(snode.children.borrow()[0].children.borrow()[1].specified_values.get("font-weight").unwrap(),
                &Keyword(String::from("bold")));
 
     // check html b text element
-    // assert_eq!(snode.children[0].children[0].specified_values.get("color").unwrap(),
+    // assert_eq!(snode.children.borrow()[0].children[0].specified_values.get("color").unwrap(),
     //            &Keyword(String::from("black")));
     // println!("done")
 
@@ -519,7 +571,9 @@ fn test_em_to_px() {
     "#;
     let doc = load_doc_from_bytestring(doc_text);
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
+    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
 
     //check html element
@@ -539,10 +593,11 @@ fn test_vertical_align() {
     let mut doc = load_doc_from_bytestring(doc_text);
     strip_empty_nodes(&mut doc);
     let stylesheet = load_stylesheets_with_fallback(&doc).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
+    let stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
     // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
-    let div = &snode.children[1];
-    let text = &div.children[0];
+    let root = &stree.root.borrow();
+    let div = &root.children.borrow()[1];
+    let text = &div.children.borrow()[0];
     println!("specified values are {:#?}",text.value("color"));
     assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
 }
@@ -551,7 +606,7 @@ fn test_vertical_align() {
 fn test_style_tree() {
     let doc = load_doc_from_net(&relative_filepath_to_url("tests/test1.html").unwrap()).unwrap();
     let stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/foo.css").unwrap()).unwrap();
-    let snode = style_tree(&doc.root_node,&stylesheet);
+    let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
     println!("final snode is {:#?}",snode)
 }
 
@@ -572,7 +627,9 @@ fn test_multi_selector_match() {
     "#;
     let doc = load_doc_from_bytestring(doc_text);
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
+    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
     //check html element
@@ -580,10 +637,10 @@ fn test_multi_selector_match() {
                &Keyword(String::from("black")));
 
     // check html b element
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+    assert_eq!(snode.children.borrow()[0].specified_values.get("color").unwrap(),
                &Keyword(String::from("red")));
     // check html a element
-    assert_eq!(snode.children[1].specified_values.get("color").unwrap(),
+    assert_eq!(snode.children.borrow()[1].specified_values.get("color").unwrap(),
                &Keyword(String::from("red")));
 
 }
@@ -603,7 +660,9 @@ fn test_ancestor_match() {
     "#;
     let doc = load_doc_from_bytestring(doc_text);
     let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let snode = style_tree(&doc.root_node, &stylesheet);
+    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
     //check b
@@ -611,7 +670,10 @@ fn test_ancestor_match() {
                &Keyword(String::from("black")));
 
     // check b a
-    assert_eq!(snode.children[0].specified_values.get("color").unwrap(),
+    let f = snode.children.borrow();
+    let f2 = &f[0];
+    f2.specified_values.get("color").unwrap();
+    assert_eq!(snode.children.borrow()[0].specified_values.get("color").unwrap(),
                &Keyword(String::from("red")));
 
 }
@@ -629,7 +691,9 @@ fn test_property_expansion_1() {
     let doc = load_doc_from_bytestring(doc_text);
     let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     expand_styles(&mut stylesheet);
-    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    // let mut snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("stylesheet is {:#?}",stylesheet);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
     assert_eq!(snode.lookup_length_px("margin-right",5.0),1.0);
@@ -653,7 +717,9 @@ fn test_property_expansion_2() {
     let doc = load_doc_from_bytestring(doc_text);
     let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     expand_styles(&mut stylesheet);
-    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    // let mut snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
     assert_eq!(snode.lookup_length_px("margin-right",5.0),2.0);
@@ -673,7 +739,8 @@ fn test_property_expansion_4() {
     let doc = load_doc_from_bytestring(doc_text);
     let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     expand_styles(&mut stylesheet);
-    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
     assert_eq!(snode.lookup_length_px("margin-right",5.0),2.0);
@@ -693,7 +760,8 @@ fn test_border_shorthand() {
     let doc = load_doc_from_bytestring(doc_text);
     let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
     expand_styles(&mut stylesheet);
-    let mut snode = style_tree(&doc.root_node, &stylesheet);
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
     assert_eq!(snode.lookup_length_px("border-width-top",5.0),1.0);
     assert_eq!(snode.lookup_length_px("border-width-right",5.0),1.0);

@@ -1,5 +1,5 @@
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
-use crate::style::{StyledNode, Display, style_tree};
+use crate::style::{StyledNode, Display, dom_tree_to_stylednodes};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode};
 use crate::css::Value::{Keyword, Length};
@@ -12,6 +12,7 @@ use std::mem;
 use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}};
 use glium_glyph::glyph_brush::GlyphCruncher;
 use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
+use std::rc::Rc;
 
 const FUDGE:f32 = 2.0;
 
@@ -81,23 +82,23 @@ pub struct EdgeSizes {
 }
 
 #[derive(Debug)]
-pub struct LayoutBox<'a> {
+pub struct LayoutBox {
     pub dimensions: Dimensions,
-    pub box_type: BoxType<'a>,
-    pub children: Vec<LayoutBox<'a>>,
+    pub box_type: BoxType,
+    pub children: Vec<LayoutBox>,
 }
 
 #[derive(Debug)]
-pub enum BoxType<'a> {
-    BlockNode(&'a StyledNode<'a>),
-    InlineNode(&'a StyledNode<'a>),
-    InlineBlockNode(&'a StyledNode<'a>),
-    AnonymousBlock(&'a StyledNode<'a>),
-    TableNode(&'a StyledNode<'a>),
-    TableRowGroupNode(&'a StyledNode<'a>),
-    TableRowNode(&'a StyledNode<'a>),
-    TableCellNode(&'a StyledNode<'a>),
-    ListItemNode(&'a StyledNode<'a>),
+pub enum BoxType {
+    BlockNode(Rc<StyledNode>),
+    InlineNode(Rc<StyledNode>),
+    InlineBlockNode(Rc<StyledNode>),
+    AnonymousBlock(Rc<StyledNode>),
+    TableNode(Rc<StyledNode>),
+    TableRowGroupNode(Rc<StyledNode>),
+    TableRowNode(Rc<StyledNode>),
+    TableCellNode(Rc<StyledNode>),
+    ListItemNode(Rc<StyledNode>),
 }
 
 #[derive(Debug)]
@@ -251,24 +252,24 @@ pub struct RenderErrorBox {
     pub valign:String,
 }
 
-pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> LayoutBox<'a> {
+pub fn build_layout_tree<'a>(style_node: &Rc<StyledNode>, doc:&Document) -> LayoutBox {
     let mut root = LayoutBox::new(match style_node.display() {
-        Display::Block => BlockNode(style_node),
-        Display::Inline => InlineNode(style_node),
-        Display::InlineBlock => InlineBlockNode(style_node),
-        Display::ListItem => BoxType::ListItemNode(style_node),
-        Display::Table => TableNode(style_node),
-        Display::TableRowGroup => TableRowGroupNode(style_node),
-        Display::TableRow => TableRowNode(style_node),
-        Display::TableCell => TableCellNode(style_node),
+        Display::Block => BlockNode(Rc::clone(style_node)),
+        Display::Inline => InlineNode(Rc::clone(style_node)),
+        Display::InlineBlock => InlineBlockNode(Rc::clone(style_node)),
+        Display::ListItem => BoxType::ListItemNode(Rc::clone(style_node)),
+        Display::Table => TableNode(Rc::clone(style_node)),
+        Display::TableRowGroup => TableRowGroupNode(Rc::clone(style_node)),
+        Display::TableRow => TableRowNode(Rc::clone(style_node)),
+        Display::TableCell => TableCellNode(Rc::clone(style_node)),
         Display::None => panic!("Root node has display none.")
     });
 
 
-    for child in &style_node.children {
+    for child in style_node.children.borrow().iter() {
         match child.display() {
-            Display::Block =>  root.children.push(build_layout_tree(&child, doc)),
-            Display::ListItem =>  root.children.push(build_layout_tree(&child, doc)),
+            Display::Block =>  root.children.push(build_layout_tree(child, doc)),
+            Display::ListItem =>  root.children.push(build_layout_tree(child, doc)),
             Display::Inline => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::InlineBlock => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::Table => root.children.push(build_layout_tree(&child,doc)),
@@ -281,16 +282,16 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
     root
 }
 
-impl<'a> LayoutBox<'a> {
-    fn new(box_type: BoxType<'a>) -> LayoutBox<'a> {
+impl LayoutBox {
+    fn new(box_type: BoxType) -> LayoutBox {
         LayoutBox {
             box_type,
             dimensions: Default::default(),
             children: Vec::new(),
         }
     }
-    fn get_style_node(&self) -> &'a StyledNode<'a> {
-        match self.box_type {
+    fn get_style_node(&self) -> &Rc<StyledNode> {
+        match &self.box_type {
             BlockNode(node)
             | TableNode(node)
             | TableRowGroupNode(node)
@@ -299,12 +300,12 @@ impl<'a> LayoutBox<'a> {
             | InlineNode(node)
             | InlineBlockNode(node)
             | BoxType::ListItemNode(node)
-            | AnonymousBlock(node) => node
+            | AnonymousBlock(node) => &node
         }
     }
 
-    fn get_inline_container(&mut self) -> &mut LayoutBox<'a> {
-        match self.box_type {
+    fn get_inline_container(&mut self) -> &mut LayoutBox {
+        match &self.box_type {
             InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
             BlockNode(node)
             | BoxType::ListItemNode(node)
@@ -312,9 +313,21 @@ impl<'a> LayoutBox<'a> {
             | TableRowGroupNode(node)
             | TableRowNode(node) => {
                 // if last child is anonymous block, keep using it
-                match self.children.last() {
-                    Some(&LayoutBox { box_type: AnonymousBlock(_node), ..}) => {},
-                    _ => self.children.push(LayoutBox::new(AnonymousBlock(node))),
+                let last = self.children.last();
+                let is_anon = match last {
+                    Some(ch) => {
+                        match ch.box_type {
+                            AnonymousBlock(_) => true,
+                            _ => {false}
+                        }
+                    },
+                    _ => {
+                        false
+                    }
+                };
+                if !is_anon {
+                    // make new anon block
+                    self.children.push(LayoutBox::new(AnonymousBlock(Rc::clone(node))))
                 }
                 self.children.last_mut().unwrap()
             }
@@ -322,7 +335,7 @@ impl<'a> LayoutBox<'a> {
     }
 
     pub fn layout(&mut self, containing: &mut Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
-        match self.box_type {
+        match &self.box_type {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableRowGroupNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
@@ -335,7 +348,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
     fn debug_calculate_element_name(&self) -> String{
-        match self.box_type {
+        match &self.box_type {
             BlockNode(sn)
             | TableNode(sn)
             | TableRowGroupNode(sn)
@@ -487,7 +500,7 @@ impl<'a> LayoutBox<'a> {
     }
 
     fn get_type(&self) -> String {
-        match self.box_type {
+        match &self.box_type {
             BoxType::AnonymousBlock(styled)
             | BoxType::ListItemNode(styled)
             | BoxType::BlockNode(styled)
@@ -526,12 +539,12 @@ impl<'a> LayoutBox<'a> {
             current_bottom: dim.content.y + dim.content.height,
             font_cache:font_cache,
             doc,
-            style_node:self.get_style_node(),
+            style_node:Rc::clone(self.get_style_node()),
         };
         for child in self.children.iter_mut() {
             // println!("working on child {:#?}", child.get_type());
             // println!("current start and end is {} {} ",looper.current_start, looper.current_end);
-            match child.box_type {
+            match &child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
                 InlineNode(_styled) => child.do_inline(&mut looper),
                 _ => println!("cant do this child of an anonymous box"),
@@ -562,7 +575,7 @@ impl<'a> LayoutBox<'a> {
         let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
         let mut src = String::from("");
         // let w = 100.0;
-        if let InlineBlockNode(styled) = self.box_type {
+        if let InlineBlockNode(styled) = &self.box_type {
             if let Element(data) = &styled.node.node_type {
                 match data.tag_name.as_str() {
                     "img" => {
@@ -588,12 +601,12 @@ impl<'a> LayoutBox<'a> {
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
                         println!("button font size is {}",font_size);
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
-                        let text_node = styled.children[0].node;
+                        let text_node = &styled.children.borrow()[0].node;
                         let text = match &text_node.node_type {
                             NodeType::Text(str) => str,
                             _ => panic!("can't do inline block layout if child isn't text"),
                         };
-                        let w: f32 = calculate_word_length(text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
+                        let w: f32 = calculate_word_length(&text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
                         println!("calculated width is {}",w);
                         looper.current_end += w;
                         let mut containing_block = Dimensions {
@@ -607,12 +620,12 @@ impl<'a> LayoutBox<'a> {
                             border: Default::default(),
                             margin: Default::default()
                         };
-                        let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
-                        block.rect.x = looper.current_start;
-                        block.rect.y = looper.current.rect.y;
-                        block.valign = self.get_style_node().lookup_string("vertical-align","baseline");
-                        let rbx = RenderInlineBoxType::Block(block);
-                        looper.add_box_to_current_line(rbx);
+                        // let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
+                        // block.rect.x = looper.current_start;
+                        // block.rect.y = looper.current.rect.y;
+                        // block.valign = self.get_style_node().lookup_string("vertical-align","baseline");
+                        // let rbx = RenderInlineBoxType::Block(block);
+                        // looper.add_box_to_current_line(rbx);
                         return;
                     },
                     _ => {
@@ -659,7 +672,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
+    fn do_pre_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         let color = looper.style_node.lookup_color("color", &BLACK);
         let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
         // println!("font size is {:#?} ",font_size, color);
@@ -695,7 +708,7 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_normal_inline_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
+    fn do_normal_inline_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         // println!("processing text '{}'", txt);
         let font_family = self.find_font_family(looper);
         // println!("using font family {}", font_family);
@@ -769,7 +782,7 @@ impl<'a> LayoutBox<'a> {
         looper.add_box_to_current_line(bx);
     }
 
-    fn do_inline(&self, looper:&mut Looper<'a>) {
+    fn do_inline(&self, looper:&mut Looper) {
         // println!("doing inline {:#?}", &self.debug_calculate_element_name());
         let link:Option<String> = match &looper.style_node.node.node_type {
             Text(_) => None,
@@ -784,7 +797,7 @@ impl<'a> LayoutBox<'a> {
             },
             NodeType::Meta(_) => None,
         };
-        if let BoxType::InlineNode(snode) = self.box_type {
+        if let BoxType::InlineNode(snode) = &self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
                      let whitespace = looper.style_node.lookup_keyword("white-space", &Keyword(String::from("normal")));
@@ -804,8 +817,8 @@ impl<'a> LayoutBox<'a> {
                 //     if child is element
                 NodeType::Element(_ed) => {
                     // println!("recursing");
-                    let old = looper.style_node;
-                    looper.style_node = snode;
+                    let old = Rc::clone(&looper.style_node);
+                    looper.style_node = Rc::clone(snode);
                     for ch in self.children.iter() {
                         ch.do_inline(looper);
                     }
@@ -999,7 +1012,7 @@ struct Looper<'a> {
     current_bottom:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
-    style_node: &'a StyledNode<'a>,
+    style_node: Rc<StyledNode>,
 }
 
 impl Looper<'_> {
@@ -1235,7 +1248,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
     let doc = load_doc_from_bytestring(html);
     let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
-    let styled = style_tree(&doc.root_node,&stylesheet);
+    let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
     // println!("styled nodes {:#?}",styled);
     let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
         glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
@@ -1250,7 +1263,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
         border: Default::default(),
         margin: Default::default()
     };
-    let mut root_box = build_layout_tree(&styled, &doc);
+    let mut root_box = build_layout_tree(&styled.root.borrow(), &doc);
     let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
         families: Default::default(),
