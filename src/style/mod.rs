@@ -86,13 +86,17 @@ impl StyledTree {
             specified_values: Default::default()
         })
     }
-    pub fn make_with(&self, node:Node, specified:PropertyMap, children:RefCell<Vec<Rc<StyledNode>>>) -> Rc<StyledNode> {
-        Rc::new(StyledNode {
-            node: node,
-            children: children,
+    pub fn make_with(&self, node:Node, specified_values:PropertyMap, children:RefCell<Vec<Rc<StyledNode>>>) -> Rc<StyledNode> {
+        let rc =  Rc::new(StyledNode {
+            node,
+            children,
             parent: RefCell::new(Default::default()),
-            specified_values: specified,
-        })
+            specified_values,
+        });
+        for ch in rc.children.borrow().iter() {
+            *ch.parent.borrow_mut() = Rc::downgrade(&rc);
+        }
+        return rc;
     }
     pub fn set_root(&self, node:Rc<StyledNode>) {
         *self.root.borrow_mut() = node;
@@ -183,6 +187,33 @@ impl StyledNode {
             Some(Length(v,_unit)) => v,
             _ => default,
         }
+    }
+    pub fn lookup_font_size(&self) -> f32 {
+        match self.value("font-size") {
+            Some(Length(v, unit)) => {
+                match unit {
+                    Unit::Px => v,
+                    Unit::Per => {
+                        let fs = self.parent.borrow().upgrade().unwrap().lookup_font_size();
+                        return v/100.0 * fs;
+                    }
+                    Unit::Em => {
+                        println!("EM");
+                        let fs = self.parent.borrow().upgrade().unwrap().lookup_font_size();
+                        return v*fs;
+                    }
+                    Unit::Rem => {
+                        println!("REM");
+                        return v*18.0; //TODO: use the real document font-size for REMs
+                    }
+                }
+            }
+            _ => {
+                println!("unrecognized font-size type {:#?}",self.value("font-size"));
+                return 10.0;
+            }
+        }
+
     }
     pub fn display(&self) -> Display {
         if let Text(_) = self.node.node_type {
@@ -768,4 +799,19 @@ fn test_border_shorthand() {
     assert_eq!(snode.lookup_length_px("border-width-bottom",5.0),1.0);
     assert_eq!(snode.lookup_length_px("border-width-left",5.0),1.0);
     assert_eq!(snode.lookup_keyword("border-color", &Keyword(String::from("white"))), Keyword(String::from("black")));
+}
+
+#[test]
+fn test_relative_font_sizes() {
+    let doc_text = br#"<body><p>stuff</p></body>"#;
+    let css_text = br#"body { font-size: 10px; } p { font-size: 200%; }"#;
+    let doc = load_doc_from_bytestring(doc_text);
+    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
+    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,stree);
+    let style_root = stree.root.borrow();
+    assert_eq!(style_root.lookup_font_size(), 10.0);
+    let style_child = &style_root.children.borrow()[0];
+    assert_eq!(style_child.lookup_font_size(), 20.0);
+
 }
