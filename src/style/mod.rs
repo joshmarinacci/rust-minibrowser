@@ -151,7 +151,7 @@ impl StyledNode {
             _ => default,
         }
     }
-    pub fn lookup_font_family_recursive(&self,font_cache:&mut FontCache) -> String {
+    pub fn lookup_font_family(&self, font_cache:&mut FontCache) -> String {
         let font_family_values = self.lookup(
             "font-family",
             "font-family",

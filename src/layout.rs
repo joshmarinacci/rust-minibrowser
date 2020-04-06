@@ -394,7 +394,7 @@ impl LayoutBox {
                 ListMarker::None
             },
             color: Some(style.lookup_color("color", &BLACK)),
-            font_family: style.lookup_font_family_recursive(font_cache),
+            font_family: style.lookup_font_family(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
             font_size: style.lookup_font_size(),
@@ -461,41 +461,10 @@ impl LayoutBox {
             children: children,
             marker: ListMarker::None,
             color: Some(style.lookup_color("color", &BLACK)),
-            font_family: style.lookup_font_family_recursive(font_cache),
+            font_family: style.lookup_font_family(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
             font_size: style.lookup_font_size(),
-        }
-    }
-
-    fn find_font_family(&self, looper:&mut Looper) -> String {
-        let font_family_values = looper.style_node.lookup(
-            "font-family",
-            "font-family",
-            &Value::Keyword(String::from("sans-serif")));
-        // println!("font family values: {:#?} {:#?}",font_family_values, looper.style_node);
-        match font_family_values {
-            Value::ArrayValue(vals ) => {
-                for val in vals.iter() {
-                    match val {
-                        Value::StringLiteral(str) => {
-                            if looper.font_cache.has_font_family(str) {
-                                return String::from(str);
-                            }
-                        }
-                        Value::Keyword(str) => {
-                            if looper.font_cache.has_font_family(str) {
-                                return String::from(str);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                println!("no valid font found in stack: {:#?}",vals);
-                String::from("sans-serif")
-            }
-            Value::Keyword(str) => str,
-            _ => String::from("sans-serif"),
         }
     }
 
@@ -676,7 +645,8 @@ impl LayoutBox {
         let color = looper.style_node.lookup_color("color", &BLACK);
         let font_size = looper.style_node.lookup_font_size();
         // println!("font size is {:#?} ",font_size, color);
-        let font_family = self.find_font_family(looper);
+        let font_family = looper.style_node.lookup_font_family(looper.font_cache);
+
         let font_weight = looper.style_node.lookup_font_weight(400);
         let font_style = looper.style_node.lookup_string("font-style", "normal");
         let valign = looper.style_node.lookup_string("vertical-align", "baseline");
@@ -710,7 +680,7 @@ impl LayoutBox {
 
     fn do_normal_inline_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         // println!("processing text '{}'", txt);
-        let font_family = self.find_font_family(looper);
+        let font_family = looper.style_node.lookup_font_family(looper.font_cache);
         // println!("using font family {}", font_family);
         let font_weight = looper.style_node.lookup_font_weight(400);
         let font_size = looper.style_node.lookup_font_size();
