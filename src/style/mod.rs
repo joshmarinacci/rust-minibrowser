@@ -192,20 +192,10 @@ impl StyledNode {
         match self.value("font-size") {
             Some(Length(v, unit)) => {
                 match unit {
-                    Unit::Px => v,
-                    Unit::Per => {
-                        let fs = self.parent.borrow().upgrade().unwrap().lookup_font_size();
-                        return v/100.0 * fs;
-                    }
-                    Unit::Em => {
-                        println!("EM");
-                        let fs = self.parent.borrow().upgrade().unwrap().lookup_font_size();
-                        return v*fs;
-                    }
-                    Unit::Rem => {
-                        println!("REM");
-                        return v*18.0; //TODO: use the real document font-size for REMs
-                    }
+                    Unit::Px  => v,
+                    Unit::Per => v/100.0 * self.parent.borrow().upgrade().unwrap().lookup_font_size(),
+                    Unit::Em  => v * self.parent.borrow().upgrade().unwrap().lookup_font_size(),
+                    Unit::Rem => v*18.0, //TODO: use the real document font-size for REMs
                 }
             }
             _ => {
@@ -219,8 +209,8 @@ impl StyledNode {
     pub fn lookup_length_as_px(&self, name:&str, default:f32) -> f32{
         if let Some(value) = self.value(name) {
             match value {
-                Length(v, Unit::Px) => v,
-                Length(v, Unit::Em) => v*self.lookup_font_size(),
+                Length(v, Unit::Px) =>  v,
+                Length(v, Unit::Em) =>  v*self.lookup_font_size(),
                 Length(v, Unit::Rem) => v*self.lookup_font_size(),
                 // TODO: use real document font size
                 Length(_v, Unit::Per) => {
