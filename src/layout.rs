@@ -1,5 +1,5 @@
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
-use crate::style::{StyledNode, Display, dom_tree_to_stylednodes};
+use crate::style::{StyledNode, Display, dom_tree_to_stylednodes, expand_styles};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode, ListItemNode};
 use crate::css::Value::{Keyword, Length};
@@ -378,10 +378,10 @@ impl LayoutBox {
             title: self.debug_calculate_element_name(),
             background_color: style.color("background-color"),
             border_width: EdgeSizes {
-                top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-                bottom: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
-                left: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-                right: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
+                top: style.lookup_length_as_px("border-width-top", 0.0),
+                bottom: style.lookup_length_as_px("border-width-bottom",0.0),
+                left: style.lookup_length_as_px("border-width-top",0.0),
+                right: style.lookup_length_as_px("border-width-bottom",0.0),
             },
             border_color: style.color("border-color"),
             valign: String::from("baseline"),
@@ -451,10 +451,10 @@ impl LayoutBox {
             padding: self.dimensions.padding,
             background_color: self.get_style_node().color("background-color"),
             border_width: EdgeSizes {
-                top: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
-                bottom: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
-                left: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
-                right: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
+                top: style.lookup_length_as_px("border-width-top", 0.0),
+                bottom: style.lookup_length_as_px("border-width-bottom",0.0),
+                left: style.lookup_length_as_px("border-width-top",0.0),
+                right: style.lookup_length_as_px("border-width-bottom",0.0),
             },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
@@ -936,18 +936,19 @@ impl LayoutBox {
         let style = self.get_style_node();
         //println!("caculating block position {:#?} border {:#?}",style, style.lookup("border-width-top","border-width",&zero));
         let margin = EdgeSizes {
-            top: self.length_to_px(&style.lookup("margin-top", "margin", &zero)),
-            bottom: self.length_to_px(&style.lookup("margin-bottom","margin",&zero)),
+            top: style.lookup_length_as_px("margin-top",0.0),
+            bottom: style.lookup_length_as_px("margin-bottom",0.0),
             ..(self.dimensions.margin)
         };
+
         let border = EdgeSizes {
-            top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-            bottom: self.length_to_px(&style.lookup("border-width-bottom","border-width",&zero)),
+            top: style.lookup_length_as_px("border-width-top",0.0),
+            bottom: style.lookup_length_as_px("border-width-bottom",0.0),
             ..(self.dimensions.border)
         };
         let padding = EdgeSizes {
-            top: self.length_to_px(&style.lookup("padding-top", "padding", &zero)),
-            bottom: self.length_to_px(&style.lookup("padding-bottom","padding",&zero)),
+            top: style.lookup_length_as_px("padding-top",0.0),
+            bottom: style.lookup_length_as_px("padding-bottom",0.0),
             ..(self.dimensions.padding)
         };
 
@@ -1247,7 +1248,8 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
     let doc = load_doc_from_bytestring(html);
-    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
+    let mut stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
+    expand_styles(&mut stylesheet);
     let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
     // println!("styled nodes {:#?}",styled);
     let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =

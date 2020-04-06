@@ -215,6 +215,25 @@ impl StyledNode {
         }
 
     }
+
+    pub fn lookup_length_as_px(&self, name:&str, default:f32) -> f32{
+        if let Some(value) = self.value(name) {
+            match value {
+                Length(v, Unit::Px) => v,
+                Length(v, Unit::Em) => v*self.lookup_font_size(),
+                Length(v, Unit::Rem) => v*self.lookup_font_size(),
+                // TODO: use real document font size
+                Length(_v, Unit::Per) => {
+                    println!("WARNING: percentage in length_to_px. should have be converted to pixels already");
+                    default
+                }
+                _ => default,
+            }
+        } else {
+            default
+        }
+    }
+
     pub fn display(&self) -> Display {
         if let Text(_) = self.node.node_type {
             return Display::Inline
