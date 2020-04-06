@@ -1,7 +1,7 @@
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
 use crate::style::{StyledNode, Display, dom_tree_to_stylednodes};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
-use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode};
+use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode, ListItemNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
@@ -299,7 +299,7 @@ impl LayoutBox {
             | TableCellNode(node)
             | InlineNode(node)
             | InlineBlockNode(node)
-            | BoxType::ListItemNode(node)
+            | ListItemNode(node)
             | AnonymousBlock(node) => &node
         }
     }
@@ -308,7 +308,7 @@ impl LayoutBox {
         match &self.box_type {
             InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
             BlockNode(node)
-            | BoxType::ListItemNode(node)
+            | ListItemNode(node)
             | TableNode(node)
             | TableRowGroupNode(node)
             | TableRowNode(node) => {
@@ -344,7 +344,7 @@ impl LayoutBox {
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
-            BoxType::ListItemNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
+            ListItemNode(_node) =>      RenderBox::Block(self.layout_block(containing, font, doc)),
         }
     }
     fn debug_calculate_element_name(&self) -> String{
@@ -376,14 +376,14 @@ impl LayoutBox {
             padding: self.dimensions.padding,
             children,
             title: self.debug_calculate_element_name(),
-            background_color: self.get_style_node().color("background-color"),
+            background_color: style.color("background-color"),
             border_width: EdgeSizes {
                 top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
                 bottom: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
                 left: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
                 right: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
             },
-            border_color: self.get_style_node().color("border-color"),
+            border_color: style.color("border-color"),
             valign: String::from("baseline"),
             marker: if style.lookup_string("display","block") == "list-item" {
                 match &*style.lookup_string("list-style-type", "none") {
@@ -397,7 +397,7 @@ impl LayoutBox {
             font_family: style.lookup_font_family_recursive(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
-            font_size: style.lookup_length_px("font-size", 10.0),
+            font_size: style.lookup_font_size(),
         }
     }
 
@@ -464,7 +464,7 @@ impl LayoutBox {
             font_family: style.lookup_font_family_recursive(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
-            font_size: style.lookup_length_px("font-size", 10.0),
+            font_size: style.lookup_font_size(),
         }
     }
 
@@ -597,7 +597,7 @@ impl LayoutBox {
                         // let font_family = self.find_font_family(looper.font_cache);
                         let font_family = "sans-serif";
                         let font_weight = self.get_style_node().lookup_font_weight(400);
-                        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
+                        let font_size = self.get_style_node().lookup_font_size();
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
                         println!("button font size is {}",font_size);
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
@@ -674,7 +674,7 @@ impl LayoutBox {
 
     fn do_pre_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         let color = looper.style_node.lookup_color("color", &BLACK);
-        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        let font_size = looper.style_node.lookup_font_size();
         // println!("font size is {:#?} ",font_size, color);
         let font_family = self.find_font_family(looper);
         let font_weight = looper.style_node.lookup_font_weight(400);
@@ -713,7 +713,7 @@ impl LayoutBox {
         let font_family = self.find_font_family(looper);
         // println!("using font family {}", font_family);
         let font_weight = looper.style_node.lookup_font_weight(400);
-        let font_size = looper.style_node.lookup_length_px("font-size", 10.0);
+        let font_size = looper.style_node.lookup_font_size();
         let font_style = looper.style_node.lookup_string("font-style", "normal");
         let vertical_align = looper.style_node.lookup_string("vertical-align","baseline");
         let line_height = font_size;
@@ -919,11 +919,11 @@ impl LayoutBox {
         }
     }
     fn length_to_px(&self, value:&Value) -> f32{
-        let font_size = self.get_style_node().lookup_length_px("font-size", 10.0);
+        let font_size = self.get_style_node().lookup_font_size();
         match value {
             Length(v, Unit::Px) => *v,
             Length(v, Unit::Em) => (*v)*font_size,
-            Length(v, Unit::Rem) => (*v)*font_size,
+            Length(v, Unit::Rem) => (*v)*font_size, // TODO: use real document font size
             Length(_v, Unit::Per) => {
                 println!("WARNING: percentage in length_to_px. should have be converted to pixels already");
                 0.0
