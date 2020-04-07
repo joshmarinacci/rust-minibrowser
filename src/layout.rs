@@ -608,12 +608,37 @@ impl LayoutBox {
         let bx = match load_image(looper.doc, &src) {
             Ok(image) => {
                 println!("Loaded the image {} {}", image.width, image.height);
+                let width_prop = self.get_style_node().lookup("width", "max-width", &Value::Keyword(String::from("auto")));
+                let mut width = image.width as f32;
+                //calculate width as a percentage
+                if let Value::Length(v,u) = width_prop {
+                    match u {
+                        Unit::Per => width = looper.extents.width * v/100.0,
+                        _ => { }
+                    }
+                }
+                let mut height = image.height as f32;
+                let height_prop = self.get_style_node().lookup("height","height",&Value::Keyword(String::from("auto")));
+                //calculate height as a percentage
+                if let Value::Length(v,u) = &height_prop {
+                    match u {
+                        Unit::Per => height = looper.extents.height * v/100.0,
+                        _ => {  }
+                    }
+                }
+                //calculate height from width to preserve aspect ratio
+                if let Value::Keyword(keyword) = &height_prop {
+                    match keyword.as_str() {
+                        "auto" => height = width * (image.height as f32) / (image.width as f32),
+                        _ => {}
+                    }
+                }
                 RenderInlineBoxType::Image(RenderImageBox {
                     rect: Rect {
                         x:looper.current_start,
                         y: looper.current.rect.y,
-                        width: image.width as f32,
-                        height: image.height as f32,
+                        width,
+                        height,
                     },
                     valign: self.get_style_node().lookup_string("vertical-align","baseline"),
                     image
