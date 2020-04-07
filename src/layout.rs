@@ -306,10 +306,11 @@ impl LayoutBox {
 
     fn get_inline_container(&mut self) -> &mut LayoutBox {
         match &self.box_type {
-            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
+            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) => self,
             BlockNode(node)
             | ListItemNode(node)
             | TableNode(node)
+            | TableCellNode(node)
             | TableRowGroupNode(node)
             | TableRowNode(node) => {
                 // if last child is anonymous block, keep using it
@@ -340,7 +341,7 @@ impl LayoutBox {
             TableNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableRowGroupNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
             TableRowNode(_node) =>      RenderBox::Block(self.layout_table_row(containing, font, doc)),
-            TableCellNode(_node) =>     RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
+            TableCellNode(_node) =>     RenderBox::Block(self.layout_block(containing, font, doc)),
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
@@ -442,7 +443,6 @@ impl LayoutBox {
                 }
             };
         };
-        let zero = Length(0.0, Px);
         let style = self.get_style_node();
         RenderBlockBox {
             title: self.debug_calculate_element_name(),
@@ -689,17 +689,18 @@ impl LayoutBox {
         let line_height = font_size;
         // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
         let color = looper.style_node.lookup_color("color", &BLACK);
-        // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
-        //          font_family, color, font_size, font_weight, font_style );
+        // println!("text is family={:#?} size={} weight={} style={} line-height={}", font_family,  font_size, font_weight, font_style, line_height);
         // println!("styles={:#?}",looper.style_node);
         // println!("parent={:#?}", parent.get_style_node());
+        // println!("looper is {} {} {}",looper.current_start, looper.current_end, looper.current_start);
         let mut curr_text = String::new();
         for word in txt.split_whitespace() {
             let mut word2 = String::from(" ");
             word2.push_str(word);
             let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size, &font_family, font_weight, &font_style);
             //if it's too long then we need to wrap
-            if looper.current_end + w > looper.extents.width {
+            // println!("end = {} w = {} extents.width = {}", looper.current_end, w, looper.extents.x + looper.extents.width);
+            if looper.current_end + w > looper.extents.x + looper.extents.width {
                 //add current text to the current line
                 // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
                 let bx = RenderInlineBoxType::Text(RenderTextBox{
@@ -749,6 +750,7 @@ impl LayoutBox {
             font_style,
             valign: vertical_align.clone(),
         });
+        // println!("added text box {:#?}",bx);
         looper.add_box_to_current_line(bx);
     }
 
@@ -1047,141 +1049,9 @@ impl Looper<'_> {
 
 }
 
-/*
-#[test]
-fn test_layout<'a>() {
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
-
-    let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
-    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
-    font_cache.scan_for_fontface_rules(&stylesheet);
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    println!(" ======== build layout boxes ========");
-    let mut root_box = build_layout_tree(&snode, &doc);
-    let mut containing_block = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 200.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    // println!("roob box is {:#?}",root_box);
-    println!(" ======== layout phase ========");
-    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
-    // println!("final render box is {:#?}", render_box);
-}
-*/
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
     iter.fold(0., |a, b| a + b)
 }
-/*
-#[test]
-fn test_inline_block_element_layout() {
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
-
-    let doc = load_doc_from_bytestring(b"<html><body><div><button>foofoo</button></div></body></html>");
-    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
-    font_cache.scan_for_fontface_rules(&stylesheet);
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    let mut root_box = build_layout_tree(&snode, &doc);
-    let mut containing_block = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 200.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    // println!("roob box is {:#?}",root_box);
-    println!(" ======== layout phase ========");
-    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
-}
-*/
-/*
-fn standard_init<'a,R:Resources,F:Factory<R>>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet){
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
-    let mut doc = load_doc_from_bytestring(html);
-    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
-    let styled = style_tree(&doc.root_node,&stylesheet);
-    let mut root_box = build_layout_tree(&styled, &doc);
-    let mut cb = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 500.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    let render_box = root_box.layout(&mut cb, &mut font_cache, &doc);
-    // println!("the final render box is {:#?}",render_box);
-    return (font_cache,doc, stylesheet);
-}
-*/
-/*
-#[test]
-fn test_table_layout() {
-    let render_box = standard_init(
-        br#"<table>
-            <tbody>
-                <tr>
-                    <td>data 1</td>
-                    <td>data 2</td>
-                    <td>data 3</td>
-                </tr>
-                <tr>
-                    <td>data 4</td>
-                    <td>data 5</td>
-                    <td>data 6</td>
-                </tr>
-                <tr>
-                    <td>data 7</td>
-                    <td>data 8</td>
-                    <td>data 9</td>
-                </tr>
-            </tbody>
-        </table>"#,
-        br#"
-        table {
-            display: table;
-        }
-        tbody {
-            display: table-row-group;
-        }
-        tr {
-            display: table-row;
-        }
-        td {
-            display: table-cell;
-        }
-        "#
-    );
-    println!("it all ran! {:#?}",render_box);
-}
-*/
 
 pub enum Brush {
     Style1(glium_glyph::GlyphBrush<'static, 'static>),
