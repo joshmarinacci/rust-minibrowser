@@ -136,6 +136,10 @@ impl StyledNode {
             _ => default.clone(),
         }
     }
+    pub fn lookup_text_decoration_line(&self) -> String {
+        let val = self.lookup_keyword("text-decoration-line", &Value::Keyword(String::from("none")))
+        if let Keyword(str) = val { str } else { "none".to_string() }
+    }
     pub fn lookup_font_weight(&self, default:i32) -> i32{
         match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
             Keyword(str) => match str.as_str() {

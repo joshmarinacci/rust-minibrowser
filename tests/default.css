@@ -7,7 +7,7 @@
     font-style: inherit;
     font-variant: normal;
     font-weight: inherit;
-    text-decoration: none;
+    text-decoration-line: none;
     letter-spacing: normal;
     word-spacing: normal;
     text-transform: none;
@@ -69,9 +69,16 @@ b, strong {
 }
 a {
     color: blue;
+    text-decoration-line: underline;
+}
+u {
+    text-decoration-line: underline;
 }
 i, em, cite, dfn, var {
     font-style: italic;
+}
+strike, del {
+    text-decoration-line: line-through;
 }
 
 ul,ol {
@@ -126,6 +133,7 @@ input {
     margin: 3px;
 }
 optgroup, option {
+    text-decoration-line: underline;
     display: none;
 }
 sub {

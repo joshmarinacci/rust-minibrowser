@@ -123,6 +123,16 @@ pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes,
     }, color);
 }
 
+pub fn make_line(shapes:&mut Vec<Vertex>,rect:&Rect,yoff:f32,color:&Color) {
+    make_box(shapes, &Rect{
+        x: rect.x,
+        y: rect.y + rect.height + yoff,
+        width: rect.width,
+        height: 1.0,
+    }, color);
+}
+
+
 fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc<Texture2d>>, width:f32, height:f32, shapes:&mut Vec<Vertex>, images:&mut Vec<ImageRect>, text_scale:f32, display:&Display) {
     match bx {
         RenderBox::Block(rbx) => {
@@ -182,6 +192,11 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
+                                match text.text_decoration_line.as_str() {
+                                    "line-through" => make_line(shapes,&text.rect,-text.font_size*0.5,&color),
+                                    "underline" => make_line(shapes,&text.rect,-text.font_size*0.1,&color),
+                                    _ => {}
+                                }
                                 // make_box(shapes, &text.rect, &Color::from_hex("#ff00ff"));
                             }
                         }

@@ -230,6 +230,7 @@ pub struct RenderTextBox {
     pub font_weight:i32,
     pub font_style:String,
     pub valign:String,
+    pub text_decoration_line:String,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -668,6 +669,7 @@ impl LayoutBox {
                     font_weight,
                     font_style:font_style.clone(),
                     valign:valign.clone(),
+                    text_decoration_line: looper.style_node.lookup_text_decoration_line(),
                 });
                 looper.add_box_to_current_line(bx);
                 looper.current_bottom += looper.current.rect.height;
@@ -718,6 +720,7 @@ impl LayoutBox {
                     link: link.clone(),
                     font_weight,
                     valign: vertical_align.clone(),
+                    text_decoration_line: looper.style_node.lookup_text_decoration_line(),
                 });
                 looper.add_box_to_current_line(bx);
                 //make new current text with the current word
@@ -749,6 +752,7 @@ impl LayoutBox {
             font_weight,
             font_style,
             valign: vertical_align.clone(),
+            text_decoration_line: looper.style_node.lookup_text_decoration_line(),
         });
         // println!("added text box {:#?}",bx);
         looper.add_box_to_current_line(bx);
