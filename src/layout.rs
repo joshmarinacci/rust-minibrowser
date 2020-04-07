@@ -953,10 +953,11 @@ impl LayoutBox {
 
 fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> f32 {
     let scale = Scale::uniform(font_size  as f32);
-    fc.lookup_font(font_family,font_weight, font_style);
+    let font = fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
         scale,
+        font_id:*font,
         ..Section::default()
     };
     let glyph_bounds = fc.brush.glyph_bounds(sec);
@@ -967,10 +968,11 @@ fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_famil
 }
 fn calculate_text_bounds(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> Option<GBRect<f32>> {
     let scale = Scale::uniform(font_size  as f32);
-    fc.lookup_font(font_family,font_weight, font_style);
+    let font = fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
         scale,
+        font_id: *font,
         ..Section::default()
     };
     fc.brush.glyph_bounds(sec)
