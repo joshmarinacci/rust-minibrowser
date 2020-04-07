@@ -159,6 +159,7 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
         }
         RenderBox::Anonymous(bx) => {
             for lb in bx.children.iter() {
+                // make_box(shapes, &lb.rect, &Color::from_hex("#ff0000"));
                 for inline in lb.children.iter() {
                     match inline {
                         RenderInlineBoxType::Text(text) => {
@@ -171,7 +172,7 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                     scale,
                                     font_id:*font,
                                     screen_position: (text.rect.x* text_scale, text.rect.y* text_scale),
-                                    bounds: (text.rect.width* text_scale + 20.0, text.rect.height* text_scale),
+                                    bounds: (text.rect.width* text_scale, text.rect.height* text_scale),
                                     color: [
                                         (color.r as f32)/255.0,
                                         (color.g as f32)/255.0,
@@ -181,7 +182,7 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
-                                // make_box(shapes, &text.rect, &Color::from_hex("#ff0000"),scale_factor);
+                                // make_box(shapes, &text.rect, &Color::from_hex("#ff00ff"));
                             }
                         }
                         RenderInlineBoxType::Image(image) => {

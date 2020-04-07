@@ -39,13 +39,13 @@ pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
     None
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     pub node_type: NodeType,
     pub children: Vec<Node>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NodeType {
     Text(String),
     Comment(String),
@@ -54,13 +54,13 @@ pub enum NodeType {
     Meta(MetaData),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ElementData {
     pub tag_name: String,
     pub attributes: AttrMap,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct MetaData {
     pub attributes: AttrMap,
 }

@@ -1,7 +1,7 @@
 use crate::dom::{NodeType, Document, load_doc_from_bytestring};
-use crate::style::{StyledNode, Display, style_tree};
+use crate::style::{StyledNode, Display, dom_tree_to_stylednodes, expand_styles};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
-use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode};
+use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode, ListItemNode};
 use crate::css::Value::{Keyword, Length};
 use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
@@ -12,6 +12,7 @@ use std::mem;
 use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}};
 use glium_glyph::glyph_brush::GlyphCruncher;
 use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
+use std::rc::Rc;
 
 const FUDGE:f32 = 2.0;
 
@@ -81,23 +82,23 @@ pub struct EdgeSizes {
 }
 
 #[derive(Debug)]
-pub struct LayoutBox<'a> {
+pub struct LayoutBox {
     pub dimensions: Dimensions,
-    pub box_type: BoxType<'a>,
-    pub children: Vec<LayoutBox<'a>>,
+    pub box_type: BoxType,
+    pub children: Vec<LayoutBox>,
 }
 
 #[derive(Debug)]
-pub enum BoxType<'a> {
-    BlockNode(&'a StyledNode<'a>),
-    InlineNode(&'a StyledNode<'a>),
-    InlineBlockNode(&'a StyledNode<'a>),
-    AnonymousBlock(&'a StyledNode<'a>),
-    TableNode(&'a StyledNode<'a>),
-    TableRowGroupNode(&'a StyledNode<'a>),
-    TableRowNode(&'a StyledNode<'a>),
-    TableCellNode(&'a StyledNode<'a>),
-    ListItemNode(&'a StyledNode<'a>),
+pub enum BoxType {
+    BlockNode(Rc<StyledNode>),
+    InlineNode(Rc<StyledNode>),
+    InlineBlockNode(Rc<StyledNode>),
+    AnonymousBlock(Rc<StyledNode>),
+    TableNode(Rc<StyledNode>),
+    TableRowGroupNode(Rc<StyledNode>),
+    TableRowNode(Rc<StyledNode>),
+    TableCellNode(Rc<StyledNode>),
+    ListItemNode(Rc<StyledNode>),
 }
 
 #[derive(Debug)]
@@ -191,9 +192,9 @@ impl RenderAnonymousBox {
 
 #[derive(Debug)]
 pub struct RenderLineBox {
-    pub(crate) rect:Rect,
+    pub rect:Rect,
     pub children: Vec<RenderInlineBoxType>,
-    pub(crate) baseline:f32,
+    pub baseline:f32,
 }
 impl RenderLineBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -251,24 +252,24 @@ pub struct RenderErrorBox {
     pub valign:String,
 }
 
-pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> LayoutBox<'a> {
+pub fn build_layout_tree<'a>(style_node: &Rc<StyledNode>, doc:&Document) -> LayoutBox {
     let mut root = LayoutBox::new(match style_node.display() {
-        Display::Block => BlockNode(style_node),
-        Display::Inline => InlineNode(style_node),
-        Display::InlineBlock => InlineBlockNode(style_node),
-        Display::ListItem => BoxType::ListItemNode(style_node),
-        Display::Table => TableNode(style_node),
-        Display::TableRowGroup => TableRowGroupNode(style_node),
-        Display::TableRow => TableRowNode(style_node),
-        Display::TableCell => TableCellNode(style_node),
+        Display::Block => BlockNode(Rc::clone(style_node)),
+        Display::Inline => InlineNode(Rc::clone(style_node)),
+        Display::InlineBlock => InlineBlockNode(Rc::clone(style_node)),
+        Display::ListItem => BoxType::ListItemNode(Rc::clone(style_node)),
+        Display::Table => TableNode(Rc::clone(style_node)),
+        Display::TableRowGroup => TableRowGroupNode(Rc::clone(style_node)),
+        Display::TableRow => TableRowNode(Rc::clone(style_node)),
+        Display::TableCell => TableCellNode(Rc::clone(style_node)),
         Display::None => panic!("Root node has display none.")
     });
 
 
-    for child in &style_node.children {
+    for child in style_node.children.borrow().iter() {
         match child.display() {
-            Display::Block =>  root.children.push(build_layout_tree(&child, doc)),
-            Display::ListItem =>  root.children.push(build_layout_tree(&child, doc)),
+            Display::Block =>  root.children.push(build_layout_tree(child, doc)),
+            Display::ListItem =>  root.children.push(build_layout_tree(child, doc)),
             Display::Inline => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::InlineBlock => root.get_inline_container().children.push(build_layout_tree(&child, doc)),
             Display::Table => root.children.push(build_layout_tree(&child,doc)),
@@ -281,16 +282,16 @@ pub fn build_layout_tree<'a>(style_node: &'a StyledNode<'a>, doc:&Document) -> L
     root
 }
 
-impl<'a> LayoutBox<'a> {
-    fn new(box_type: BoxType<'a>) -> LayoutBox<'a> {
+impl LayoutBox {
+    fn new(box_type: BoxType) -> LayoutBox {
         LayoutBox {
             box_type,
             dimensions: Default::default(),
             children: Vec::new(),
         }
     }
-    fn get_style_node(&self) -> &'a StyledNode<'a> {
-        match self.box_type {
+    fn get_style_node(&self) -> &Rc<StyledNode> {
+        match &self.box_type {
             BlockNode(node)
             | TableNode(node)
             | TableRowGroupNode(node)
@@ -298,23 +299,36 @@ impl<'a> LayoutBox<'a> {
             | TableCellNode(node)
             | InlineNode(node)
             | InlineBlockNode(node)
-            | BoxType::ListItemNode(node)
-            | AnonymousBlock(node) => node
+            | ListItemNode(node)
+            | AnonymousBlock(node) => &node
         }
     }
 
-    fn get_inline_container(&mut self) -> &mut LayoutBox<'a> {
-        match self.box_type {
-            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) | TableCellNode(_)=> self,
+    fn get_inline_container(&mut self) -> &mut LayoutBox {
+        match &self.box_type {
+            InlineNode(_) | InlineBlockNode(_) | AnonymousBlock(_) => self,
             BlockNode(node)
-            | BoxType::ListItemNode(node)
+            | ListItemNode(node)
             | TableNode(node)
+            | TableCellNode(node)
             | TableRowGroupNode(node)
             | TableRowNode(node) => {
                 // if last child is anonymous block, keep using it
-                match self.children.last() {
-                    Some(&LayoutBox { box_type: AnonymousBlock(_node), ..}) => {},
-                    _ => self.children.push(LayoutBox::new(AnonymousBlock(node))),
+                let last = self.children.last();
+                let is_anon = match last {
+                    Some(ch) => {
+                        match ch.box_type {
+                            AnonymousBlock(_) => true,
+                            _ => {false}
+                        }
+                    },
+                    _ => {
+                        false
+                    }
+                };
+                if !is_anon {
+                    // make new anon block
+                    self.children.push(LayoutBox::new(AnonymousBlock(Rc::clone(node))))
                 }
                 self.children.last_mut().unwrap()
             }
@@ -322,20 +336,20 @@ impl<'a> LayoutBox<'a> {
     }
 
     pub fn layout(&mut self, containing: &mut Dimensions, font:&mut FontCache, doc:&Document) -> RenderBox {
-        match self.box_type {
+        match &self.box_type {
             BlockNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableNode(_node) =>         RenderBox::Block(self.layout_block(containing, font, doc)),
             TableRowGroupNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
             TableRowNode(_node) =>      RenderBox::Block(self.layout_table_row(containing, font, doc)),
-            TableCellNode(_node) =>     RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
+            TableCellNode(_node) =>     RenderBox::Block(self.layout_block(containing, font, doc)),
             InlineNode(_node) =>        RenderBox::Inline(),
             InlineBlockNode(_node) =>   RenderBox::InlineBlock(),
             AnonymousBlock(_node) =>    RenderBox::Anonymous(self.layout_anonymous_2(containing, font, doc)),
-            BoxType::ListItemNode(_node) => RenderBox::Block(self.layout_block(containing, font, doc)),
+            ListItemNode(_node) =>      RenderBox::Block(self.layout_block(containing, font, doc)),
         }
     }
     fn debug_calculate_element_name(&self) -> String{
-        match self.box_type {
+        match &self.box_type {
             BlockNode(sn)
             | TableNode(sn)
             | TableRowGroupNode(sn)
@@ -363,14 +377,14 @@ impl<'a> LayoutBox<'a> {
             padding: self.dimensions.padding,
             children,
             title: self.debug_calculate_element_name(),
-            background_color: self.get_style_node().color("background-color"),
+            background_color: style.color("background-color"),
             border_width: EdgeSizes {
-                top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-                bottom: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
-                left: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-                right: self.length_to_px(&style.lookup("border-width-bottom", "border-width", &zero)),
+                top: style.lookup_length_as_px("border-width-top", 0.0),
+                bottom: style.lookup_length_as_px("border-width-bottom",0.0),
+                left: style.lookup_length_as_px("border-width-top",0.0),
+                right: style.lookup_length_as_px("border-width-bottom",0.0),
             },
-            border_color: self.get_style_node().color("border-color"),
+            border_color: style.color("border-color"),
             valign: String::from("baseline"),
             marker: if style.lookup_string("display","block") == "list-item" {
                 match &*style.lookup_string("list-style-type", "none") {
@@ -381,7 +395,7 @@ impl<'a> LayoutBox<'a> {
                 ListMarker::None
             },
             color: Some(style.lookup_color("color", &BLACK)),
-            font_family: style.lookup_font_family_recursive(font_cache),
+            font_family: style.lookup_font_family(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
             font_size: style.lookup_font_size(),
@@ -429,7 +443,6 @@ impl<'a> LayoutBox<'a> {
                 }
             };
         };
-        let zero = Length(0.0, Px);
         let style = self.get_style_node();
         RenderBlockBox {
             title: self.debug_calculate_element_name(),
@@ -438,56 +451,25 @@ impl<'a> LayoutBox<'a> {
             padding: self.dimensions.padding,
             background_color: self.get_style_node().color("background-color"),
             border_width: EdgeSizes {
-                top: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
-                bottom: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
-                left: self.length_to_px(&style.lookup("border-top", "border-width", &zero)),
-                right: self.length_to_px(&style.lookup("border-bottom", "border-width", &zero)),
+                top: style.lookup_length_as_px("border-width-top", 0.0),
+                bottom: style.lookup_length_as_px("border-width-bottom",0.0),
+                left: style.lookup_length_as_px("border-width-top",0.0),
+                right: style.lookup_length_as_px("border-width-bottom",0.0),
             },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
             children: children,
             marker: ListMarker::None,
             color: Some(style.lookup_color("color", &BLACK)),
-            font_family: style.lookup_font_family_recursive(font_cache),
+            font_family: style.lookup_font_family(font_cache),
             font_weight : style.lookup_font_weight(400),
             font_style : style.lookup_string("font-style", "normal"),
             font_size: style.lookup_font_size(),
         }
     }
 
-    fn find_font_family(&self, looper:&mut Looper) -> String {
-        let font_family_values = looper.style_node.lookup(
-            "font-family",
-            "font-family",
-            &Value::Keyword(String::from("sans-serif")));
-        // println!("font family values: {:#?} {:#?}",font_family_values, looper.style_node);
-        match font_family_values {
-            Value::ArrayValue(vals ) => {
-                for val in vals.iter() {
-                    match val {
-                        Value::StringLiteral(str) => {
-                            if looper.font_cache.has_font_family(str) {
-                                return String::from(str);
-                            }
-                        }
-                        Value::Keyword(str) => {
-                            if looper.font_cache.has_font_family(str) {
-                                return String::from(str);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                println!("no valid font found in stack: {:#?}",vals);
-                String::from("sans-serif")
-            }
-            Value::Keyword(str) => str,
-            _ => String::from("sans-serif"),
-        }
-    }
-
     fn get_type(&self) -> String {
-        match self.box_type {
+        match &self.box_type {
             BoxType::AnonymousBlock(styled)
             | BoxType::ListItemNode(styled)
             | BoxType::BlockNode(styled)
@@ -526,12 +508,12 @@ impl<'a> LayoutBox<'a> {
             current_bottom: dim.content.y + dim.content.height,
             font_cache:font_cache,
             doc,
-            style_node:self.get_style_node(),
+            style_node:Rc::clone(self.get_style_node()),
         };
         for child in self.children.iter_mut() {
             // println!("working on child {:#?}", child.get_type());
             // println!("current start and end is {} {} ",looper.current_start, looper.current_end);
-            match child.box_type {
+            match &child.box_type {
                 InlineBlockNode(_styled) => child.do_inline_block(&mut looper),
                 InlineNode(_styled) => child.do_inline(&mut looper),
                 _ => println!("cant do this child of an anonymous box"),
@@ -562,7 +544,7 @@ impl<'a> LayoutBox<'a> {
         let mut image_size = Rect { x:0.0, y:0.0, width: 30.0, height:30.0};
         let mut src = String::from("");
         // let w = 100.0;
-        if let InlineBlockNode(styled) = self.box_type {
+        if let InlineBlockNode(styled) = &self.box_type {
             if let Element(data) = &styled.node.node_type {
                 match data.tag_name.as_str() {
                     "img" => {
@@ -588,12 +570,12 @@ impl<'a> LayoutBox<'a> {
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
                         println!("button font size is {}",font_size);
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
-                        let text_node = styled.children[0].node;
+                        let text_node = &styled.children.borrow()[0].node;
                         let text = match &text_node.node_type {
                             NodeType::Text(str) => str,
                             _ => panic!("can't do inline block layout if child isn't text"),
                         };
-                        let w: f32 = calculate_word_length(text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
+                        let w: f32 = calculate_word_length(&text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
                         println!("calculated width is {}",w);
                         looper.current_end += w;
                         let mut containing_block = Dimensions {
@@ -607,12 +589,12 @@ impl<'a> LayoutBox<'a> {
                             border: Default::default(),
                             margin: Default::default()
                         };
-                        let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
-                        block.rect.x = looper.current_start;
-                        block.rect.y = looper.current.rect.y;
-                        block.valign = self.get_style_node().lookup_string("vertical-align","baseline");
-                        let rbx = RenderInlineBoxType::Block(block);
-                        looper.add_box_to_current_line(rbx);
+                        // let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
+                        // block.rect.x = looper.current_start;
+                        // block.rect.y = looper.current.rect.y;
+                        // block.valign = self.get_style_node().lookup_string("vertical-align","baseline");
+                        // let rbx = RenderInlineBoxType::Block(block);
+                        // looper.add_box_to_current_line(rbx);
                         return;
                     },
                     _ => {
@@ -659,11 +641,12 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_pre_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
+    fn do_pre_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         let color = looper.style_node.lookup_color("color", &BLACK);
         let font_size = looper.style_node.lookup_font_size();
         // println!("font size is {:#?} ",font_size, color);
-        let font_family = self.find_font_family(looper);
+        let font_family = looper.style_node.lookup_font_family(looper.font_cache);
+
         let font_weight = looper.style_node.lookup_font_weight(400);
         let font_style = looper.style_node.lookup_string("font-style", "normal");
         let valign = looper.style_node.lookup_string("vertical-align", "baseline");
@@ -695,9 +678,9 @@ impl<'a> LayoutBox<'a> {
         }
     }
 
-    fn do_normal_inline_layout(&self, looper:&mut Looper<'a>, txt:&str, link:&Option<String>) {
+    fn do_normal_inline_layout(&self, looper:&mut Looper, txt:&str, link:&Option<String>) {
         // println!("processing text '{}'", txt);
-        let font_family = self.find_font_family(looper);
+        let font_family = looper.style_node.lookup_font_family(looper.font_cache);
         // println!("using font family {}", font_family);
         let font_weight = looper.style_node.lookup_font_weight(400);
         let font_size = looper.style_node.lookup_font_size();
@@ -706,17 +689,18 @@ impl<'a> LayoutBox<'a> {
         let line_height = font_size;
         // let line_height = looper.style_node.lookup_length_px("line-height", line_height);
         let color = looper.style_node.lookup_color("color", &BLACK);
-        // println!("text has fam={:#?} color={:#?} fs={} weight={} style={}",
-        //          font_family, color, font_size, font_weight, font_style );
+        // println!("text is family={:#?} size={} weight={} style={} line-height={}", font_family,  font_size, font_weight, font_style, line_height);
         // println!("styles={:#?}",looper.style_node);
         // println!("parent={:#?}", parent.get_style_node());
+        // println!("looper is {} {} {}",looper.current_start, looper.current_end, looper.current_start);
         let mut curr_text = String::new();
         for word in txt.split_whitespace() {
             let mut word2 = String::from(" ");
             word2.push_str(word);
             let w: f32 = calculate_word_length(word2.as_str(), looper.font_cache, font_size, &font_family, font_weight, &font_style);
             //if it's too long then we need to wrap
-            if looper.current_end + w > looper.extents.width {
+            // println!("end = {} w = {} extents.width = {}", looper.current_end, w, looper.extents.x + looper.extents.width);
+            if looper.current_end + w > looper.extents.x + looper.extents.width {
                 //add current text to the current line
                 // println!("wrapping: {} cb = {}", curr_text, looper.current_bottom);
                 let bx = RenderInlineBoxType::Text(RenderTextBox{
@@ -766,10 +750,11 @@ impl<'a> LayoutBox<'a> {
             font_style,
             valign: vertical_align.clone(),
         });
+        // println!("added text box {:#?}",bx);
         looper.add_box_to_current_line(bx);
     }
 
-    fn do_inline(&self, looper:&mut Looper<'a>) {
+    fn do_inline(&self, looper:&mut Looper) {
         // println!("doing inline {:#?}", &self.debug_calculate_element_name());
         let link:Option<String> = match &looper.style_node.node.node_type {
             Text(_) => None,
@@ -784,7 +769,7 @@ impl<'a> LayoutBox<'a> {
             },
             NodeType::Meta(_) => None,
         };
-        if let BoxType::InlineNode(snode) = self.box_type {
+        if let BoxType::InlineNode(snode) = &self.box_type {
             match &snode.node.node_type {
                  NodeType::Text(txt) => {
                      let whitespace = looper.style_node.lookup_keyword("white-space", &Keyword(String::from("normal")));
@@ -804,8 +789,8 @@ impl<'a> LayoutBox<'a> {
                 //     if child is element
                 NodeType::Element(_ed) => {
                     // println!("recursing");
-                    let old = looper.style_node;
-                    looper.style_node = snode;
+                    let old = Rc::clone(&looper.style_node);
+                    looper.style_node = Rc::clone(snode);
                     for ch in self.children.iter() {
                         ch.do_inline(looper);
                     }
@@ -910,7 +895,7 @@ impl<'a> LayoutBox<'a> {
         match value {
             Length(v, Unit::Px) => *v,
             Length(v, Unit::Em) => (*v)*font_size,
-            Length(v, Unit::Rem) => (*v)*font_size,
+            Length(v, Unit::Rem) => (*v)*font_size, // TODO: use real document font size
             Length(_v, Unit::Per) => {
                 println!("WARNING: percentage in length_to_px. should have be converted to pixels already");
                 0.0
@@ -923,18 +908,19 @@ impl<'a> LayoutBox<'a> {
         let style = self.get_style_node();
         //println!("caculating block position {:#?} border {:#?}",style, style.lookup("border-width-top","border-width",&zero));
         let margin = EdgeSizes {
-            top: self.length_to_px(&style.lookup("margin-top", "margin", &zero)),
-            bottom: self.length_to_px(&style.lookup("margin-bottom","margin",&zero)),
+            top: style.lookup_length_as_px("margin-top",0.0),
+            bottom: style.lookup_length_as_px("margin-bottom",0.0),
             ..(self.dimensions.margin)
         };
+
         let border = EdgeSizes {
-            top: self.length_to_px(&style.lookup("border-width-top", "border-width", &zero)),
-            bottom: self.length_to_px(&style.lookup("border-width-bottom","border-width",&zero)),
+            top: style.lookup_length_as_px("border-width-top",0.0),
+            bottom: style.lookup_length_as_px("border-width-bottom",0.0),
             ..(self.dimensions.border)
         };
         let padding = EdgeSizes {
-            top: self.length_to_px(&style.lookup("padding-top", "padding", &zero)),
-            bottom: self.length_to_px(&style.lookup("padding-bottom","padding",&zero)),
+            top: style.lookup_length_as_px("padding-top",0.0),
+            bottom: style.lookup_length_as_px("padding-bottom",0.0),
             ..(self.dimensions.padding)
         };
 
@@ -967,10 +953,11 @@ impl<'a> LayoutBox<'a> {
 
 fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> f32 {
     let scale = Scale::uniform(font_size  as f32);
-    fc.lookup_font(font_family,font_weight, font_style);
+    let font = fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
         scale,
+        font_id:*font,
         ..Section::default()
     };
     let glyph_bounds = fc.brush.glyph_bounds(sec);
@@ -981,10 +968,11 @@ fn calculate_word_length(text:&str, fc:&mut FontCache, font_size:f32, font_famil
 }
 fn calculate_text_bounds(text:&str, fc:&mut FontCache, font_size:f32, font_family:&str, font_weight:i32, font_style:&str) -> Option<GBRect<f32>> {
     let scale = Scale::uniform(font_size  as f32);
-    fc.lookup_font(font_family,font_weight, font_style);
+    let font = fc.lookup_font(font_family,font_weight, font_style);
     let sec = Section {
         text,
         scale,
+        font_id: *font,
         ..Section::default()
     };
     fc.brush.glyph_bounds(sec)
@@ -999,7 +987,7 @@ struct Looper<'a> {
     current_bottom:f32,
     font_cache:&'a mut FontCache,
     doc: &'a Document,
-    style_node: &'a StyledNode<'a>,
+    style_node: Rc<StyledNode>,
 }
 
 impl Looper<'_> {
@@ -1042,13 +1030,13 @@ impl Looper<'_> {
                     rect.y = self.current.rect.y + self.current.rect.height - rect.height;
                 },
                 "sub" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 + 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height + 10.0;
                 },
                 "baseline" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height;
                 },
                 "super" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 - 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0;
                 },
                 "middle" => {
                     rect.y = self.current.rect.y + (self.current.rect.height - rect.height)/2.0;
@@ -1063,141 +1051,9 @@ impl Looper<'_> {
 
 }
 
-/*
-#[test]
-fn test_layout<'a>() {
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());
-
-    let doc = load_doc_from_net(&relative_filepath_to_url("tests/nested.html").unwrap()).unwrap();
-    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
-    font_cache.scan_for_fontface_rules(&stylesheet);
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    println!(" ======== build layout boxes ========");
-    let mut root_box = build_layout_tree(&snode, &doc);
-    let mut containing_block = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 200.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    // println!("roob box is {:#?}",root_box);
-    println!(" ======== layout phase ========");
-    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
-    // println!("final render box is {:#?}", render_box);
-}
-*/
 fn sum<I>(iter: I) -> f32 where I: Iterator<Item=f32> {
     iter.fold(0., |a, b| a + b)
 }
-/*
-#[test]
-fn test_inline_block_element_layout() {
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
-
-    let doc = load_doc_from_bytestring(b"<html><body><div><button>foofoo</button></div></body></html>");
-    let ss_url = relative_filepath_to_url("tests/default.css").unwrap();
-    let mut stylesheet = load_stylesheet_from_net(&ss_url).unwrap();
-    font_cache.scan_for_fontface_rules(&stylesheet);
-    let snode = style_tree(&doc.root_node,&stylesheet);
-    let mut root_box = build_layout_tree(&snode, &doc);
-    let mut containing_block = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 200.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    // println!("roob box is {:#?}",root_box);
-    println!(" ======== layout phase ========");
-    let _render_box = root_box.layout(&mut containing_block, &mut font_cache, &doc);
-}
-*/
-/*
-fn standard_init<'a,R:Resources,F:Factory<R>>(html:&[u8], css:&[u8]) -> (FontCache, Document, Stylesheet){
-    let mut font_cache = FontCache::new();
-    font_cache.install_font("sans-serif",400.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Regular.ttf").unwrap());
-    font_cache.install_font("sans-serif", 700.0, "normal",
-                            &relative_filepath_to_url("tests/fonts/Open_Sans/OpenSans-Bold.ttf").unwrap());{}
-    let mut doc = load_doc_from_bytestring(html);
-    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
-    let styled = style_tree(&doc.root_node,&stylesheet);
-    let mut root_box = build_layout_tree(&styled, &doc);
-    let mut cb = Dimensions {
-        content: Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 500.0,
-            height: 0.0,
-        },
-        padding: Default::default(),
-        border: Default::default(),
-        margin: Default::default()
-    };
-    let render_box = root_box.layout(&mut cb, &mut font_cache, &doc);
-    // println!("the final render box is {:#?}",render_box);
-    return (font_cache,doc, stylesheet);
-}
-*/
-/*
-#[test]
-fn test_table_layout() {
-    let render_box = standard_init(
-        br#"<table>
-            <tbody>
-                <tr>
-                    <td>data 1</td>
-                    <td>data 2</td>
-                    <td>data 3</td>
-                </tr>
-                <tr>
-                    <td>data 4</td>
-                    <td>data 5</td>
-                    <td>data 6</td>
-                </tr>
-                <tr>
-                    <td>data 7</td>
-                    <td>data 8</td>
-                    <td>data 9</td>
-                </tr>
-            </tbody>
-        </table>"#,
-        br#"
-        table {
-            display: table;
-        }
-        tbody {
-            display: table-row-group;
-        }
-        tr {
-            display: table-row;
-        }
-        td {
-            display: table-cell;
-        }
-        "#
-    );
-    println!("it all ran! {:#?}",render_box);
-}
-*/
 
 pub enum Brush {
     Style1(glium_glyph::GlyphBrush<'static, 'static>),
@@ -1234,8 +1090,9 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
     let doc = load_doc_from_bytestring(html);
-    let stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
-    let styled = style_tree(&doc.root_node,&stylesheet);
+    let mut stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
+    expand_styles(&mut stylesheet);
+    let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
     // println!("styled nodes {:#?}",styled);
     let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
         glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
@@ -1250,7 +1107,7 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
         border: Default::default(),
         margin: Default::default()
     };
-    let mut root_box = build_layout_tree(&styled, &doc);
+    let mut root_box = build_layout_tree(&styled.root.borrow(), &doc);
     let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
         families: Default::default(),
@@ -1393,5 +1250,43 @@ fn test_margin_percentage() {
         assert_eq!(rbx.rect.width,500.0);
         assert_eq!(rbx.font_size,20.0);
     }
+}
 
+#[test]
+fn test_text_position() {
+    let render_box = standard_init(
+        br#"<body><h5>line 1</h5><h5>line 2</h5></body>"#,
+        br#"body { display:block; padding:0; margin:0; font-size: 10px; }
+        h5 { display:block; margin:0; padding:0; border: 0px solid black; font-size: 70%; }
+        "#,
+    ).unwrap();
+    println!("body render is {:#?}",render_box);
+    if let RenderBox::Block(rbx) = render_box {
+        assert_eq!(rbx.rect.y,0.0);
+        assert_eq!(rbx.rect.height,14.0);
+        if let RenderBox::Block(rbx) = &rbx.children[1] {
+            assert_eq!(rbx.rect.y,7.0);
+            assert_eq!(rbx.rect.height,7.0);
+            if let RenderBox::Anonymous(rbx) = &rbx.children[0] {
+                assert_eq!(rbx.rect.y,7.0);
+                assert_eq!(rbx.rect.height,7.0);
+                let lbx = &rbx.children[0];
+                assert_eq!(lbx.rect.y,7.0);
+                assert_eq!(lbx.rect.height,7.0);
+                if let RenderInlineBoxType::Text(txt) = &lbx.children[0] {
+                    println!("text child is {:#?}",txt);
+                    assert_eq!(txt.rect.y,7.0);
+                    assert_eq!(txt.rect.height,7.0);
+                } else {
+                    panic!("invalid");
+                }
+            } else {
+                panic!("invalid");
+            }
+        } else {
+            panic!("invalid");
+        }
+    } else {
+        panic!("invalid");
+    }
 }
