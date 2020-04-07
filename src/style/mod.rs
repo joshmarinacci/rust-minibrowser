@@ -471,7 +471,7 @@ pub fn expand_styles(ss:&mut Stylesheet) {
 }
 
 fn expand_border_shorthand(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
-    println!("expanding border shorthand: {:#?}",dec);
+    // println!("expanding border shorthand: {:#?}",dec);
     match &dec.value {
         Value::ArrayValue(vec) => {
             if vec.len() != 3 {

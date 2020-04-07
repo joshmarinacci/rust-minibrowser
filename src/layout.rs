@@ -192,9 +192,9 @@ impl RenderAnonymousBox {
 
 #[derive(Debug)]
 pub struct RenderLineBox {
-    pub(crate) rect:Rect,
+    pub rect:Rect,
     pub children: Vec<RenderInlineBoxType>,
-    pub(crate) baseline:f32,
+    pub baseline:f32,
 }
 impl RenderLineBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -1026,13 +1026,13 @@ impl Looper<'_> {
                     rect.y = self.current.rect.y + self.current.rect.height - rect.height;
                 },
                 "sub" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 + 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height + 10.0;
                 },
                 "baseline" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height;
                 },
                 "super" => {
-                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0 - 10.0;
+                    rect.y = self.current.rect.y + self.current.rect.height - rect.height - 10.0;
                 },
                 "middle" => {
                     rect.y = self.current.rect.y + (self.current.rect.height - rect.height)/2.0;
@@ -1378,5 +1378,43 @@ fn test_margin_percentage() {
         assert_eq!(rbx.rect.width,500.0);
         assert_eq!(rbx.font_size,20.0);
     }
+}
 
+#[test]
+fn test_text_position() {
+    let render_box = standard_init(
+        br#"<body><h5>line 1</h5><h5>line 2</h5></body>"#,
+        br#"body { display:block; padding:0; margin:0; font-size: 10px; }
+        h5 { display:block; margin:0; padding:0; border: 0px solid black; font-size: 70%; }
+        "#,
+    ).unwrap();
+    println!("body render is {:#?}",render_box);
+    if let RenderBox::Block(rbx) = render_box {
+        assert_eq!(rbx.rect.y,0.0);
+        assert_eq!(rbx.rect.height,14.0);
+        if let RenderBox::Block(rbx) = &rbx.children[1] {
+            assert_eq!(rbx.rect.y,7.0);
+            assert_eq!(rbx.rect.height,7.0);
+            if let RenderBox::Anonymous(rbx) = &rbx.children[0] {
+                assert_eq!(rbx.rect.y,7.0);
+                assert_eq!(rbx.rect.height,7.0);
+                let lbx = &rbx.children[0];
+                assert_eq!(lbx.rect.y,7.0);
+                assert_eq!(lbx.rect.height,7.0);
+                if let RenderInlineBoxType::Text(txt) = &lbx.children[0] {
+                    println!("text child is {:#?}",txt);
+                    assert_eq!(txt.rect.y,7.0);
+                    assert_eq!(txt.rect.height,7.0);
+                } else {
+                    panic!("invalid");
+                }
+            } else {
+                panic!("invalid");
+            }
+        } else {
+            panic!("invalid");
+        }
+    } else {
+        panic!("invalid");
+    }
 }
