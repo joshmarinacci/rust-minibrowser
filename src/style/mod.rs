@@ -136,28 +136,6 @@ impl StyledNode {
             _ => default.clone(),
         }
     }
-    pub fn lookup_font_size(&self) -> f32 {
-        match self.value("font-size") {
-            Some(Value::Number(px)) => px,
-            Some(Value::Length(v,Unit::Px)) => v,
-            Some(Value::Length(v, Unit::Rem)) => {
-                println!("rem requires looking up the parent node");
-                return v*18.0;
-            }
-            Some(Value::Length(v, Unit::Em)) => {
-                println!("em requires looking up the parent node");
-                return v*18.0;
-            }
-            Some(Value::Length(v, Unit::Per)) => {
-                println!("em requires looking up the parent node");
-                return v/100.0*18.0;
-            }
-            _ => {
-                panic!("unsupported font size {:#?}", self.value("font-size"));
-                return 18.0;
-            }
-        }
-    }
     pub fn lookup_font_weight(&self, default:i32) -> i32{
         match self.lookup("font-weight", "font-weight",&Keyword(String::from("normal"))) {
             Keyword(str) => match str.as_str() {
