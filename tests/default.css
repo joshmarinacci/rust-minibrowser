@@ -173,3 +173,7 @@ td, th {
     padding: 5px;
 }
 
+caption {
+    text-align: center;
+}
+
