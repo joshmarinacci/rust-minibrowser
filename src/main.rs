@@ -199,6 +199,9 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                 }
                                 // make_box(shapes, &text.rect, &Color::from_hex("#ff00ff"));
                             }
+                            if text.background_color.is_some() {
+                                make_box(shapes, &text.rect, text.background_color.as_ref().unwrap());
+                            }
                         }
                         RenderInlineBoxType::Image(image) => {
                             if !img.contains_key(&*image.image.path) {
