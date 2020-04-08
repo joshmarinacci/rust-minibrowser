@@ -358,7 +358,11 @@ fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&N
     if dec.value == Keyword(String::from("inherit")) {
         for (_node, props) in ancestors.iter() {
             if props.contains_key(&*dec.name) {
-                return props.get(&*dec.name).unwrap().clone();
+                let newval = props.get(&*dec.name).unwrap();
+                if newval == &Keyword(String::from("inherit")) {
+                    continue;
+                }
+                return newval.clone();
             }
         }
     }

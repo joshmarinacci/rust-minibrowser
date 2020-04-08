@@ -29,6 +29,7 @@ pub fn install_standard_fonts(font_cache:&mut FontCache) -> Result<(),BrowserErr
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
     let open_sans_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Italic.ttf");
+    let open_sans_bold_italic:&[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-BoldItalic.ttf");
     let monospace:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Regular.ttf");
     let monospace_bold:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Bold.ttf");
     font_cache.install_font(Font::from_bytes(open_sans_light)?,
@@ -37,6 +38,8 @@ pub fn install_standard_fonts(font_cache:&mut FontCache) -> Result<(),BrowserErr
                             "sans-serif",400, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_bold)?,
                             "sans-serif",700, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_bold_italic)?,
+                            "sans-serif",700, "italic");
     font_cache.install_font(Font::from_bytes(open_sans_italic)?,
                             "sans-serif",400,"italic");
     font_cache.install_font(Font::from_bytes(monospace)?,
