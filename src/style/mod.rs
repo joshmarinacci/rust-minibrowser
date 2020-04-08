@@ -4,13 +4,13 @@ use std::collections::HashMap;
 use crate::css::Selector::{Simple, Ancestor};
 use crate::dom::NodeType::{Element, Text, Meta};
 use crate::css::Value::{Keyword, ColorValue, Length, HexColor,};
-use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, load_stylesheets_with_fallback};
+use crate::net::{load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, StylesheetSet, load_stylesheets_new};
 use std::fs::File;
 use std::io::BufReader;
 use crate::render::FontCache;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use std::borrow::Borrow;
+use crate::layout::{Brush, standard_test_run, standard_test_run_no_default};
 
 type PropertyMap = HashMap<String, Value>;
 
@@ -368,7 +368,8 @@ fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&N
     dec.value.clone()
 }
 
-pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyledTree {
+pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, stylesheet_set: &'a StylesheetSet) -> StyledTree {
+    let stylesheet = &stylesheet_set.stylesheets.last().unwrap();
     let tree = StyledTree::new();
     let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
     tree.set_root(real_style_tree(&tree, root, stylesheet, &mut ansc));
@@ -568,10 +569,7 @@ fn test_inherited_match() {
             color: blue;
         }
     "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     //println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
@@ -589,12 +587,6 @@ fn test_inherited_match() {
                &Keyword(String::from("blue")));
     assert_eq!(snode.children.borrow()[0].children.borrow()[1].specified_values.get("font-weight").unwrap(),
                &Keyword(String::from("bold")));
-
-    // check html b text element
-    // assert_eq!(snode.children.borrow()[0].children[0].specified_values.get("color").unwrap(),
-    //            &Keyword(String::from("black")));
-    // println!("done")
-
 }
 
 #[test]
@@ -613,15 +605,12 @@ fn test_em_to_px() {
             margin: 1em;
         }
     "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc,sss,stree,lbox, rbox) = standard_test_run_no_default(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
-    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+    println!("doc={:#?}  snode={:#?}",doc,snode);
 
     //check html element
-    assert_eq!(snode.specified_values.get("margin").unwrap(), &Length(1.0,Unit::Em));
+    assert_eq!(snode.specified_values.get("margin-left").unwrap(), &Length(1.0,Unit::Em));
 }
 
 #[test]
@@ -634,25 +623,12 @@ fn test_vertical_align() {
     </style>
     <div class="top">top</div>
     </html>"#;
-    let mut doc = load_doc_from_bytestring(doc_text);
-    strip_empty_nodes(&mut doc);
-    let stylesheet = load_stylesheets_with_fallback(&doc).unwrap();
-    let stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    // println!("doc={:#?} stylesheet={:#?} snode={:#?}",doc,stylesheet,snode);
+    let (doc,sss,stree,lbox, rbox) = standard_test_run_no_default(doc_text, br"").unwrap();
     let root = &stree.root.borrow();
     let div = &root.children.borrow()[1];
-    let text = &div.children.borrow()[0];
-    println!("specified values are {:#?}",text.value("color"));
     assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
 }
 
-#[test]
-fn test_style_tree() {
-    let doc = load_doc_from_net(&relative_filepath_to_url("tests/test1.html").unwrap()).unwrap();
-    let stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/foo.css").unwrap()).unwrap();
-    let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    println!("final snode is {:#?}",snode)
-}
 
 #[test]
 fn test_multi_selector_match() {
@@ -669,10 +645,7 @@ fn test_multi_selector_match() {
             color:red;
         }
     "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
@@ -702,10 +675,7 @@ fn test_ancestor_match() {
             color:red;
         }
     "#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    // let snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
 
@@ -732,11 +702,7 @@ fn test_property_expansion_1() {
         }
     "#;
 
-    let doc = load_doc_from_bytestring(doc_text);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    expand_styles(&mut stylesheet);
-    // let mut snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("stylesheet is {:#?}",stylesheet);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
@@ -758,11 +724,7 @@ fn test_property_expansion_2() {
         }
     "#;
 
-    let doc = load_doc_from_bytestring(doc_text);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    expand_styles(&mut stylesheet);
-    // let mut snode = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
@@ -780,10 +742,7 @@ fn test_property_expansion_4() {
         }
     "#;
 
-    let doc = load_doc_from_bytestring(doc_text);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    expand_styles(&mut stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
     assert_eq!(snode.lookup_length_px("margin-top",5.0),1.0);
@@ -801,12 +760,9 @@ fn test_border_shorthand() {
         }
     "#;
 
-    let doc = load_doc_from_bytestring(doc_text);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    expand_styles(&mut stylesheet);
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
-    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,snode);
+    println!("doc is {:#?} {:#?} {:#?}", doc, stylesheet, snode);
     assert_eq!(snode.lookup_length_px("border-width-top",5.0),1.0);
     assert_eq!(snode.lookup_length_px("border-width-right",5.0),1.0);
     assert_eq!(snode.lookup_length_px("border-width-bottom",5.0),1.0);
@@ -818,10 +774,8 @@ fn test_border_shorthand() {
 fn test_relative_font_sizes() {
     let doc_text = br#"<body><p>stuff</p></body>"#;
     let css_text = br#"body { font-size: 10px; } p { font-size: 200%; }"#;
-    let doc = load_doc_from_bytestring(doc_text);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css_text).unwrap();
-    let mut stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
-    println!("doc is {:#?} {:#?} {:#?}",doc,stylesheet,stree);
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
+    println!("doc is {:#?} {:#?} {:#?}", doc, stylesheet, stree);
     let style_root = stree.root.borrow();
     assert_eq!(style_root.lookup_font_size(), 10.0);
     let style_child = &style_root.children.borrow()[0];

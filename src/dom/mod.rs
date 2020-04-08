@@ -24,19 +24,19 @@ pub struct Document {
 }
 
 #[allow(non_snake_case)]
-pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Option<&'a Node> {
+pub fn getElementsByTagName<'a>(node:&'a Node, name:&str) -> Vec<&'a Node> {
     if let NodeType::Element(data) = &node.node_type {
         if data.tag_name == name {
-            return Some(node);
+            return vec![node];
         }
     }
 
     for child in node.children.iter() {
         let res = getElementsByTagName(&child, name);
-        if res.is_some() { return res }
+        if !res.is_empty() { return res }
     }
 
-    None
+    vec![]
 }
 
 #[derive(Debug, PartialEq, Clone)]

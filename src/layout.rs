@@ -1,5 +1,5 @@
-use crate::dom::{NodeType, Document, load_doc_from_bytestring};
-use crate::style::{StyledNode, Display, dom_tree_to_stylednodes, expand_styles};
+use crate::dom::{NodeType, Document, load_doc_from_bytestring, strip_empty_nodes};
+use crate::style::{StyledNode, Display, dom_tree_to_stylednodes, expand_styles, StyledTree};
 use crate::css::{Color, Unit, Value, parse_stylesheet_from_bytestring, Stylesheet};
 use crate::layout::BoxType::{BlockNode, InlineNode, AnonymousBlock, InlineBlockNode, TableNode, TableRowGroupNode, TableRowNode, TableCellNode, ListItemNode};
 use crate::css::Value::{Keyword, Length};
@@ -7,7 +7,7 @@ use crate::css::Unit::Px;
 use crate::render::{BLACK, FontCache};
 use crate::image::{LoadedImage};
 use crate::dom::NodeType::{Text, Element};
-use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, BrowserError};
+use crate::net::{load_image, load_stylesheet_from_net, relative_filepath_to_url, load_doc_from_net, BrowserError, StylesheetSet, load_stylesheets_new};
 use std::mem;
 use glium_glyph::glyph_brush::{Section, rusttype::{Scale, Font}};
 use glium_glyph::glyph_brush::GlyphCruncher;
@@ -1113,18 +1113,25 @@ impl Brush {
     }
 }
 
-fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
-
+pub fn standard_test_run_no_default(html:&[u8], css:&[u8]) -> Result<(Document, StylesheetSet, StyledTree, LayoutBox, RenderBox),BrowserError> {
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
-    let doc = load_doc_from_bytestring(html);
-    let mut stylesheet = parse_stylesheet_from_bytestring(css).unwrap();
-    expand_styles(&mut stylesheet);
-    let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
+
+    let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> = glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
+    let mut font_cache = FontCache {
+        brush: Brush::Style2(glyph_brush),
+        families: Default::default(),
+        fonts: Default::default()
+    };
+
+    let mut doc = load_doc_from_bytestring(html);
+    strip_empty_nodes(&mut doc);
+    let mut stylesheets = StylesheetSet::new();
+    // let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
+    stylesheets.append_from_bytestring(&mut font_cache, css);
+    let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
     // println!("styled nodes {:#?}",styled);
-    let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> =
-        glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut viewport = Dimensions {
         content: Rect {
             x: 0.0,
@@ -1137,26 +1144,59 @@ fn standard_init(html:&[u8],css:&[u8]) -> Result<RenderBox,BrowserError> {
         margin: Default::default()
     };
     let mut root_box = build_layout_tree(&styled.root.borrow(), &doc);
+    font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400, "normal");
+    font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700, "normal");
+    let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
+    Ok((doc,stylesheets,styled,root_box,render_box))
+}
+
+pub fn standard_test_run(html:&[u8], css:&[u8]) -> Result<(Document, StylesheetSet, StyledTree, LayoutBox, RenderBox),BrowserError> {
+
+    let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
+    let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
+    let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+
+    let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> = glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut font_cache = FontCache {
         brush: Brush::Style2(glyph_brush),
         families: Default::default(),
         fonts: Default::default()
     };
+
+    let mut doc = load_doc_from_bytestring(html);
+    strip_empty_nodes(&mut doc);
+    let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
+    stylesheets.append_from_bytestring(&mut font_cache, css);
+    let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
+    // println!("styled nodes {:#?}",styled);
+    let mut viewport = Dimensions {
+        content: Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 500.0,
+            height: 0.0,
+        },
+        padding: Default::default(),
+        border: Default::default(),
+        margin: Default::default()
+    };
+    let mut root_box = build_layout_tree(&styled.root.borrow(), &doc);
     font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700, "normal");
     let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
-    Ok(render_box)
+    Ok((doc,stylesheets,styled,root_box,render_box))
 }
 
 #[test]
 fn test_insets() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<body></body>"#,
         br#"body { display:block; margin: 50px; padding: 50px; border-width: 50px; } "#
     ).unwrap();
-    println!("it all ran! {:#?}",render_box);
-    match render_box {
+    println!("it all ran! {:#?}",rbox);
+    match rbox {
         RenderBox::Block(bx) => {
             assert_eq!(bx.margin.left,50.0);
             assert_eq!(bx.padding.left,50.0);
@@ -1172,38 +1212,24 @@ fn test_insets() {
 
 #[test]
 fn test_font_weight() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<body>text</body>"#,
         br#"body { display:block; font-weight: bold; } "#
     ).unwrap();
-    println!("it all ran! {:#?}",render_box);
+    println!("it all ran! {:#?}",rbox);
 }
 
 #[test]
 fn test_blue_text() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<body><a>link</a></body>"#,
         br#" a { color: blue; } body { display: block; color: red; }"#
     ).unwrap();
-    println!("it all ran! {:#?}",render_box);
-/*
-    match render_box {
-        RenderBox::Block(bx) => {
-            // bx.children[0].children
-            assert_eq!(bx.margin.left,50.0);
-            assert_eq!(bx.padding.left,50.0);
-            assert_eq!(bx.border_width.left,50.0);
-        }
-        _ => {
-            panic!("this should have been a block box");
-        }
-    }
-    // assert_eq!(render_box.calculate_insets().left,100);
-*/
+    println!("it all ran! {:#?}",rbox);
 }
 #[test]
 fn test_pre_code_text() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<pre><code>for i in node.children().iter() {
     println!("this is some rust code");
 }
@@ -1218,12 +1244,12 @@ code {
     white-space: inherit;
 }"#,
     ).unwrap();
-    println!("pre code demo is {:#?}",render_box);
+    println!("pre code demo is {:#?}",rbox);
 }
 
 #[test]
 fn test_unordered_listitem() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<ul>
     <li>item one</li>
     <li>item two</li>
@@ -1240,13 +1266,13 @@ fn test_unordered_listitem() {
         }
 "#,
     ).unwrap();
-    println!("ul render is {:#?}",render_box);
+    println!("ul render is {:#?}", rbox);
 
 }
 
 #[test]
 fn test_margin_em() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<div>foo</div>"#,
         br#"div {
             display:block;
@@ -1254,8 +1280,8 @@ fn test_margin_em() {
             font-size: 20px;
         }"#,
     ).unwrap();
-    println!("ul render is {:#?}",render_box);
-    if let RenderBox::Block(rbx) = render_box {
+    println!("ul render is {:#?}", rbox);
+    if let RenderBox::Block(rbx) = rbox {
         assert_eq!(rbx.rect.x,50.0);
         assert_eq!(rbx.rect.width,450.0);
         assert_eq!(rbx.font_size,20.0);
@@ -1265,7 +1291,7 @@ fn test_margin_em() {
 
 #[test]
 fn test_margin_percentage() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(
         br#"<div>foo</div>"#,
         br#"div {
             display:block;
@@ -1273,17 +1299,17 @@ fn test_margin_percentage() {
             font-size: 20px;
         }"#,
     ).unwrap();
-    println!("ul render is {:#?}",render_box);
-    if let RenderBox::Block(rbx) = render_box {
-        assert_eq!(rbx.rect.x,250.0);
-        assert_eq!(rbx.rect.width,500.0);
-        assert_eq!(rbx.font_size,20.0);
+    println!("ul render is {:#?}", rbox);
+    if let RenderBox::Block(rbx) = rbox {
+        assert_eq!(rbx.rect.x, 250.0);
+        assert_eq!(rbx.rect.width, 500.0);
+        assert_eq!(rbx.font_size, 20.0);
     }
 }
 
 #[test]
 fn test_text_position() {
-    let render_box = standard_init(
+    let (doc,sss,stree,lbox, render_box) = standard_test_run(
         br#"<body><h5>line 1</h5><h5>line 2</h5></body>"#,
         br#"body { display:block; padding:0; margin:0; font-size: 10px; }
         h5 { display:block; margin:0; padding:0; border: 0px solid black; font-size: 70%; }
