@@ -58,6 +58,6 @@ The source is currently 6000 lines, which is mostly Rust (4180) code. About a qu
 * url: for parsing URLs
 * lazy_static: for lazy init of the list of css colors
 * cgmath for matrix math
-* glium for graphics
+* glium for opengl and making windows
 * glium-glyph for text rendering
 

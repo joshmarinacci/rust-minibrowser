@@ -230,6 +230,7 @@ pub struct RenderTextBox {
     pub font_weight:i32,
     pub font_style:String,
     pub valign:String,
+    pub text_decoration_line:String,
 }
 impl RenderTextBox {
     pub fn find_box_containing(&self, x: f32, y: f32) -> QueryResult {
@@ -607,12 +608,37 @@ impl LayoutBox {
         let bx = match load_image(looper.doc, &src) {
             Ok(image) => {
                 println!("Loaded the image {} {}", image.width, image.height);
+                let width_prop = self.get_style_node().lookup("width", "max-width", &Value::Keyword(String::from("auto")));
+                let mut width = image.width as f32;
+                //calculate width as a percentage
+                if let Value::Length(v,u) = width_prop {
+                    match u {
+                        Unit::Per => width = looper.extents.width * v/100.0,
+                        _ => { }
+                    }
+                }
+                let mut height = image.height as f32;
+                let height_prop = self.get_style_node().lookup("height","height",&Value::Keyword(String::from("auto")));
+                //calculate height as a percentage
+                if let Value::Length(v,u) = &height_prop {
+                    match u {
+                        Unit::Per => height = looper.extents.height * v/100.0,
+                        _ => {  }
+                    }
+                }
+                //calculate height from width to preserve aspect ratio
+                if let Value::Keyword(keyword) = &height_prop {
+                    match keyword.as_str() {
+                        "auto" => height = width * (image.height as f32) / (image.width as f32),
+                        _ => {}
+                    }
+                }
                 RenderInlineBoxType::Image(RenderImageBox {
                     rect: Rect {
                         x:looper.current_start,
                         y: looper.current.rect.y,
-                        width: image.width as f32,
-                        height: image.height as f32,
+                        width,
+                        height,
                     },
                     valign: self.get_style_node().lookup_string("vertical-align","baseline"),
                     image
@@ -668,6 +694,7 @@ impl LayoutBox {
                     font_weight,
                     font_style:font_style.clone(),
                     valign:valign.clone(),
+                    text_decoration_line: looper.style_node.lookup_text_decoration_line(),
                 });
                 looper.add_box_to_current_line(bx);
                 looper.current_bottom += looper.current.rect.height;
@@ -718,6 +745,7 @@ impl LayoutBox {
                     link: link.clone(),
                     font_weight,
                     valign: vertical_align.clone(),
+                    text_decoration_line: looper.style_node.lookup_text_decoration_line(),
                 });
                 looper.add_box_to_current_line(bx);
                 //make new current text with the current word
@@ -749,6 +777,7 @@ impl LayoutBox {
             font_weight,
             font_style,
             valign: vertical_align.clone(),
+            text_decoration_line: looper.style_node.lookup_text_decoration_line(),
         });
         // println!("added text box {:#?}",bx);
         looper.add_box_to_current_line(bx);
