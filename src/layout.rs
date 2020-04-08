@@ -522,6 +522,7 @@ impl LayoutBox {
             // println!("and now after it is {} {}", looper.current_start, looper.current_end)
         }
         looper.adjust_current_line_vertical();
+        looper.adjust_current_line_horizontal();
         let old = looper.current;
         looper.current_bottom += old.rect.height;
         looper.extents.height += old.rect.height;
@@ -569,7 +570,7 @@ impl LayoutBox {
                         let font_weight = self.get_style_node().lookup_font_weight(400);
                         let font_size = self.get_style_node().lookup_font_size();
                         let font_style = self.get_style_node().lookup_string("font-style", "normal");
-                        println!("button font size is {}",font_size);
+                        // println!("button font size is {}",font_size);
                         // let font = looper.font_cache.get_font(&font_family, font_weight, &font_style);
                         let text_node = &styled.children.borrow()[0].node;
                         let text = match &text_node.node_type {
@@ -577,7 +578,7 @@ impl LayoutBox {
                             _ => panic!("can't do inline block layout if child isn't text"),
                         };
                         let w: f32 = calculate_word_length(&text, looper.font_cache, font_size, &font_family, font_weight, &font_style);
-                        println!("calculated width is {}",w);
+                        // println!("calculated width is {}",w);
                         looper.current_end += w;
                         let mut containing_block = Dimensions {
                             content: Rect {
@@ -659,6 +660,7 @@ impl LayoutBox {
         };
         if looper.current_end + image_size.width > looper.extents.width {
             looper.adjust_current_line_vertical();
+            looper.adjust_current_line_horizontal();
             looper.start_new_line();
             looper.add_box_to_current_line(bx);
         } else {
@@ -700,6 +702,7 @@ impl LayoutBox {
                 looper.current_bottom += looper.current.rect.height;
                 looper.extents.height += looper.current.rect.height;
                 looper.adjust_current_line_vertical();
+                looper.adjust_current_line_horizontal();
                 looper.start_new_line();
             }
         }
@@ -755,6 +758,7 @@ impl LayoutBox {
                 looper.current_bottom += looper.current.rect.height;
                 looper.extents.height += looper.current.rect.height;
                 looper.adjust_current_line_vertical();
+                looper.adjust_current_line_horizontal();
                 looper.start_new_line();
                 looper.current_end += w;
             } else {
@@ -1073,6 +1077,50 @@ impl Looper<'_> {
                 "top" => {
                     rect.y = self.current.rect.y;
                 },
+                _ => {}
+            }
+        }
+    }
+    fn adjust_current_line_horizontal(&mut self) {
+        let text_align = self.style_node.lookup_keyword("text-align",&Value::Keyword(String::from("none")));
+        // println!("fixing horiz {:#?}", text_align);
+        if let Keyword(text_align) = text_align {
+            match text_align.as_str() {
+                "center" => {
+                    println!("going to center it. line.x={} line.width={}",
+                             self.current.rect.x, self.current.rect.width);
+                    let mut left:f32 =   10000.0;
+                    let mut right:f32 = -10000.0;
+                    for ch in self.current.children.iter_mut() {
+                        if let RenderInlineBoxType::Text(ch) = ch {
+                            left = left.min(ch.rect.x);
+                            right = right.max(ch.rect.x+ch.rect.width);
+                        }
+                    }
+                    let shift_x = (self.current.rect.width - (right-left))/2.0;
+                    for ch in self.current.children.iter_mut() {
+                        if let RenderInlineBoxType::Text(ch) = ch {
+                            ch.rect.x += shift_x;
+                        }
+                    }
+                }
+                "right" => {
+                    let mut left:f32 =   10000.0;
+                    let mut right:f32 = -10000.0;
+                    for ch in self.current.children.iter_mut() {
+                        if let RenderInlineBoxType::Text(ch) = ch {
+                            left = left.min(ch.rect.x);
+                            right = right.max(ch.rect.x+ch.rect.width);
+                        }
+                    }
+                    let shift_x = self.current.rect.width - (right-left);
+                    for ch in self.current.children.iter_mut() {
+                        if let RenderInlineBoxType::Text(ch) = ch {
+                            ch.rect.x += shift_x;
+                        }
+                    }
+
+                }
                 _ => {}
             }
         }
