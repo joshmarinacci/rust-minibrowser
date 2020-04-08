@@ -1128,8 +1128,7 @@ pub fn standard_test_run_no_default(html:&[u8], css:&[u8]) -> Result<(Document, 
     let mut doc = load_doc_from_bytestring(html);
     strip_empty_nodes(&mut doc);
     let mut stylesheets = StylesheetSet::new();
-    // let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
-    stylesheets.append_from_bytestring(&mut font_cache, css);
+    let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
     let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
     // println!("styled nodes {:#?}",styled);
     let mut viewport = Dimensions {
@@ -1156,6 +1155,9 @@ pub fn standard_test_run(html:&[u8], css:&[u8]) -> Result<(Document, StylesheetS
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
     let open_sans_bold: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Bold.ttf");
+    let monospace:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Regular.ttf");
+    let monospace_bold:&[u8] = include_bytes!("../tests/fonts/Source_Code_Pro/SourceCodePro-Bold.ttf");
+
 
     let glyph_brush:glium_glyph::glyph_brush::GlyphBrush<Font> = glium_glyph::glyph_brush::GlyphBrushBuilder::without_fonts().build();
     let mut font_cache = FontCache {
@@ -1185,6 +1187,10 @@ pub fn standard_test_run(html:&[u8], css:&[u8]) -> Result<(Document, StylesheetS
     font_cache.install_font(Font::from_bytes(open_sans_light)?,"sans-serif",100, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_reg)?,"sans-serif",400, "normal");
     font_cache.install_font(Font::from_bytes(open_sans_bold)?,"sans-serif",700, "normal");
+    font_cache.install_font(Font::from_bytes(monospace)?,
+                            "monospace",400,"normal");
+    font_cache.install_font(Font::from_bytes(monospace_bold)?,
+                            "monospace",700,"normal");
     let render_box = root_box.layout(&mut viewport, &mut font_cache, &doc);
     Ok((doc,stylesheets,styled,root_box,render_box))
 }
@@ -1311,8 +1317,9 @@ fn test_margin_percentage() {
 fn test_text_position() {
     let (doc,sss,stree,lbox, render_box) = standard_test_run(
         br#"<body><h5>line 1</h5><h5>line 2</h5></body>"#,
-        br#"body { display:block; padding:0; margin:0; font-size: 10px; }
-        h5 { display:block; margin:0; padding:0; border: 0px solid black; font-size: 70%; }
+        br#"
+            body { display:block; padding:0; margin:0; font-size: 10px; }
+            h5 { display:block; margin:0; padding:0; border: 0px solid black; font-size: 70%; }
         "#,
     ).unwrap();
     println!("body render is {:#?}",render_box);

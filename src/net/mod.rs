@@ -173,6 +173,7 @@ pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
 }
 
 pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
+    // println!("loading stylesheet from url {:#?}",url);
     match url.scheme() {
         "file" => {
             let path = url.to_file_path()?;

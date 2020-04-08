@@ -15,7 +15,6 @@ use crate::css::RuleType::Comment;
 #[derive(Debug, PartialEq)]
 pub struct Stylesheet {
     pub(crate) rules: Vec<RuleType>,
-    pub parent: Option<Box<Stylesheet>>,
     pub base_url: Url,
 }
 #[derive(Debug, PartialEq)]
@@ -987,7 +986,6 @@ fn test_rule() {
 fn stylesheet<'a>() -> Parser<'a, u8, Stylesheet> {
     (comment() | rule() | import_rule() | at_rule()).repeat(0..).map(|rules| Stylesheet {
         rules,
-        parent: None,
         base_url: Url::parse("https://www.mozilla.com/").unwrap()
     })
 }
@@ -1022,7 +1020,6 @@ fn test_file_load() {
     let parsed = stylesheet().parse(content.as_slice()).unwrap();
     println!("{:#?}", parsed);
     let ss = Stylesheet {
-        parent: None,
         rules: vec![
             RuleType::Rule(
             Rule {
@@ -1150,7 +1147,6 @@ fn test_import_rule() {
                     rules: vec![]
                 })
             ],
-            parent: None,
             base_url: Url::parse("https://www.mozilla.com/").unwrap()
         }
     ));
@@ -1251,7 +1247,6 @@ fn test_atrules() {
                 ]
             })
         ],
-        parent: None,
         base_url: Url::parse("https://www.mozilla.com/").unwrap()
     }));
 
@@ -1313,7 +1308,6 @@ fn test_fontface() {
                 ]
             })]
         })],
-        parent: None,
         base_url: Url::parse("https://www.mozilla.com/").unwrap(),
     }
     ),result);

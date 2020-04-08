@@ -12,8 +12,10 @@ pub fn navigate_to_doc(url:&Url, font_cache:&mut FontCache, containing_block:Dim
     let mut doc = load_doc_from_net(&url)?;
     strip_empty_nodes(&mut doc);
     expand_entities(&mut doc);
+    // println!("doc is now {:#?}",doc);
     let mut stylesheets = load_stylesheets_new(&doc, font_cache)?;
     let stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
+    // println!("styled tree is {:#?}", stree);
     // println!("font_cache looks like {:#?}",font_cache.families);
     let mut bbox = layout::build_layout_tree(&stree.root.borrow(), &doc);
     // println!("doing layout with bounds {:#?}", containing_block);

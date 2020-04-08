@@ -321,28 +321,25 @@ fn only_real_rules(rtype:&RuleType) -> Option<&Rule> {
     }
 }
 //find all matching rules for an element
-fn matching_rules<'a>(elem: &ElementData, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> Vec<MatchedRule<'a>> {
-    let mut rules:Vec<MatchedRule> = match &stylesheet.parent {
-        Some(parent) => parent.rules.iter()
+fn matching_rules<'a>(elem: &ElementData, styles: &'a StylesheetSet, ancestors:&mut Vec::<(&Node, &PropertyMap)>) -> Vec<MatchedRule<'a>> {
+    let mut rules2:Vec<MatchedRule> = vec![];
+    for sheet in styles.stylesheets.iter() {
+        let mut rules:Vec<MatchedRule> = sheet.rules.iter()
             .filter_map(only_real_rules)
-            .filter_map(|rule| match_rule(elem, &rule,ancestors)).collect(),
-        None => vec![],
-    };
-    let mut rules2:Vec<MatchedRule> = stylesheet.rules.iter()
-        .filter_map(only_real_rules)
-        .filter_map(|rule| match_rule(elem,&rule,ancestors)).collect();
-    rules.append(&mut rules2);
-    rules
+            .filter_map(|rule|match_rule(elem, &rule, ancestors)).collect();
+        rules2.append(&mut rules);
+    }
+    rules2
 }
 
 // get all values set by all rules
-fn specified_values(elem: &ElementData, stylesheet: &Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> PropertyMap {
+fn specified_values(elem: &ElementData, styles: &StylesheetSet, ancestors:&mut Vec::<(&Node, &PropertyMap)>) -> PropertyMap {
     // println!("styling with ancestors {:#?}", ancestors.len());
     // for an in ancestors.iter() {
     //     println!("   ancestor {:#?} {:#?}", an.0.node_type, an.1);
     // }
     let mut values:HashMap<String,Value> = HashMap::new();
-    let mut rules = matching_rules(elem,stylesheet,ancestors);
+    let mut rules = matching_rules(elem, styles, ancestors);
 
     //sort rules by specificity
     rules.sort_by(|&(a,_),&(b,_)| a.cmp(&b));
@@ -368,17 +365,16 @@ fn calculate_inherited_property_value(dec:&Declaration, ancestors:&mut Vec::<(&N
     dec.value.clone()
 }
 
-pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, stylesheet_set: &'a StylesheetSet) -> StyledTree {
-    let stylesheet = &stylesheet_set.stylesheets.last().unwrap();
+pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, styles: &'a StylesheetSet) -> StyledTree {
     let tree = StyledTree::new();
     let mut ansc:Vec<(&Node, &PropertyMap)> = vec![];
-    tree.set_root(real_style_tree(&tree, root, stylesheet, &mut ansc));
+    tree.set_root(real_style_tree(&tree, root, styles, &mut ansc));
     return tree;
 }
 
-fn real_style_tree<'a>(tree:&StyledTree, root: &'a Node, stylesheet: &'a Stylesheet, ancestors:&mut Vec::<(&Node,&PropertyMap)>) -> Rc<StyledNode> {
+fn real_style_tree<'a>(tree:&StyledTree, root: &'a Node, styles: &'a StylesheetSet, ancestors:&mut Vec::<(&Node, &PropertyMap)>) -> Rc<StyledNode> {
     let specified = match root.node_type {
-        Element(ref elem) => specified_values(elem, stylesheet, ancestors),
+        Element(ref elem) => specified_values(elem, styles, ancestors),
         Text(_) => HashMap::new(),
         Meta(_) => HashMap::new(),
         _ => HashMap::new(),
@@ -387,7 +383,7 @@ fn real_style_tree<'a>(tree:&StyledTree, root: &'a Node, stylesheet: &'a Stylesh
     a2.push((root, &specified));
     let ch2:Vec<Rc<StyledNode>> = root.children.iter()
         .map(|child| {
-            real_style_tree(tree,child, stylesheet, &mut a2)
+            real_style_tree(tree, child, styles, &mut a2)
         }).collect();
     return tree.make_with((*root).clone(),specified,RefCell::new(ch2));
 }
@@ -535,13 +531,15 @@ fn expand_border_shorthand(new_decs:&mut Vec::<Declaration>, dec:&Declaration) {
 fn test_multifile_cascade() {
     let stylesheet_parent = load_stylesheet_from_net(&relative_filepath_to_url("tests/default.css").unwrap()).unwrap();
     let mut stylesheet = load_stylesheet_from_net(&relative_filepath_to_url("tests/child.css").unwrap()).unwrap();
-    stylesheet.parent = Some(Box::new(stylesheet_parent));
     let elem = ElementData {
         tag_name: String::from("div"),
         attributes: Default::default()
     };
     let mut a2:Vec<(&Node, &PropertyMap)> = vec![];
-    let values = specified_values(&elem, &stylesheet, &mut a2);
+    let mut styles = StylesheetSet::new();
+    styles.append(stylesheet_parent);
+    styles.append(stylesheet);
+    let values = specified_values(&elem, &styles, &mut a2);
     println!("got the values {:#?}", values);
     assert_eq!(values.get("background-color").unwrap(),&Value::Keyword(String::from("blue")));
 }
@@ -605,7 +603,7 @@ fn test_em_to_px() {
             margin: 1em;
         }
     "#;
-    let (doc,sss,stree,lbox, rbox) = standard_test_run_no_default(doc_text, css_text).unwrap();
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(doc_text, css_text).unwrap();
     let snode = stree.root.borrow();
     println!("doc={:#?}  snode={:#?}",doc,snode);
 
@@ -623,9 +621,10 @@ fn test_vertical_align() {
     </style>
     <div class="top">top</div>
     </html>"#;
-    let (doc,sss,stree,lbox, rbox) = standard_test_run_no_default(doc_text, br"").unwrap();
+    let (doc,sss,stree,lbox, rbox) = standard_test_run(doc_text, br"").unwrap();
     let root = &stree.root.borrow();
     let div = &root.children.borrow()[1];
+    // println!("the styles are {:#?}", sss);
     assert_eq!(div.lookup_string("vertical-align","foo"),"top".to_string());
 }
 
@@ -781,4 +780,17 @@ fn test_relative_font_sizes() {
     let style_child = &style_root.children.borrow()[0];
     assert_eq!(style_child.lookup_font_size(), 20.0);
 
+}
+
+#[test]
+fn test_default_styles() {
+    let (doc, stylesheet,stree,lbox, rbox) = standard_test_run(
+        br#"<html><body><div>foo</div></body></html>"#,
+    br#"html { color: red; }"#).unwrap();
+
+    let html_style = stree.root.borrow();
+    assert_eq!(html_style.lookup_color("color",&Color::from_hex("#000000")), Color::from_hex("#ff0000"));
+    assert_eq!(
+        html_style.lookup_keyword("display",&Value::Keyword(String::from("foo"))),
+                                    Value::Keyword("block".to_string()));
 }

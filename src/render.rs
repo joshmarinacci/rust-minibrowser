@@ -146,6 +146,7 @@ impl FontCache {
             Brush::Style2(b) => b.add_font(font),
         };
         let key = self.make_key(family,weight,style);
+        // println!("installing font {}",key);
         self.fonts.insert(key,fid);
         self.families.insert(String::from(family), String::from(family));
     }
