@@ -73,7 +73,7 @@ a {
     color: blue;
     text-decoration-line: underline;
 }
-u {
+u,ins, abbr {
     text-decoration-line: underline;
 }
 i, em, cite, dfn, var {
