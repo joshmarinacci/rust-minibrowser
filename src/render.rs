@@ -1,26 +1,65 @@
-use crate::css::{Color, Value, Stylesheet, RuleType};
-use std::collections::HashMap;
-use std::path::Path;
-use std::fs::File;
-use url::Url;
-use crate::net::{relative_filepath_to_url, load_font_from_net};
-use glium_glyph::GlyphBrush;
-use glium_glyph::glyph_brush::rusttype::{Font,Error};
-use glium_glyph::glyph_brush::FontId;
+use crate::css::{Color, RuleType, Stylesheet, Value};
 use crate::layout::Brush;
+use crate::net::{load_font_from_net, relative_filepath_to_url};
+use glium_glyph::glyph_brush::rusttype::{Error, Font};
+use glium_glyph::glyph_brush::FontId;
+use glium_glyph::GlyphBrush;
+use std::collections::HashMap;
+use std::fs::File;
+use std::path::Path;
+use url::Url;
 
-
 #[allow(dead_code)]
-pub const BLACK:Color = Color { r:0, g:0, b:0, a:255 };
-pub const WHITE:Color = Color { r:255, g:255, b:255, a:255 };
-pub const RED:Color = Color { r:255, g:0, b:0, a:255 };
+pub const BLACK: Color = Color {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 255,
+};
+pub const WHITE: Color = Color {
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 255,
+};
+pub const RED: Color = Color {
+    r: 255,
+    g: 0,
+    b: 0,
+    a: 255,
+};
 #[allow(dead_code)]
-pub const BLUE:Color = Color { r:0, g:0, b:255, a:255 };
-pub const AQUA:Color = Color { r:0, g:255, b:255, a:255 };
-pub const YELLOW:Color = Color { r:255, g:255, b:0, a:255 };
+pub const BLUE: Color = Color {
+    r: 0,
+    g: 0,
+    b: 255,
+    a: 255,
+};
+pub const AQUA: Color = Color {
+    r: 0,
+    g: 255,
+    b: 255,
+    a: 255,
+};
+pub const YELLOW: Color = Color {
+    r: 255,
+    g: 255,
+    b: 0,
+    a: 255,
+};
 #[allow(dead_code)]
-pub const GREEN:Color = Color { r:0, g:255, b:0, a:255 };
-pub const MAGENTA:Color = Color { r:255, g:0, b:255, a:255 };
+pub const GREEN: Color = Color {
+    r: 0,
+    g: 255,
+    b: 0,
+    a: 255,
+};
+pub const MAGENTA: Color = Color {
+    r: 255,
+    g: 0,
+    b: 255,
+    a: 255,
+};
 
 /*
 pub fn fill_rect(dt: &mut DrawTarget, dim:&Rect, color:&Source) {
@@ -126,63 +165,60 @@ pub fn draw_render_box<R:Resources,F:Factory<R>>(root:&RenderBox, dt:&mut DrawTa
 }
 */
 
-
-
 pub struct FontCache {
     pub brush: Brush,
-    pub families:HashMap<String,String>,
+    pub families: HashMap<String, String>,
     // names:HashMap<String,Url>,
-    pub fonts:HashMap<String,FontId>,
+    pub fonts: HashMap<String, FontId>,
     // default_font: Option<Font>,
 }
 
 impl FontCache {
-    pub fn make_key(&self, family:&str, weight:i32, style:&str) -> String{
-        return format!("{}-{}-{}",family,weight,style);
+    pub fn make_key(&self, family: &str, weight: i32, style: &str) -> String {
+        return format!("{}-{}-{}", family, weight, style);
     }
-    pub fn install_font(&mut self, font:Font<'static>, family:&str, weight:i32, style:&str) {
+    pub fn install_font(&mut self, font: Font<'static>, family: &str, weight: i32, style: &str) {
         let fid = match &mut self.brush {
             Brush::Style1(b) => b.add_font(font),
             Brush::Style2(b) => b.add_font(font),
         };
-        let key = self.make_key(family,weight,style);
+        let key = self.make_key(family, weight, style);
         // println!("installing font {}",key);
-        self.fonts.insert(key,fid);
-        self.families.insert(String::from(family), String::from(family));
+        self.fonts.insert(key, fid);
+        self.families
+            .insert(String::from(family), String::from(family));
     }
-    pub fn lookup_font(&mut self, fam:&str,wt:i32,sty:&str) -> &FontId {
+    pub fn lookup_font(&mut self, fam: &str, wt: i32, sty: &str) -> &FontId {
         // println!("looking up font {} {} {}", fam, wt, sty);
-        let key = self.make_key(fam,wt,sty);
+        let key = self.make_key(fam, wt, sty);
         self.fonts.get(&*key).unwrap()
     }
-    pub fn has_font_family(&self, family:&str) -> bool {
+    pub fn has_font_family(&self, family: &str) -> bool {
         self.families.contains_key(family)
     }
 }
 
-fn find_truetype_url(value:&Value, url:&Url) -> Option<Url> {
+fn find_truetype_url(value: &Value, url: &Url) -> Option<Url> {
     match value {
-        Value::FunCall(fcv) => {
-            match &fcv.arguments[0] {
-                Value::StringLiteral(str) => {
-                    if !str.to_lowercase().ends_with(".ttf") {
-                        return None
-                    }
-                    if let Ok(url) = url.join(str.as_str()) {
-                        Some(url)
-                    } else {
-                        println!("parsing error on url {:#?}", url);
-                        None
-                    }
-                },
-                _ => None,
+        Value::FunCall(fcv) => match &fcv.arguments[0] {
+            Value::StringLiteral(str) => {
+                if !str.to_lowercase().ends_with(".ttf") {
+                    return None;
+                }
+                if let Ok(url) = url.join(str.as_str()) {
+                    Some(url)
+                } else {
+                    println!("parsing error on url {:#?}", url);
+                    None
+                }
             }
+            _ => None,
         },
         Value::ArrayValue(vals) => {
             for val in vals.iter() {
-                let res  = find_truetype_url(val,url);
+                let res = find_truetype_url(val, url);
                 if res.is_some() {
-                    return res
+                    return res;
                 }
             }
             None
@@ -190,14 +226,12 @@ fn find_truetype_url(value:&Value, url:&Url) -> Option<Url> {
         _ => None,
     }
 }
-fn extract_font_weight(value:&Value) -> Option<i32> {
+fn extract_font_weight(value: &Value) -> Option<i32> {
     match value {
-        Value::Keyword(str) => {
-            match str.as_str() {
-                "normal" => Some(400),
-                "bold" => Some(700),
-                _ => None,
-            }
+        Value::Keyword(str) => match str.as_str() {
+            "normal" => Some(400),
+            "bold" => Some(700),
+            _ => None,
         },
         Value::Number(val) => Some((*val) as i32),
         _ => None,
@@ -224,24 +258,27 @@ impl FontCache {
                                 if dec.name == "font-weight" {
                                     font_weight = extract_font_weight(&dec.value);
                                 }
-                                if dec.name == "font-style" {
-
-                                }
+                                if dec.name == "font-style" {}
                                 if dec.name == "font-family" {
                                     match &dec.value {
-                                        Value::StringLiteral(str) => font_family = Some(str.clone()),
+                                        Value::StringLiteral(str) => {
+                                            font_family = Some(str.clone())
+                                        }
                                         _ => font_family = None,
                                     }
                                 }
                             }
-                            println!("got it {:#?} {:#?} {:#?}",font_family, src, font_weight);
+                            println!("got it {:#?} {:#?} {:#?}", font_family, src, font_weight);
                             if font_family.is_some() && src.is_some() && font_weight.is_some() {
                                 let url = src.unwrap();
                                 let font = load_font_from_net(url);
                                 let font = font.unwrap();
-                                self.install_font(font, &*font_family.unwrap(),
-                                                  font_weight.unwrap(),
-                                                  "normal")
+                                self.install_font(
+                                    font,
+                                    &*font_family.unwrap(),
+                                    font_weight.unwrap(),
+                                    "normal",
+                                )
                             }
                         }
                     }

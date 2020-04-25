@@ -2,39 +2,37 @@
 extern crate glium;
 extern crate glium_glyph;
 
-use rust_minibrowser::layout::{Dimensions, Rect, RenderBox, QueryResult, RenderInlineBoxType, EdgeSizes, Brush, ListMarker};
-use rust_minibrowser::render::{FontCache};
+use rust_minibrowser::layout::{
+    Brush, Dimensions, EdgeSizes, ListMarker, QueryResult, Rect, RenderBox, RenderInlineBoxType,
+};
 use rust_minibrowser::net::{calculate_url_from_doc, BrowserError};
+use rust_minibrowser::render::FontCache;
 
-
-use rust_minibrowser::app::{parse_args, navigate_to_doc, install_standard_fonts};
+use rust_minibrowser::app::{install_standard_fonts, navigate_to_doc, parse_args};
 
 use cgmath::{Matrix4, Vector3};
 use glium::glutin::{
-    event_loop::ControlFlow,
-    event::WindowEvent,
-    event::MouseScrollDelta::{PixelDelta, LineDelta},
-    event::VirtualKeyCode,
-    event::KeyboardInput,
-    event::Event,
     dpi::PhysicalPosition,
     event::ElementState,
+    event::Event,
+    event::KeyboardInput,
     event::MouseButton,
+    event::MouseScrollDelta::{LineDelta, PixelDelta},
+    event::VirtualKeyCode,
+    event::WindowEvent,
+    event_loop::ControlFlow,
 };
-use glium::{glutin, Display};
+use glium::texture::{RawImage2d, Texture2d};
 use glium::Surface;
+use glium::{glutin, Display};
+use glium_glyph::glyph_brush::{rusttype::Scale, Section};
 use glium_glyph::GlyphBrush;
-use glium_glyph::glyph_brush::{Section,
-                               rusttype::{
-                                   Scale
-                               }};
 use rust_minibrowser::css::Color;
 use std::collections::HashMap;
-use glium::texture::{Texture2d, RawImage2d};
 use std::rc::Rc;
 
-const WIDTH:i32 = 800;
-const HEIGHT:i32 = 800;
+const WIDTH: i32 = 800;
+const HEIGHT: i32 = 800;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -47,93 +45,177 @@ implement_vertex!(Vertex, position, color);
 #[derive(Copy, Clone)]
 pub struct ImageVertex {
     position: [f32; 2],
-    tex_coords: [f32; 2],       // <- this is new
+    tex_coords: [f32; 2], // <- this is new
 }
-implement_vertex!(ImageVertex, position, tex_coords);        // don't forget to add `tex_coords` here
+implement_vertex!(ImageVertex, position, tex_coords); // don't forget to add `tex_coords` here
 
 struct ImageRect {
-    vertices:Vec<ImageVertex>,
-    texture:Rc<Texture2d>,
+    vertices: Vec<ImageVertex>,
+    texture: Rc<Texture2d>,
 }
 
-pub fn make_box(shape:&mut Vec<Vertex>, rect:&Rect, color:&Color) {
-    make_box2(shape, rect.x, rect.y, rect.x+rect.width, rect.y+rect.height, color);
+pub fn make_box(shape: &mut Vec<Vertex>, rect: &Rect, color: &Color) {
+    make_box2(
+        shape,
+        rect.x,
+        rect.y,
+        rect.x + rect.width,
+        rect.y + rect.height,
+        color,
+    );
 }
 
-pub fn make_box2(shape:&mut Vec<Vertex>, x1:f32,y1:f32,x2:f32,y2:f32, color:&Color) {
-    shape.push(Vertex { position: [x1,  y1], color:color.to_array() });
-    shape.push(Vertex { position: [ x2,  y1], color:color.to_array() });
-    shape.push(Vertex { position: [ x2, y2], color:color.to_array() });
+pub fn make_box2(shape: &mut Vec<Vertex>, x1: f32, y1: f32, x2: f32, y2: f32, color: &Color) {
+    shape.push(Vertex {
+        position: [x1, y1],
+        color: color.to_array(),
+    });
+    shape.push(Vertex {
+        position: [x2, y1],
+        color: color.to_array(),
+    });
+    shape.push(Vertex {
+        position: [x2, y2],
+        color: color.to_array(),
+    });
 
-    shape.push(Vertex { position: [ x2, y2], color:color.to_array() });
-    shape.push(Vertex { position: [x1, y2], color:color.to_array() });
-    shape.push( Vertex { position: [x1,  y1], color:color.to_array() });
+    shape.push(Vertex {
+        position: [x2, y2],
+        color: color.to_array(),
+    });
+    shape.push(Vertex {
+        position: [x1, y2],
+        color: color.to_array(),
+    });
+    shape.push(Vertex {
+        position: [x1, y1],
+        color: color.to_array(),
+    });
 }
 
-fn make_image_box(images:&mut Vec<ImageRect>, rect:&Rect, tex:&Rc<Texture2d>) {
-    make_image_box2(images, rect.x, rect.y, rect.x+rect.width, rect.y+rect.height, tex);
+fn make_image_box(images: &mut Vec<ImageRect>, rect: &Rect, tex: &Rc<Texture2d>) {
+    make_image_box2(
+        images,
+        rect.x,
+        rect.y,
+        rect.x + rect.width,
+        rect.y + rect.height,
+        tex,
+    );
 }
-fn make_image_box2(images:&mut Vec<ImageRect>, x1:f32, y1:f32, x2:f32, y2:f32, tex:&Rc<Texture2d>) {
+fn make_image_box2(
+    images: &mut Vec<ImageRect>,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    tex: &Rc<Texture2d>,
+) {
+    let vertex1 = ImageVertex {
+        position: [x1, y1],
+        tex_coords: [0.0, 0.0],
+    };
+    let vertex2 = ImageVertex {
+        position: [x2, y1],
+        tex_coords: [1.0, 0.0],
+    };
+    let vertex3 = ImageVertex {
+        position: [x2, y2],
+        tex_coords: [1.0, 1.0],
+    };
 
-    let vertex1 = ImageVertex { position: [x1, y1], tex_coords: [0.0, 0.0] };
-    let vertex2 = ImageVertex { position: [x2, y1], tex_coords: [1.0, 0.0] };
-    let vertex3 = ImageVertex { position: [x2, y2], tex_coords: [1.0, 1.0] };
-
-    let vertex4 = ImageVertex { position: [x2, y2], tex_coords: [1.0, 1.0] };
-    let vertex5 = ImageVertex { position: [x1, y2], tex_coords: [0.0, 1.0] };
-    let vertex6 = ImageVertex { position: [x1, y1], tex_coords: [0.0, 0.0] };
+    let vertex4 = ImageVertex {
+        position: [x2, y2],
+        tex_coords: [1.0, 1.0],
+    };
+    let vertex5 = ImageVertex {
+        position: [x1, y2],
+        tex_coords: [0.0, 1.0],
+    };
+    let vertex6 = ImageVertex {
+        position: [x1, y1],
+        tex_coords: [0.0, 0.0],
+    };
     let ir = ImageRect {
-        vertices:vec![vertex1, vertex2, vertex3, vertex4, vertex5, vertex6],
-        texture:Rc::clone(tex),
+        vertices: vec![vertex1, vertex2, vertex3, vertex4, vertex5, vertex6],
+        texture: Rc::clone(tex),
     };
     images.push(ir)
 }
 
-
-pub fn make_border(shapes:&mut Vec<Vertex>, rect:&Rect, border_width:&EdgeSizes, color:&Color) {
+pub fn make_border(shapes: &mut Vec<Vertex>, rect: &Rect, border_width: &EdgeSizes, color: &Color) {
     // println!("making border {:#?} {:#?}",border_width,color);
     //left
-    make_box(shapes, &Rect {
-        x: rect.x,
-        y: rect.y,
-        width: border_width.left,
-        height: rect.height
-    }, color);
+    make_box(
+        shapes,
+        &Rect {
+            x: rect.x,
+            y: rect.y,
+            width: border_width.left,
+            height: rect.height,
+        },
+        color,
+    );
     //right
-    make_box(shapes, &Rect {
-        x: rect.x + rect.width - border_width.right,
-        y: rect.y,
-        width: border_width.right,
-        height: rect.height
-    }, color);
+    make_box(
+        shapes,
+        &Rect {
+            x: rect.x + rect.width - border_width.right,
+            y: rect.y,
+            width: border_width.right,
+            height: rect.height,
+        },
+        color,
+    );
 
     //top
-    make_box(shapes, &Rect {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: border_width.top
-    }, color);
+    make_box(
+        shapes,
+        &Rect {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: border_width.top,
+        },
+        color,
+    );
     //bottom
-    make_box(shapes, &Rect {
-        x: rect.x,
-        y: rect.y+rect.height - border_width.bottom,
-        width: rect.width,
-        height: border_width.bottom
-    }, color);
+    make_box(
+        shapes,
+        &Rect {
+            x: rect.x,
+            y: rect.y + rect.height - border_width.bottom,
+            width: rect.width,
+            height: border_width.bottom,
+        },
+        color,
+    );
 }
 
-pub fn make_line(shapes:&mut Vec<Vertex>,rect:&Rect,yoff:f32,color:&Color) {
-    make_box(shapes, &Rect{
-        x: rect.x,
-        y: rect.y + rect.height + yoff,
-        width: rect.width,
-        height: 1.0,
-    }, color);
+pub fn make_line(shapes: &mut Vec<Vertex>, rect: &Rect, yoff: f32, color: &Color) {
+    make_box(
+        shapes,
+        &Rect {
+            x: rect.x,
+            y: rect.y + rect.height + yoff,
+            width: rect.width,
+            height: 1.0,
+        },
+        color,
+    );
 }
 
-
-fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc<Texture2d>>, width:f32, height:f32, shapes:&mut Vec<Vertex>, images:&mut Vec<ImageRect>, text_scale:f32, display:&Display) {
+fn draw_render_box(
+    bx: &RenderBox,
+    gb: &mut FontCache,
+    img: &mut HashMap<String, Rc<Texture2d>>,
+    width: f32,
+    height: f32,
+    shapes: &mut Vec<Vertex>,
+    images: &mut Vec<ImageRect>,
+    text_scale: f32,
+    display: &Display,
+) {
     match bx {
         RenderBox::Block(rbx) => {
             // println!("box is {} border width {} {:#?}",rbx.title, rbx.border_width, rbx.padding);
@@ -142,25 +224,32 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
             }
             if rbx.border_color.is_some() {
                 let color = rbx.border_color.as_ref().unwrap();
-                make_border(shapes, &rbx.content_area_as_rect(), &rbx.border_width, &color);
+                make_border(
+                    shapes,
+                    &rbx.content_area_as_rect(),
+                    &rbx.border_width,
+                    &color,
+                );
             }
             for ch in rbx.children.iter() {
-                draw_render_box(ch, gb, img,width, height, shapes, images, text_scale, display);
+                draw_render_box(
+                    ch, gb, img, width, height, shapes, images, text_scale, display,
+                );
             }
             if let ListMarker::Disc = rbx.marker {
                 let font = gb.lookup_font(&rbx.font_family, rbx.font_weight, &rbx.font_style);
                 let color = rbx.color.as_ref().unwrap().clone();
-                let section = Section{
+                let section = Section {
                     text: "•",
-                    scale: Scale::uniform(rbx.font_size*text_scale),
-                    font_id:*font,
-                    screen_position: (rbx.rect.x* text_scale - 20.0, rbx.rect.y* text_scale),
+                    scale: Scale::uniform(rbx.font_size * text_scale),
+                    font_id: *font,
+                    screen_position: (rbx.rect.x * text_scale - 20.0, rbx.rect.y * text_scale),
                     bounds: (rbx.rect.width * text_scale, rbx.rect.height * text_scale),
                     color: [
-                        (color.r as f32)/255.0,
-                        (color.g as f32)/255.0,
-                        (color.b as f32)/255.0,
-                        (color.a as f32)/255.0,
+                        (color.r as f32) / 255.0,
+                        (color.g as f32) / 255.0,
+                        (color.b as f32) / 255.0,
+                        (color.a as f32) / 255.0,
                     ],
                     ..Section::default()
                 };
@@ -175,32 +264,50 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                         RenderInlineBoxType::Text(text) => {
                             if text.color.is_some() && !text.text.is_empty() {
                                 let color = text.color.as_ref().unwrap().clone();
-                                let scale = Scale::uniform(text.font_size* text_scale);
-                                let font = gb.lookup_font(&text.font_family, text.font_weight, &text.font_style);
+                                let scale = Scale::uniform(text.font_size * text_scale);
+                                let font = gb.lookup_font(
+                                    &text.font_family,
+                                    text.font_weight,
+                                    &text.font_style,
+                                );
                                 let section = Section {
                                     text: &text.text.trim(),
                                     scale,
-                                    font_id:*font,
-                                    screen_position: (text.rect.x* text_scale, text.rect.y* text_scale),
-                                    bounds: (text.rect.width* text_scale, text.rect.height* text_scale),
+                                    font_id: *font,
+                                    screen_position: (
+                                        text.rect.x * text_scale,
+                                        text.rect.y * text_scale,
+                                    ),
+                                    bounds: (
+                                        text.rect.width * text_scale,
+                                        text.rect.height * text_scale,
+                                    ),
                                     color: [
-                                        (color.r as f32)/255.0,
-                                        (color.g as f32)/255.0,
-                                        (color.b as f32)/255.0,
-                                        (color.a as f32)/255.0,
+                                        (color.r as f32) / 255.0,
+                                        (color.g as f32) / 255.0,
+                                        (color.b as f32) / 255.0,
+                                        (color.a as f32) / 255.0,
                                     ],
                                     ..Section::default()
                                 };
                                 gb.brush.queue(section);
                                 match text.text_decoration_line.as_str() {
-                                    "line-through" => make_line(shapes,&text.rect,-text.font_size*0.5,&color),
-                                    "underline" => make_line(shapes,&text.rect,-text.font_size*0.1,&color),
+                                    "line-through" => {
+                                        make_line(shapes, &text.rect, -text.font_size * 0.5, &color)
+                                    }
+                                    "underline" => {
+                                        make_line(shapes, &text.rect, -text.font_size * 0.1, &color)
+                                    }
                                     _ => {}
                                 }
                                 // make_box(shapes, &text.rect, &Color::from_hex("#ff00ff"));
                             }
                             if text.background_color.is_some() {
-                                make_box(shapes, &text.rect, text.background_color.as_ref().unwrap());
+                                make_box(
+                                    shapes,
+                                    &text.rect,
+                                    text.background_color.as_ref().unwrap(),
+                                );
                             }
                         }
                         RenderInlineBoxType::Image(image) => {
@@ -208,11 +315,14 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
                                 println!("must install the image");
                                 let size = image.image.image2d.dimensions();
                                 let data = image.image.image2d.clone().into_raw();
-                                let tex_data:RawImage2d<u8> = RawImage2d::from_raw_rgba(data, size);
-                                let texture = glium::texture::Texture2d::new(display, tex_data).unwrap();
-                                img.insert(image.image.path.clone(),Rc::new(texture));
+                                let tex_data: RawImage2d<u8> =
+                                    RawImage2d::from_raw_rgba(data, size);
+                                let texture =
+                                    glium::texture::Texture2d::new(display, tex_data).unwrap();
+                                img.insert(image.image.path.clone(), Rc::new(texture));
                             }
-                            let tex_ref:&Rc<Texture2d> = img.get(image.image.path.as_str()).unwrap();
+                            let tex_ref: &Rc<Texture2d> =
+                                img.get(image.image.path.as_str()).unwrap();
                             make_image_box(images, &image.rect, &tex_ref);
                             make_box(shapes, &image.rect, &Color::from_hex("#ff00ff"))
                         }
@@ -230,10 +340,9 @@ fn draw_render_box(bx:&RenderBox, gb:&mut FontCache, img:&mut HashMap<String, Rc
     }
 }
 
-
-fn main() -> Result<(),BrowserError>{
+fn main() -> Result<(), BrowserError> {
     let start_page = parse_args().unwrap();
-    println!("using the start page {}",start_page);
+    println!("using the start page {}", start_page);
 
     //make an event loop
     let event_loop = glutin::event_loop::EventLoop::new();
@@ -245,10 +354,10 @@ fn main() -> Result<(),BrowserError>{
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
     //load a font
-    let mut font_cache =  FontCache {
+    let mut font_cache = FontCache {
         brush: Brush::Style1(GlyphBrush::new(&display, vec![])),
         families: Default::default(),
-        fonts: Default::default()
+        fonts: Default::default(),
     };
     install_standard_fonts(&mut font_cache);
 
@@ -263,10 +372,10 @@ fn main() -> Result<(),BrowserError>{
         },
         padding: Default::default(),
         border: Default::default(),
-        margin: Default::default()
+        margin: Default::default(),
     };
-    let (mut doc, mut render_root) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
-
+    let (mut doc, mut render_root) =
+        navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
 
     let rect_vertex_shader_src = r#"
         #version 140
@@ -294,7 +403,13 @@ fn main() -> Result<(),BrowserError>{
         }
     "#;
 
-    let rect_program = glium::Program::from_source(&display, rect_vertex_shader_src, rect_fragment_shader_src, None).unwrap();
+    let rect_program = glium::Program::from_source(
+        &display,
+        rect_vertex_shader_src,
+        rect_fragment_shader_src,
+        None,
+    )
+    .unwrap();
 
     let tex_vertex_shader_src = r#"
         #version 140
@@ -322,15 +437,20 @@ fn main() -> Result<(),BrowserError>{
             color = texture(tex, v_tex_coords);
         }
     "#;
-    let tex_program = glium::Program::from_source(&display, tex_vertex_shader_src, tex_fragment_shader_src, None).unwrap();
+    let tex_program = glium::Program::from_source(
+        &display,
+        tex_vertex_shader_src,
+        tex_fragment_shader_src,
+        None,
+    )
+    .unwrap();
 
-
-    let mut yoff:f32 = 0.0;
-    let zero:f32 = 0.0;
-    let mut prev_w = screen_dims.0 as f32/2.0;
-    let mut prev_h = screen_dims.1 as f32/2.0;
-    let mut last_mouse:PhysicalPosition<f64> = PhysicalPosition{ x: 0.0, y: 0.0 };
-    let mut image_cache:HashMap<String,Rc<Texture2d>> = HashMap::new();
+    let mut yoff: f32 = 0.0;
+    let zero: f32 = 0.0;
+    let mut prev_w = screen_dims.0 as f32 / 2.0;
+    let mut prev_h = screen_dims.1 as f32 / 2.0;
+    let mut last_mouse: PhysicalPosition<f64> = PhysicalPosition { x: 0.0, y: 0.0 };
+    let mut image_cache: HashMap<String, Rc<Texture2d>> = HashMap::new();
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -338,40 +458,45 @@ fn main() -> Result<(),BrowserError>{
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
                     input:
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        ..
-                    },
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
                     ..
                 }
                 | WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                WindowEvent::MouseWheel {
-                    delta,
-                    ..
-                } => {
-                    match delta {
-                        LineDelta(_x, y) => yoff = zero.max(yoff - y * 30.0),
-                        PixelDelta(lp) => yoff = zero.max( yoff - lp.y as f32),
-                    }
+                WindowEvent::MouseWheel { delta, .. } => match delta {
+                    LineDelta(_x, y) => yoff = zero.max(yoff - y * 30.0),
+                    PixelDelta(lp) => yoff = zero.max(yoff - lp.y as f32),
                 },
 
                 WindowEvent::CursorMoved {
-                    device_id, position, modifiers
+                    device_id,
+                    position,
+                    modifiers,
                 } => {
                     last_mouse = position;
                 }
                 WindowEvent::MouseInput {
-                    device_id, state, button, modifiers
+                    device_id,
+                    state,
+                    button,
+                    modifiers,
                 } => {
                     // println!("mouse click {:#?}", button);
                     if let ElementState::Pressed = state {
                         if let MouseButton::Left = button {
-                            let res = render_root.find_box_containing((last_mouse.x / 2.0) as f32, (last_mouse.y / 2.0) as f32);
+                            let res = render_root.find_box_containing(
+                                (last_mouse.x / 2.0) as f32,
+                                (last_mouse.y / 2.0) as f32,
+                            );
                             if let QueryResult::Text(bx) = res {
                                 if let Some(href) = &bx.link {
                                     println!("following the link {:#?}", href);
                                     let url = calculate_url_from_doc(&doc, href).unwrap();
-                                    let res = navigate_to_doc(&url, &mut font_cache, containing_block).unwrap();
+                                    let res =
+                                        navigate_to_doc(&url, &mut font_cache, containing_block)
+                                            .unwrap();
                                     doc = res.0;
                                     render_root = res.1;
                                 }
@@ -384,50 +509,86 @@ fn main() -> Result<(),BrowserError>{
             _ => (),
         }
         let screen_dims = display.get_framebuffer_dimensions();
-        let new_w = screen_dims.0 as f32/2.0;
-        let new_h = screen_dims.1 as f32/2.0;
+        let new_w = screen_dims.0 as f32 / 2.0;
+        let new_h = screen_dims.1 as f32 / 2.0;
         if prev_w != new_w || prev_h != new_h {
             containing_block.content.width = new_w;
-            let (doc2, render_root2) = navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
+            let (doc2, render_root2) =
+                navigate_to_doc(&start_page, &mut font_cache, containing_block).unwrap();
             doc = doc2;
             render_root = render_root2;
         }
         prev_w = new_w;
         prev_h = new_h;
 
-        let mut shape:Vec<Vertex> = Vec::new();
-        let mut images:Vec<ImageRect> = Vec::new();
+        let mut shape: Vec<Vertex> = Vec::new();
+        let mut images: Vec<ImageRect> = Vec::new();
 
-        draw_render_box(&render_root, &mut font_cache, &mut image_cache,
-                        new_w, new_h, &mut shape,  &mut images,2.0, &display);
+        draw_render_box(
+            &render_root,
+            &mut font_cache,
+            &mut image_cache,
+            new_w,
+            new_h,
+            &mut shape,
+            &mut images,
+            2.0,
+            &display,
+        );
         let mut target = display.draw();
         target.clear_color(1.0, 1.0, 1.0, 1.0);
 
         let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-        let (w,h) = display.get_framebuffer_dimensions();
+        let (w, h) = display.get_framebuffer_dimensions();
         let w = w as f32;
         let h = h as f32;
 
-        let box_translate = Matrix4::from_translation(Vector3{x: - 1.0, y:yoff/h + 1.0, z:0.0});
-        let box_scale = Matrix4::from_nonuniform_scale(2.0*2.0/w,-2.0*2.0/h,1.0);
+        let box_translate = Matrix4::from_translation(Vector3 {
+            x: -1.0,
+            y: yoff / h + 1.0,
+            z: 0.0,
+        });
+        let box_scale = Matrix4::from_nonuniform_scale(2.0 * 2.0 / w, -2.0 * 2.0 / h, 1.0);
         let box_trans: [[f32; 4]; 4] = (box_translate * box_scale).into();
         let uniforms = uniform! { matrix: box_trans  };
-        target.draw(&vertex_buffer, &indices, &rect_program, &uniforms, &Default::default()).unwrap();
+        target
+            .draw(
+                &vertex_buffer,
+                &indices,
+                &rect_program,
+                &uniforms,
+                &Default::default(),
+            )
+            .unwrap();
 
         for image in images {
-            let tex:&Texture2d = &image.texture;
+            let tex: &Texture2d = &image.texture;
             let image_uniforms = uniform! { matrix: box_trans, tex: tex };
             let img_vertex_buffer = glium::VertexBuffer::new(&display, &image.vertices).unwrap();
-            target.draw(&img_vertex_buffer, &indices, &tex_program, &image_uniforms, &Default::default()).unwrap();
+            target
+                .draw(
+                    &img_vertex_buffer,
+                    &indices,
+                    &tex_program,
+                    &image_uniforms,
+                    &Default::default(),
+                )
+                .unwrap();
         }
 
         //draw fonts
-        let scale = Matrix4::from_nonuniform_scale(2.0/w,  2.0/h, 1.0);
-        let translate = Matrix4::from_translation(Vector3{ x: -1.0,  y: -1.0 - yoff/h,  z:0.0 });
+        let scale = Matrix4::from_nonuniform_scale(2.0 / w, 2.0 / h, 1.0);
+        let translate = Matrix4::from_translation(Vector3 {
+            x: -1.0,
+            y: -1.0 - yoff / h,
+            z: 0.0,
+        });
         let transform: [[f32; 4]; 4] = (translate * scale).into();
-        font_cache.brush.draw_queued_with_transform(transform, &display, &mut target);
+        font_cache
+            .brush
+            .draw_queued_with_transform(transform, &display, &mut target);
         target.finish().unwrap();
     })
 }
@@ -450,4 +611,3 @@ fn main() -> Result<(),BrowserError>{
                     render_root = res.1;
 
 */
-

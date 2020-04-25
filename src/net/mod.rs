@@ -1,17 +1,20 @@
-use crate::dom::{load_doc_from_buffer, getElementsByTagName, NodeType, Document, load_doc};
-use crate::css::{parse_stylesheet, Stylesheet, parse_stylesheet_from_buffer, RuleType, Value, parse_stylesheet_from_bytestring};
-use crate::style::{dom_tree_to_stylednodes, expand_styles};
-use crate::image::{load_image_from_buffer, LoadedImage, load_image_from_filepath};
-use image::ImageError;
-use std::path::PathBuf;
-use std::env::current_dir;
-use std::io::{Error, Read};
-use url::{Url, ParseError};
-use std::fs::File;
-use glium_glyph::glyph_brush::rusttype::{Font};
+use crate::css::{
+    parse_stylesheet, parse_stylesheet_from_buffer, parse_stylesheet_from_bytestring, RuleType,
+    Stylesheet, Value,
+};
 use crate::dom::NodeType::Element;
-use glium_glyph::glyph_brush;
+use crate::dom::{getElementsByTagName, load_doc, load_doc_from_buffer, Document, NodeType};
+use crate::image::{load_image_from_buffer, load_image_from_filepath, LoadedImage};
 use crate::render::FontCache;
+use crate::style::{dom_tree_to_stylednodes, expand_styles};
+use glium_glyph::glyph_brush;
+use glium_glyph::glyph_brush::rusttype::Font;
+use image::ImageError;
+use std::env::current_dir;
+use std::fs::File;
+use std::io::{Error, Read};
+use std::path::PathBuf;
+use url::{ParseError, Url};
 
 #[derive(Debug)]
 pub enum BrowserError {
@@ -36,7 +39,9 @@ impl From<reqwest::Error> for BrowserError {
     }
 }
 impl From<ImageError> for BrowserError {
-    fn from(err: ImageError) -> Self { BrowserError::ImageError(err) }
+    fn from(err: ImageError) -> Self {
+        BrowserError::ImageError(err)
+    }
 }
 impl From<pom::Error> for BrowserError {
     fn from(_: pom::Error) -> Self {
@@ -44,38 +49,49 @@ impl From<pom::Error> for BrowserError {
     }
 }
 impl From<()> for BrowserError {
-    fn from(_: ()) -> Self { unimplemented!()  }
+    fn from(_: ()) -> Self {
+        unimplemented!()
+    }
 }
 impl From<glium_glyph::glyph_brush::rusttype::Error> for BrowserError {
-    fn from(_err:glium_glyph::glyph_brush::rusttype::Error) -> Self { unimplemented!()  }
+    fn from(_err: glium_glyph::glyph_brush::rusttype::Error) -> Self {
+        unimplemented!()
+    }
 }
 
-
-pub fn calculate_url_from_doc(doc:&Document, href:&str) -> Result<Url,BrowserError>{
+pub fn calculate_url_from_doc(doc: &Document, href: &str) -> Result<Url, BrowserError> {
     Ok(doc.base_url.join(href)?)
 }
 
 #[derive(Debug)]
 pub struct StylesheetSet {
-    pub stylesheets:Vec<Stylesheet>,
+    pub stylesheets: Vec<Stylesheet>,
 }
 
 impl StylesheetSet {
     pub fn new() -> Self {
         StylesheetSet {
-            stylesheets: vec![]
+            stylesheets: vec![],
         }
     }
-    pub fn append(&mut self, stylesheet:Stylesheet) {
+    pub fn append(&mut self, stylesheet: Stylesheet) {
         self.stylesheets.push(stylesheet)
     }
-    pub fn append_from_bytestring(&mut self, font_cache:&mut FontCache, css_text:&[u8]) -> Result<(),BrowserError> {
+    pub fn append_from_bytestring(
+        &mut self,
+        font_cache: &mut FontCache,
+        css_text: &[u8],
+    ) -> Result<(), BrowserError> {
         let ss = parse_stylesheet_from_bytestring(css_text)?;
-        process_stylesheet(self,font_cache,ss)
+        process_stylesheet(self, font_cache, ss)
     }
 }
 
-fn process_stylesheet(set:&mut StylesheetSet, font_cache:&mut FontCache, stylesheet:Stylesheet) -> Result<(), BrowserError> {
+fn process_stylesheet(
+    set: &mut StylesheetSet,
+    font_cache: &mut FontCache,
+    stylesheet: Stylesheet,
+) -> Result<(), BrowserError> {
     //scan for imports
     for rule in stylesheet.rules.iter() {
         if let RuleType::AtRule(ar) = rule {
@@ -86,7 +102,7 @@ fn process_stylesheet(set:&mut StylesheetSet, font_cache:&mut FontCache, stylesh
                     if let Value::StringLiteral(str) = &fcv.arguments[0] {
                         let url = Url::parse(str).unwrap();
                         println!("parsing the imported stylesheet {:#?}", url);
-                        load_stylesheet_2(set, font_cache,&url)?;
+                        load_stylesheet_2(set, font_cache, &url)?;
                     }
                 }
             }
@@ -100,17 +116,32 @@ fn process_stylesheet(set:&mut StylesheetSet, font_cache:&mut FontCache, stylesh
     set.append(ss);
     Ok(())
 }
-fn load_stylesheet_2(set:&mut StylesheetSet, font_cache:&mut FontCache, url:&Url) -> Result<(), BrowserError> {
-    process_stylesheet(set,font_cache,load_stylesheet_from_net(url)?)
+fn load_stylesheet_2(
+    set: &mut StylesheetSet,
+    font_cache: &mut FontCache,
+    url: &Url,
+) -> Result<(), BrowserError> {
+    process_stylesheet(set, font_cache, load_stylesheet_from_net(url)?)
 }
-fn parse_stylesheet_2_from_text(set:&mut StylesheetSet, font_cache:&mut FontCache, text:&String) -> Result<(),BrowserError> {
-    process_stylesheet(set,font_cache,parse_stylesheet(text)?)
+fn parse_stylesheet_2_from_text(
+    set: &mut StylesheetSet,
+    font_cache: &mut FontCache,
+    text: &String,
+) -> Result<(), BrowserError> {
+    process_stylesheet(set, font_cache, parse_stylesheet(text)?)
 }
 
-pub fn load_stylesheets_new(doc:&Document, font_cache:&mut FontCache) -> Result<StylesheetSet, BrowserError> {
+pub fn load_stylesheets_new(
+    doc: &Document,
+    font_cache: &mut FontCache,
+) -> Result<StylesheetSet, BrowserError> {
     let mut set = StylesheetSet::new();
     //load the default stylesheet
-    load_stylesheet_2(&mut set, font_cache, &relative_filepath_to_url("tests/default.css")?)?;
+    load_stylesheet_2(
+        &mut set,
+        font_cache,
+        &relative_filepath_to_url("tests/default.css")?,
+    )?;
     //scan for link nodes
     let link_nodes = getElementsByTagName(&doc.root_node, "link");
     for link in link_nodes.iter() {
@@ -136,14 +167,14 @@ pub fn load_stylesheets_new(doc:&Document, font_cache:&mut FontCache) -> Result<
     }
     Ok(set)
 }
-pub fn relative_filepath_to_url(path:&str) -> Result<Url,BrowserError> {
+pub fn relative_filepath_to_url(path: &str) -> Result<Url, BrowserError> {
     let final_path = current_dir()?.join(PathBuf::from(path));
     let base_url = Url::from_file_path(final_path)?;
     Ok(base_url)
 }
 
-pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
-    println!("loading url {}",url);
+pub fn load_doc_from_net(url: &Url) -> Result<Document, BrowserError> {
+    println!("loading url {}", url);
     match url.scheme() {
         "file" => {
             let path = url.to_file_path()?;
@@ -153,7 +184,10 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
             let mut resp = reqwest::blocking::get(url.as_str())?;
             let status = resp.status();
             let len = resp.content_length();
-            println!("{:#?}\n content length = {:#?}\n status = {:#?}", resp, len, status);
+            println!(
+                "{:#?}\n content length = {:#?}\n status = {:#?}",
+                resp, len, status
+            );
 
             let mut buf: Vec<u8> = vec![];
             resp.copy_to(&mut buf).ok();
@@ -165,20 +199,20 @@ pub fn load_doc_from_net(url:&Url) -> Result<Document,BrowserError> {
     }
 }
 
-pub fn load_image_from_net(url:&Url) -> Result<LoadedImage, BrowserError> {
+pub fn load_image_from_net(url: &Url) -> Result<LoadedImage, BrowserError> {
     let mut resp = reqwest::blocking::get(url.as_str())?;
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf).ok();
     Ok(load_image_from_buffer(buf)?)
 }
 
-pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
+pub fn load_stylesheet_from_net(url: &Url) -> Result<Stylesheet, BrowserError> {
     // println!("loading stylesheet from url {:#?}",url);
     match url.scheme() {
         "file" => {
             let path = url.to_file_path()?;
             let mut file = File::open(path)?;
-            let mut content:Vec<u8>= Vec::new();
+            let mut content: Vec<u8> = Vec::new();
             file.read_to_end(&mut content).ok();
             let mut ss = parse_stylesheet_from_buffer(content)?;
             ss.base_url = url.clone();
@@ -195,12 +229,12 @@ pub fn load_stylesheet_from_net(url:&Url) -> Result<Stylesheet, BrowserError>{
     }
 }
 
-pub fn load_font_from_net(url:Url) -> Result<Font<'static>, BrowserError> {
+pub fn load_font_from_net(url: Url) -> Result<Font<'static>, BrowserError> {
     match url.scheme() {
         "file" => {
             let path = url.to_file_path()?;
             let mut file = File::open(path)?;
-            let mut content:Vec<u8>= Vec::new();
+            let mut content: Vec<u8> = Vec::new();
             file.read_to_end(&mut content).ok();
             Ok(Font::from_bytes(content).unwrap())
         }
@@ -218,20 +252,23 @@ fn test_request() -> Result<(), BrowserError> {
     let mut resp = reqwest::blocking::get("https://apps.josh.earth/rust-minibrowser/test1.html")?;
     let status = resp.status();
     let len = resp.content_length();
-    println!("{:#?}\n content length = {:#?}\n status = {:#?}", resp, len, status);
+    println!(
+        "{:#?}\n content length = {:#?}\n status = {:#?}",
+        resp, len, status
+    );
 
     let mut buf: Vec<u8> = vec![];
     resp.copy_to(&mut buf)?;
     let doc = load_doc_from_buffer(buf);
     // println!("document is {:#?}",doc);
     let res = getElementsByTagName(&doc.root_node, "style");
-    println!("result is {:#?}",res);
+    println!("result is {:#?}", res);
     if !res.is_empty() {
         let style_node = res[0];
         if let NodeType::Text(text) = &style_node.children[0].node_type {
             println!("got the text {}", text);
             let stylesheet = parse_stylesheet(text)?;
-            println!("got the stylesheet {:#?}",stylesheet);
+            println!("got the stylesheet {:#?}", stylesheet);
             // let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheet);
             // println!("styled is {:#?}",styled);
         }
@@ -240,17 +277,10 @@ fn test_request() -> Result<(), BrowserError> {
     Ok(())
 }
 
-
-pub fn load_image(doc:&Document, href:&str) -> Result<LoadedImage, BrowserError>{
+pub fn load_image(doc: &Document, href: &str) -> Result<LoadedImage, BrowserError> {
     let url = doc.base_url.join(href)?;
     match url.scheme() {
-        "file" => {
-            Ok(load_image_from_filepath(url.path().to_string())?)
-        },
-        _ => {
-            Ok(load_image_from_net(&url.clone())?)
-        },
+        "file" => Ok(load_image_from_filepath(url.path().to_string())?),
+        _ => Ok(load_image_from_net(&url.clone())?),
     }
 }
-
-
