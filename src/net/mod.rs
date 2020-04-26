@@ -6,8 +6,7 @@ use crate::dom::NodeType::Element;
 use crate::dom::{getElementsByTagName, load_doc, load_doc_from_buffer, Document, NodeType};
 use crate::image::{load_image_from_buffer, load_image_from_filepath, LoadedImage};
 use crate::render::FontCache;
-use crate::style::{dom_tree_to_stylednodes, expand_styles};
-use glium_glyph::glyph_brush;
+use crate::style::expand_styles;
 use glium_glyph::glyph_brush::rusttype::Font;
 use image::ImageError;
 use std::env::current_dir;
@@ -126,7 +125,7 @@ fn load_stylesheet_2(
 fn parse_stylesheet_2_from_text(
     set: &mut StylesheetSet,
     font_cache: &mut FontCache,
-    text: &String,
+    text: &str,
 ) -> Result<(), BrowserError> {
     process_stylesheet(set, font_cache, parse_stylesheet(text)?)
 }
@@ -152,7 +151,7 @@ pub fn load_stylesheets_new(
                 let href = href.unwrap();
                 let url = &calculate_url_from_doc(doc, href)?;
                 println!("Loading linked stylesheet {:#?}", url);
-                load_stylesheet_2(&mut set, font_cache, url);
+                let _ = load_stylesheet_2(&mut set, font_cache, url);
             }
         }
     }

@@ -26,7 +26,7 @@ impl fmt::Debug for LoadedImage {
 fn img_to_loaded_image(img: RgbaImage, path: String) -> Result<LoadedImage, ImageError> {
     let (w, h) = img.dimensions();
     let loaded = LoadedImage {
-        path: path,
+        path,
         width: w as i32,
         height: h as i32,
         image2d: img,

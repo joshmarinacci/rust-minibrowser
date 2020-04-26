@@ -7,7 +7,6 @@ use std::str::{self};
 use self::pom::char_class::alphanum;
 use self::pom::parser::{seq, take};
 use self::pom::Error;
-use crate::css::parse_stylesheet;
 use crate::net::BrowserError;
 use std::fmt::Debug;
 use std::fs::File;
@@ -455,7 +454,7 @@ fn cdata<'a>() -> Parser<'a, u8, Node> {
 }
 fn comment<'a>() -> Parser<'a, u8, Node> {
     let p = seq(b"<!--") + (!seq(b"-->") * take(1)).repeat(0..) + seq(b"-->");
-    p.map(|((a, c), b)| {
+    p.map(|((_, c), _)| {
         let mut s: Vec<u8> = Vec::new();
         for cc in c {
             s.push(cc[0]);

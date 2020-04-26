@@ -1,16 +1,12 @@
 use crate::css::Selector::{Ancestor, Simple};
 use crate::css::Value::{ColorValue, HexColor, Keyword, Length};
 use crate::css::{
-    parse_stylesheet_from_bytestring, Color, Declaration, Rule, RuleType, Selector, SimpleSelector,
-    Specificity, Stylesheet, Unit, Value,
+    Color, Declaration, Rule, RuleType, Selector, SimpleSelector, Specificity, Stylesheet, Unit,
+    Value,
 };
 use crate::dom::NodeType::{Element, Meta, Text};
-use crate::dom::{load_doc_from_bytestring, strip_empty_nodes, ElementData, Node, NodeType};
-use crate::layout::{standard_test_run, standard_test_run_no_default, Brush};
-use crate::net::{
-    load_doc_from_net, load_stylesheet_from_net, load_stylesheets_new, relative_filepath_to_url,
-    StylesheetSet,
-};
+use crate::dom::{ElementData, Node, NodeType};
+use crate::net::StylesheetSet;
 use crate::render::FontCache;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -109,7 +105,7 @@ impl StyledTree {
         for ch in rc.children.borrow().iter() {
             *ch.parent.borrow_mut() = Rc::downgrade(&rc);
         }
-        return rc;
+        rc
     }
     pub fn set_root(&self, node: Rc<StyledNode>) {
         *self.root.borrow_mut() = node;
@@ -229,7 +225,7 @@ impl StyledNode {
             }
             _ => {
                 println!("unrecognized font-size type {:#?}", self.value("font-size"));
-                return 10.0;
+                10.0
             }
         }
     }
@@ -425,7 +421,7 @@ pub fn dom_tree_to_stylednodes<'a>(root: &'a Node, styles: &'a StylesheetSet) ->
     let tree = StyledTree::new();
     let mut ansc: Vec<(&Node, &PropertyMap)> = vec![];
     tree.set_root(real_style_tree(&tree, root, styles, &mut ansc));
-    return tree;
+    tree
 }
 
 fn real_style_tree<'a>(
@@ -447,7 +443,7 @@ fn real_style_tree<'a>(
         .iter()
         .map(|child| real_style_tree(tree, child, styles, &mut a2))
         .collect();
-    return tree.make_with((*root).clone(), specified, RefCell::new(ch2));
+    tree.make_with((*root).clone(), specified, RefCell::new(ch2))
 }
 
 fn expand_array_decl(new_decs: &mut Vec<Declaration>, dec: &Declaration) {
@@ -565,7 +561,7 @@ fn expand_border_shorthand(new_decs: &mut Vec<Declaration>, dec: &Declaration) {
                 value: vec[2].clone(),
             });
         }
-        Value::Number(v) => {
+        Value::Number(_) => {
             new_decs.push(Declaration {
                 name: String::from("border-width-top"),
                 value: dec.value.clone(),

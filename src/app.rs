@@ -17,7 +17,7 @@ pub fn navigate_to_doc(
     strip_empty_nodes(&mut doc);
     expand_entities(&mut doc);
     // println!("doc is now {:#?}",doc);
-    let mut stylesheets = load_stylesheets_new(&doc, font_cache)?;
+    let stylesheets = load_stylesheets_new(&doc, font_cache)?;
     let stree = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
     // println!("styled tree is {:#?}", stree);
     // println!("font_cache looks like {:#?}",font_cache.families);

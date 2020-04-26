@@ -359,7 +359,7 @@ fn main() -> Result<(), BrowserError> {
         families: Default::default(),
         fonts: Default::default(),
     };
-    install_standard_fonts(&mut font_cache);
+    let _ = install_standard_fonts(&mut font_cache);
 
     let start_page = parse_args().unwrap();
     let screen_dims = display.get_framebuffer_dimensions();

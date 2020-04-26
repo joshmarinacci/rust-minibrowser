@@ -1,12 +1,9 @@
 use crate::css::{Color, RuleType, Stylesheet, Value};
 use crate::layout::Brush;
-use crate::net::{load_font_from_net, relative_filepath_to_url};
-use glium_glyph::glyph_brush::rusttype::{Error, Font};
+use crate::net::load_font_from_net;
+use glium_glyph::glyph_brush::rusttype::Font;
 use glium_glyph::glyph_brush::FontId;
-use glium_glyph::GlyphBrush;
 use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
 use url::Url;
 
 #[allow(dead_code)]

@@ -1,6 +1,6 @@
 use crate::css::Unit::Px;
 use crate::css::Value::{Keyword, Length};
-use crate::css::{parse_stylesheet_from_bytestring, Color, Stylesheet, Unit, Value};
+use crate::css::{Color, Unit, Value};
 use crate::dom::NodeType::{Element, Text};
 use crate::dom::{load_doc_from_bytestring, strip_empty_nodes, Document, NodeType};
 use crate::image::LoadedImage;
@@ -8,12 +8,9 @@ use crate::layout::BoxType::{
     AnonymousBlock, BlockNode, InlineBlockNode, InlineNode, ListItemNode, TableCellNode, TableNode,
     TableRowGroupNode, TableRowNode,
 };
-use crate::net::{
-    load_doc_from_net, load_image, load_stylesheet_from_net, load_stylesheets_new,
-    relative_filepath_to_url, BrowserError, StylesheetSet,
-};
+use crate::net::{load_image, load_stylesheets_new, BrowserError, StylesheetSet};
 use crate::render::{FontCache, BLACK};
-use crate::style::{dom_tree_to_stylednodes, expand_styles, Display, StyledNode, StyledTree};
+use crate::style::{dom_tree_to_stylednodes, Display, StyledNode, StyledTree};
 use glium_glyph::glyph_brush::rusttype::Rect as GBRect;
 use glium_glyph::glyph_brush::GlyphCruncher;
 use glium_glyph::glyph_brush::{
@@ -270,7 +267,7 @@ pub struct RenderErrorBox {
     pub valign: String,
 }
 
-pub fn build_layout_tree<'a>(style_node: &Rc<StyledNode>, doc: &Document) -> LayoutBox {
+pub fn build_layout_tree(style_node: &Rc<StyledNode>, doc: &Document) -> LayoutBox {
     let mut root = LayoutBox::new(match style_node.display() {
         Display::Block => BlockNode(Rc::clone(style_node)),
         Display::Inline => InlineNode(Rc::clone(style_node)),
@@ -399,7 +396,6 @@ impl LayoutBox {
         self.calculate_block_position(containing_block);
         let children: Vec<RenderBox> = self.layout_block_children(font_cache, doc);
         self.calculate_block_height();
-        let zero = Length(0.0, Px);
         let style = self.get_style_node();
         // println!("border top for block is {} {:#?}", self.debug_calculate_element_name(), &style.lookup("border-top", "border-width", &zero));
         RenderBlockBox {
@@ -494,7 +490,7 @@ impl LayoutBox {
             },
             border_color: self.get_style_node().color("border-color"),
             valign: String::from("baseline"),
-            children: children,
+            children,
             marker: ListMarker::None,
             color: Some(style.lookup_color("color", &BLACK)),
             font_family: style.lookup_font_family(font_cache),
@@ -547,7 +543,7 @@ impl LayoutBox {
             current_start: dim.content.x,
             current_end: dim.content.x,
             current_bottom: dim.content.y + dim.content.height,
-            font_cache: font_cache,
+            font_cache,
             doc,
             style_node: Rc::clone(self.get_style_node()),
         };
@@ -641,7 +637,7 @@ impl LayoutBox {
                         );
                         // println!("calculated width is {}",w);
                         looper.current_end += w;
-                        let mut containing_block = Dimensions {
+                        /*  let containing_block = Dimensions {
                             content: Rect {
                                 x: 0.0,
                                 y: 0.0,
@@ -651,7 +647,7 @@ impl LayoutBox {
                             padding: Default::default(),
                             border: Default::default(),
                             margin: Default::default(),
-                        };
+                        }; */
                         // let mut block = self.layout_block(&mut containing_block, looper.font_cache, looper.doc);
                         // block.rect.x = looper.current_start;
                         // block.rect.y = looper.current.rect.y;
@@ -870,14 +866,14 @@ impl LayoutBox {
                 height: line_height,
             },
             text: curr_text,
-            color: Some(color.clone()),
+            color: Some(color),
             background_color: looper.style_node.color("background-color"),
             font_size,
             font_family,
             link: link.clone(),
             font_weight,
             font_style,
-            valign: vertical_align.clone(),
+            valign: vertical_align,
             text_decoration_line: looper.style_node.lookup_text_decoration_line(),
         });
         // println!("added text box {:#?}",bx);
@@ -1050,7 +1046,6 @@ impl LayoutBox {
         }
     }
     fn calculate_block_position(&mut self, containing: &mut Dimensions) {
-        let zero = Length(0.0, Px);
         let style = self.get_style_node();
         //println!("caculating block position {:#?} border {:#?}",style, style.lookup("border-width-top","border-width",&zero));
         let margin = EdgeSizes {
@@ -1306,7 +1301,6 @@ impl Brush {
 
 pub fn standard_test_run_no_default(
     html: &[u8],
-    css: &[u8],
 ) -> Result<(Document, StylesheetSet, StyledTree, LayoutBox, RenderBox), BrowserError> {
     let open_sans_light: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Light.ttf");
     let open_sans_reg: &[u8] = include_bytes!("../tests/fonts/Open_Sans/OpenSans-Regular.ttf");
@@ -1322,8 +1316,7 @@ pub fn standard_test_run_no_default(
 
     let mut doc = load_doc_from_bytestring(html);
     strip_empty_nodes(&mut doc);
-    let mut stylesheets = StylesheetSet::new();
-    let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
+    let stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
     let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
     // println!("styled nodes {:#?}",styled);
     let mut viewport = Dimensions {
@@ -1383,7 +1376,7 @@ pub fn standard_test_run(
     let mut doc = load_doc_from_bytestring(html);
     strip_empty_nodes(&mut doc);
     let mut stylesheets = load_stylesheets_new(&doc, &mut font_cache)?;
-    stylesheets.append_from_bytestring(&mut font_cache, css);
+    let _ = stylesheets.append_from_bytestring(&mut font_cache, css);
     let styled = dom_tree_to_stylednodes(&doc.root_node, &stylesheets);
     // println!("styled nodes {:#?}",styled);
     let mut viewport = Dimensions {
@@ -1429,7 +1422,7 @@ pub fn standard_test_run(
 
 #[test]
 fn test_insets() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<body></body>"#,
         br#"body { display:block; margin: 50px; padding: 50px; border-width: 50px; } "#,
     )
@@ -1450,7 +1443,7 @@ fn test_insets() {
 
 #[test]
 fn test_font_weight() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<body>text</body>"#,
         br#"body { display:block; font-weight: bold; } "#,
     )
@@ -1460,7 +1453,7 @@ fn test_font_weight() {
 
 #[test]
 fn test_blue_text() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<body><a>link</a></body>"#,
         br#" a { color: blue; } body { display: block; color: red; }"#,
     )
@@ -1469,7 +1462,7 @@ fn test_blue_text() {
 }
 #[test]
 fn test_pre_code_text() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<pre><code>for i in node.children().iter() {
     println!("this is some rust code");
 }
@@ -1490,7 +1483,7 @@ code {
 
 #[test]
 fn test_unordered_listitem() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<ul>
     <li>item one</li>
     <li>item two</li>
@@ -1513,7 +1506,7 @@ fn test_unordered_listitem() {
 
 #[test]
 fn test_margin_em() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<div>foo</div>"#,
         br#"div {
             display:block;
@@ -1532,7 +1525,7 @@ fn test_margin_em() {
 
 #[test]
 fn test_margin_percentage() {
-    let (doc, sss, stree, lbox, rbox) = standard_test_run(
+    let (_, _, _, _, rbox) = standard_test_run(
         br#"<div>foo</div>"#,
         br#"div {
             display:block;
@@ -1551,7 +1544,7 @@ fn test_margin_percentage() {
 
 #[test]
 fn test_text_position() {
-    let (doc, sss, stree, lbox, render_box) = standard_test_run(
+    let (_, _, _, _, render_box) = standard_test_run(
         br#"<body><h5>line 1</h5><h5>line 2</h5></body>"#,
         br#"
             body { display:block; padding:0; margin:0; font-size: 10px; }

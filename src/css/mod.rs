@@ -1,13 +1,10 @@
 extern crate pom;
 use self::pom::char_class::{alphanum, digit};
 use self::pom::parser::{call, list, take};
-use crate::css::RuleType::Comment;
-use crate::css::Value::{Keyword, Length, StringLiteral, UnicodeCodepoint, UnicodeRange};
+use crate::css::Value::StringLiteral;
 use crate::net::BrowserError;
 use pom::char_class::alpha;
 use pom::parser::{is_a, none_of, one_of, seq, sym, Parser};
-use std::fs::File;
-use std::io::Read;
 use std::str::{self, FromStr};
 use url::Url;
 
@@ -204,11 +201,11 @@ fn id_string<'a>() -> Parser<'a, u8, String> {
 }
 fn pseudo_class_call<'a>() -> Parser<'a, u8, String> {
     //:string(stuff)
-    (sym(b'(') * call(simple_selector) - sym(b')')).map(|a| String::from("some-call"))
+    (sym(b'(') * call(simple_selector) - sym(b')')).map(|_| String::from("some-call"))
 }
 fn pseudo_class_string<'a>() -> Parser<'a, u8, String> {
     (sym(b':') * is_a(alphanumdash).repeat(1..) + pseudo_class_call().opt())
-        .map(|(str, call)| v2s(&str))
+        .map(|(str, _)| v2s(&str))
 }
 fn child_combinator<'a>() -> Parser<'a, u8, AncestorSelector> {
     let r = simple_selector() - space1() - sym(b'>') - space1() + call(selector);
@@ -243,10 +240,10 @@ fn test_string_literal() {
 }
 
 fn simple_selector<'a>() -> Parser<'a, u8, Selector> {
-    let p = (element_name_string().opt()
+    let p = element_name_string().opt()
         + id_string().opt()
         + class_string().opt()
-        + pseudo_class_string().opt());
+        + pseudo_class_string().opt();
     p.convert(|(((a, i), c), b)| {
         // println!("simple selectors {:#?} {:#?} {:#?} {:#?}",a,i,c,b);
         if a.is_none() && i.is_none() && c.is_none() && b.is_none() {
@@ -709,7 +706,7 @@ fn hexcolor<'a>() -> Parser<'a, u8, Value> {
     let p = sym(b'#')
         + (one_of(b"0123456789ABCDEFabcdef").repeat(6..7)
             | one_of(b"0123456789ABCDEFabcdef").repeat(3..4));
-    p.map(|(a, mut c)| {
+    p.map(|(_, mut c)| {
         c.insert(0, b'#');
         Value::HexColor(v2s(&c).to_lowercase())
     })
@@ -730,7 +727,7 @@ fn test_hexcolor() {
 fn keyword<'a>() -> Parser<'a, u8, Value> {
     let r = space()
         + (is_a(|term: u8| {
-            (term >= 0x41 && term < 0x5A) || (term >= 0x61 && term <= 0x7A) || (term == '-' as u8)
+            (term >= 0x41 && term < 0x5A) || (term >= 0x61 && term <= 0x7A) || (term == b'-')
         }))
         .repeat(1..);
     r.map(|(_, c)| Value::Keyword(String::from_utf8(c).unwrap()))
@@ -1221,7 +1218,7 @@ fn at_rule<'a>() -> Parser<'a, u8, RuleType> {
              // - sym(b'}')
              // ).opt()
         - sym(b';').opt();
-    p.map(|((((_, name), kw), value), rule)| {
+    p.map(|((((_, name), _), value), rule)| {
         //we are ignoring the keyword currently
         if let Some(rt) = rule {
             RuleType::AtRule(AtRule {
