@@ -454,8 +454,8 @@ fn main() -> Result<(), BrowserError> {
     // main event loop
     event_loop.run(move |event, _tgt, control_flow| {
         *control_flow = ControlFlow::Wait;
-        match event {
-            Event::WindowEvent { event, .. } => match event {
+        if let Event::WindowEvent { event, .. } = event {
+            match event {
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
@@ -470,19 +470,10 @@ fn main() -> Result<(), BrowserError> {
                     PixelDelta(lp) => yoff = zero.max(yoff - lp.y as f32),
                 },
 
-                WindowEvent::CursorMoved {
-                    device_id,
-                    position,
-                    modifiers,
-                } => {
+                WindowEvent::CursorMoved { position, .. } => {
                     last_mouse = position;
                 }
-                WindowEvent::MouseInput {
-                    device_id,
-                    state,
-                    button,
-                    modifiers,
-                } => {
+                WindowEvent::MouseInput { state, button, .. } => {
                     // println!("mouse click {:#?}", button);
                     if let ElementState::Pressed = state {
                         if let MouseButton::Left = button {
@@ -505,8 +496,7 @@ fn main() -> Result<(), BrowserError> {
                     }
                 }
                 _ => (),
-            },
-            _ => (),
+            }
         }
         let screen_dims = display.get_framebuffer_dimensions();
         let new_w = screen_dims.0 as f32 / 2.0;
